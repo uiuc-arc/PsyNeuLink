@@ -2879,7 +2879,8 @@ def make_property(name, default_value):
             from psyneulink.components.functions.function import Function
             if not isinstance(self, Function):
                 raise TypeError
-            return self.owner._parameter_states[name].value
+            # return self.owner._parameter_states[name].value
+            return getattr(self, backing_field)
         except (AttributeError, TypeError):
             try:
                 # Get value of param from Component's own ParameterState.value
