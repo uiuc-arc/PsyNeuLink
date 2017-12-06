@@ -8,18 +8,20 @@ A Neurocomputational Theory". The attentional blink refers to the temporary impa
 
 
 """
+from matplotlib import pyplot as plt
 import sys
 import numpy as np
+from scipy.special import erfinv
+
 
 from psyneulink.library.mechanisms.processing.transfer.lca import LCA
-from psyneulink.components.functions.function import Linear, Logistic, NormalDist
+from psyneulink.components.functions.function import Linear, Logistic, UniformToNormalDist
 from psyneulink.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
 from psyneulink.components.mechanisms.processing.transfermechanism import TransferMechanism
 from psyneulink.components.process import Process
 from psyneulink.components.system import System
 from psyneulink.library.subsystems.agt.lccontrolmechanism import LCControlMechanism
-from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
-from psyneulink.globals.keywords import PROJECTION_TYPE, RECEIVER, SENDER, MATRIX
+
 
 # --------------------------------- Global Variables ----------------------------------------
 
@@ -44,7 +46,7 @@ respinhwt=0     # respinhwt (Mutual inhibition among response units)  !!! WATCH 
 decwt=3.5       # decwt (Target decision unit to response unit)
 selfdwt=2.5     # selfdwt (Self recurrent conn. for each decision unit)
 selfrwt=2.0     # selfrwt (Self recurrent conn. for response unit)
-lcwt=0.3        # lcwt    (Target decision unit to LC)
+lcwt=0.3        # lcwt (Target decision unit to LC)
 decbias=1.75    # decbias (Bias input to decision units)
 respbias=1.75   # respbias (Bias input to response units)
 tau_v = 0.05    # Time constant for fast LC excitation variable v | NOTE: tau_v is misstated in the Gilzenrat paper(0.5)
@@ -67,11 +69,9 @@ decision_layer = LCA(size=3,                                        # Number of 
                      leak=-1.0,                                     # Sets off diagonals to negative values
                      self_excitation=selfdwt,                       # Set diagonals to self excitate
                      competition=inhwt,                             # Set off diagonals to inhibit
-                     #Kristin: Why do I need to specify gain here? Default should be 1 but is 0.5
                      function=Logistic(bias=decbias, gain=1.0),     # Set the Logistic function with bias = decbias
-                     noise=NormalDist(standard_dev=SD).function,    # Set noise with seed generator compatible with MATLAB random seed generator 22 (rsg=22)
-                                                                    # Please see https://github.com/jonasrauber/randn-matlab-python for further documentation
-                     integrator_mode=True,
+                     noise=UniformToNormalDist(standard_dev = SD).function, # Set noise with seed generator compatible with MATLAB random seed generator 22 (rsg=22)
+                     integrator_mode=True,                                           # Please see https://github.com/jonasrauber/randn-matlab-python for further documentation
                      name='DECISION LAYER')
 
 for output_state in decision_layer.output_states:
@@ -85,9 +85,8 @@ response_layer = LCA(size=2,                                        # Number of 
                      self_excitation=selfrwt,                       # Set diagonals to self excitate
                      competition=respinhwt,                         # Set off diagonals to inhibit
                      function=Logistic(bias=respbias, gain=1.0),    # Set the Logistic function with bias = decbias
-                     noise=NormalDist(standard_dev=SD).function,    # Set noise with seed generator compatible with MATLAB random seed generator 22 (rsg=22)
-                                                                    # Please see https://github.com/jonasrauber/randn-matlab-python for further documentation
-                     integrator_mode=True,
+                     noise=UniformToNormalDist(standard_dev = SD).function, # Set noise with seed generator compatible with MATLAB random seed generator 22 (rsg=22)
+                     integrator_mode=True,                                         # Please see https://github.com/jonasrauber/randn-matlab-python for further documentation
                      name='DECISION LAYER')
 
 for output_state in response_layer.output_states:
@@ -96,7 +95,6 @@ for output_state in response_layer.output_states:
 # Connect mechanisms --------------------------------------------------------------------------------------------------
 
 # Now, we create 2 weight matrices that connect the 3 behavioral layers.
-
 # Weight matrix from Input Layer --> Decision Layer
 input_weights = np.array([[inpwt, crswt, crswt],                    # Input weights are diagonals, cross weights are off diagonals
                           [crswt, inpwt, crswt],
@@ -108,7 +106,7 @@ output_weights = np.array([[decwt, 0.0],                            # Projection
                            [0.0, 0.0]])
 
 # The process will connect the layers and weights.
-decision_process = Process(pathway=[input_layer,                    # Connect the layers and weight in the order you they should be connected
+decision_process = Process(pathway=[input_layer,
                                     input_weights,
                                     decision_layer,
                                     output_weights,
@@ -150,8 +148,7 @@ LC = LCControlMechanism(integration_method="EULER",                 # We set the
                         name='LC')
 
 for output_state in LC.output_states:
-	output_state.value *= G + k*initial_w          # When we run the System the very first time we need to set initial gain to G + k*initial_w, since the decison layer executes before the LC and hence needs one initial gain value to start with.
-
+	output_state.value *= G + k*initial_w          # Set initial gain to G + k*initial_w, when the System runs the very first time, since the decison layer executes before the LC and hence needs one initial gain value to start with.
 
 # Now, we specify the processes of the System, which in this case is just the decision_process
 task = System(processes=[decision_process])
@@ -163,7 +160,6 @@ task = System(processes=[decision_process])
 # Then T1 gets turned on during time period 4 with an input of 1.
 # T2 gets turns on with some lag from T1 onset on, in this example we turn T2 on with Lag 2 and an input of 1
 # Between T1 and T2 and after T2 the distractor unit is on.
-
 # We create one array with 3 numbers, one for each input unit and repeat this array 100 times for one time period
 # We do this 11 times. T1 is on for time4, T2 is on for time7 to model Lag3
 stepSize = 100  # Each stimulus is presented for two units of time which is equivalent to 100 time steps
@@ -196,7 +192,7 @@ LC_results_v = [h_v(initial_v,C,d)]
 LC_results_w = [initial_w]
 decision_layer_target = [0.5]
 decision_layer_target2 = [0.5]
-decision_layer_distractor = [0.5]
+decision_layer_distraction = [0.5]
 response = [0.5]
 response2 = [0.5]
 LC_gain = [0.5]
@@ -208,7 +204,7 @@ def record_trial():
     LC_results_w.append(LC.value[3][0])
     decision_layer_target.append(decision_layer.value[0][0])
     decision_layer_target2.append(decision_layer.value[0][1])
-    decision_layer_distractor.append(decision_layer.value[0][2])
+    decision_layer_distraction.append(decision_layer.value[0][2])
     response.append(response_layer.value[0][0])
     response2.append(response_layer.value[0][1])
     LC_gain.append(LC.value[0][0])
@@ -224,44 +220,36 @@ def record_trial():
 sys.stdout.write("\r0% complete")
 sys.stdout.flush()
 
-
-# Make python seed the same as MATLAB seed
-from scipy.special import erfinv
-np.random.seed(22)
-samples = np.random.rand(trials)
-# transform from uniform to standard normal distribution using inverse cdf
-samples = np.sqrt(2) * erfinv(2 * samples - 1)
-
-
 ## Run model ------------------------------------------------------------------------------------------
+np.random.seed(22)
 
-task.run(stim_list_dict, num_trials= 50, call_after_trial=record_trial)
+task.run(stim_list_dict, num_trials= 1, call_after_trial=record_trial)
 
-from matplotlib import pyplot as plt
-import numpy as np
-t = np.arange(0.0, 1101, 1)
-ax = plt.gca()
-ax2 = ax.twinx()
 
-ax.plot(t, LC_results_v, label="h(v)")
-ax2.plot(t, LC_results_w, label="w", color = 'red')
-# plt.plot(t, decision_layer_target, label="target")
-# plt.plot(t, decision_layer_target2, label="target2")
-#
-# plt.plot(t,decision_layer_distractor, label="distractor")
-# plt.plot(t, response_layer, label="response")
-# plt.plot(t, response_layer2, label="response2")
-ax.set_xlabel('Activation')
-# ax.set_ylabel('h(V)')
-ax.legend(loc='upper left')
-ax2.legend(loc='upper left')
+## Plot figure for Nieuwenhuis et al. 2005 paper with Lag 2 -------------------------------------------
 
-plt.title('Nieuwenhaus 2005 PsyNeuLink Lag 3', fontweight='bold')
-ax.set_ylim((-0.2,1.0))
-ax2.set_ylim((0.0, 0.4))
-plt.show()
-
+x = np.linspace(0.0, len(LC_results_v), len(LC_results_v))     # Create array for x axis with same length then LC_results_v
+fig = plt.figure()                                             # Instantiate figure
+ax = plt.gca()                                                 # Get current axis for plotting
+ax2 = ax.twinx()                                               # Create twin axis to have a different y-axis on the right hand side of the figure
+ax.plot(x, LC_results_v, label="h(v)")                         # Plot h(v)
+ax2.plot(x, LC_results_w, label="w", color = 'red')            # Plot w
+h1, l1 = ax.get_legend_handles_labels()
+h2, l2 = ax2.get_legend_handles_labels()
+ax.legend(h1 + h2, l1 + l2, loc=2)                             # Create legend on one side
+# ax.plot(x, decision_layer_target, label="target")            # Uncomment these to plot decision units and response units
+# ax.plot(x, decision_layer_target2, label="target2")
+# ax.plot(x,decision_layer_distraction, label="distraction")
+# ax.plot(x, response, label="response")
+# ax.plot(x, response2, label="response2")
+ax.set_xlabel('time')                                          # Set x axis lable
+ax.set_ylabel('Activation h(v)')                               # Set left y axis label
+ax2.set_ylabel('Activation w')                                 # Set right y axis label
+plt.title('Nieuwenhuis 2005 PsyNeuLink Lag 2', fontweight='bold')   # Set title
+ax.set_ylim((-0.2,1.0))                                        # Set left y axis limits
+ax2.set_ylim((0.0, 0.4))                                       # Set right y axis limits
+plt.show()                                                     # Show the plot
 
 # This displays a diagram of the System
-# task.show_graph()
+task.show_graph()
 
