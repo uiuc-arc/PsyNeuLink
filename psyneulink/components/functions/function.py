@@ -200,7 +200,7 @@ from psyneulink.globals.keywords import \
     RL_FUNCTION, SCALE, SIMPLE_INTEGRATOR_FUNCTION, SLOPE, SOFTMAX_FUNCTION, STABILITY_FUNCTION, STANDARD_DEVIATION, \
     SUM, TIME_STEP_SIZE, TRANSFER_FUNCTION_TYPE, UNIFORM_DIST_FUNCTION, USER_DEFINED_FUNCTION, \
     USER_DEFINED_FUNCTION_TYPE, UTILITY_INTEGRATOR_FUNCTION, WALD_DIST_FUNCTION, WEIGHTS, NORMALIZING_FUNCTION_TYPE,\
-    kwComponentCategory, kwPreferenceSetName
+    kwComponentCategory, kwPreferenceSetName, LIKELIHOOD_FUNCTION_TYPE, LIKELIHOOD_FUNCTION
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref, kpRuntimeParamStickyAssignmentPref
 from psyneulink.globals.preferences.preferenceset import PreferenceEntry, PreferenceLevel
 from psyneulink.globals.registry import register_category
@@ -3793,6 +3793,123 @@ def get_matrix(specification, rows=1, cols=1, context=None):
 
     # Specification not recognized
     return None
+
+# region ***********************************  LIKELIHOOD FUNCTIONS *****************************************************
+
+#  NavarroAndFussWFPTLike
+
+class LikelihoodFunction(Function_Base):
+    componentType = LIKELIHOOD_FUNCTION_TYPE
+
+class NavarroAndFussWFPTLike(LikelihoodFunction):
+    componentName = LIKELIHOOD_FUNCTION
+
+    class ClassDefaults(LikelihoodFunction.ClassDefaults):
+        variable = [0]
+
+    paramClassDefaults = Function_Base.paramClassDefaults.copy()
+
+    @tc.typecheck
+    def __init__(self,
+                 default_variable=ClassDefaults.variable,
+                 drift_rate=None,
+                 drift_rate_std=None,
+                 threshold=None,
+                 bias=None,
+                 bias_std=None,
+                 non_decision_time=None,
+                 non_decision_time_std=None,
+                 params=None,
+                 owner=None,
+                 prefs: is_pref_set = None,
+                 context=componentName + INITIALIZING):
+        # Assign args to params and functionParams dicts (kwConstants must == arg names)
+        params = self._assign_args_to_param_dicts(drift_rate=drift_rate,
+                                                  drift_rate_std=drift_rate_std,
+                                                  threshold=threshold,
+                                                  bias=bias,
+                                                  bias_std=bias_std,
+                                                  non_decision_time=non_decision_time,
+                                                  non_decision_time_std=non_decision_time_std,
+                                                  params=params)
+
+        super().__init__(default_variable=default_variable,
+                         params=params,
+                         owner=owner,
+                         prefs=prefs,
+                         context=context)
+
+        self.functionOutputType = None
+
+    def _validate_params(self, request_set, target_set=None, context=None):
+        super()._validate_params(request_set=request_set, target_set=target_set, context=context)
+
+        # A function to check that a parameter is within an acceptable range and raise the appropriate error
+        # if not.
+        def range_check(param_name, lower_bound=None, lb_inclusive=False, upper_bound=None, ub_inclusive=False):
+            if param_name in target_set:
+                if lower_bound is not None:
+                    if (not lb_inclusive and target_set[param_name] < lower_bound) or (lb_inclusive and target_set[param_name] <= lower_bound):
+                        raise FunctionError("The {} parameter ({}) of {} must be greater than {}.".
+                                            format(param_name, target_set[param_name], self.name, lower_bound))
+                if upper_bound is not None:
+                    if (not ub_inclusive and target_set[param_name] > upper_bound) or (ub_inclusive and target_set[param_name] >= upper_bound):
+                        raise FunctionError("The {} parameter ({}) of {} must be less than {}.".
+                                            format(param_name, target_set[param_name], self.name, upper_bound))
+
+        # Check the ranges of our parameters
+        range_check('drift_rate_std', lower_bound=0.0)
+        range_check('drift_rate', lower_bound=0.0, lb_inclusive=True)
+        range_check('bias', lower_bound=0.0, upper_bound=1.0)
+        range_check('bias_std', lower_bound=0.0, upper_bound=1.0)
+        range_check('non_decision_time', lower_bound=0.0)
+        range_check('non_decision_time_std', lower_bound=0.0)
+
+        if 'bias' in target_set and 'bias_std' in target_set:
+            if target_set['bias'] + target_set['bias_std'] / 2. > 1 or \
+               target_set['bias'] - target_set['bias_std'] / 2. < 0:
+                raise FunctionError(
+                    "The bias parameter of {} and the bias_std of {} are incompatible. "
+                    "Must satisfy 0 <= bias+bias_std/2 <= 1.".
+                    format(target_set['bias'], target_set['bias_std']))
+
+        if 'non_decision_time' in target_set and 'non_decision_time_std' in target_set:
+            if target_set['non_decision_time'] - target_set['non_decision_time_std'] / 2. < 0:
+                raise FunctionError(
+                    "The non_decision_time parameter of {} and the non_decision_time_std of {} are incompatible. "
+                    "Must satisfy non_decision_time+non_decision_time_std/2 >= 0.".
+                    format(target_set['bias'], target_set['bias_std']))
+
+    def _instantiate_function(self, context=None):
+        try:
+            self.hddm = __import__('hddm')
+        except ImportError as e:
+            raise ImportError(
+                'python failed to import hddm. Ensure hddm is installed. See'
+                ' https://github.com/hddm-devs/hddm for more info.'
+            )
+
+        # We will use HDDMs implementation of Navarro and Fuss's WFPT likelihood
+        self.wiener_like = self.hddm.wfpt.wiener_like
+
+        super()._instantiate_function(context=context)
+
+    def function(self,
+                 variable=None,
+                 params=None,
+                 time_scale=TimeScale.TRIAL,
+                 context=None):
+        # Validate variable and validate params
+        variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
+
+        # Calculate the likelihood
+        #result = self.wiener_like(variable, self.drift_rate, self.drift_rate_std,
+        #                          self.threshold, self.bias, self.bias_std,
+        #                          self.non_decision_time, self.non_decision_time_std, p_outlier=0)
+        result = np.array([])
+
+
+        return result
 
 
 # region ***********************************  INTEGRATOR FUNCTIONS *****************************************************
