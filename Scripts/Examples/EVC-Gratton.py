@@ -6,7 +6,7 @@ import psyneulink as pnl
 mechanism_prefs = pnl.ComponentPreferenceSet(
     prefs={
         pnl.VERBOSE_PREF: pnl.PreferenceEntry(False, pnl.PreferenceLevel.INSTANCE),
-        pnl.REPORT_OUTPUT_PREF: pnl.PreferenceEntry(True, pnl.PreferenceLevel.INSTANCE)
+        # pnl.REPORT_OUTPUT_PREF: pnl.PreferenceEntry(True, pnl.PreferenceLevel.INSTANCE)
     }
 )
 
@@ -142,7 +142,9 @@ mySystem = pnl.System(
 # Show characteristics of system:
 mySystem.show()
 mySystem.controller.show()
-# mySystem.show_graph(show_control=pnl.ALL, show_dimensions=pnl.ALL)
+
+# Show graph of system (with control components)
+mySystem.show_graph(show_control=True)
 
 # configure EVC components
 mySystem.controller.control_signals[0].intensity_cost_function = pnl.Exponential(rate=0.8046).function

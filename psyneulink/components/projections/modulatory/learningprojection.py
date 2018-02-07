@@ -115,7 +115,7 @@ additional details).
 
 .. note::
    The `weight <MappingProjection.weight>` and `exponent <MappingProjection.exponent>` attributes of a
-   LearningProjection are not commonly used, and are implemented largely for generalit and compatibility with other
+   LearningProjection are not commonly used, and are implemented largely for generality and compatibility with other
    types of `Projection`.  They are distinct from, and are applied in addition to the LearningProjection's
    `learning_rate <LearningProjection.learning_rate>` attribute.  As noted under  `Projection
    <Projection_Weight_Exponent>`, they are not normalized and thus their effects aggregate if a ParameterState
@@ -183,7 +183,6 @@ from psyneulink.globals.utilities import iscompatible, parameter_spec
 __all__ = [
     'DefaultTrainingMechanism', 'LearningProjection', 'LearningProjectionError', 'WT_MATRIX_RECEIVERS_DIM', 'WT_MATRIX_SENDER_DIM',
 ]
-
 # Params:
 
 parameter_keywords.update({LEARNING_PROJECTION, LEARNING})
@@ -595,7 +594,7 @@ class LearningProjection(ModulatoryProjection_Base):
         learned_projection.has_learning_projection = True
 
 
-    def execute(self, input=None, time_scale=None, params=None, context=None):
+    def execute(self, input=None, params=None, context=None):
         """
         :return: (2D np.array) self.weight_change_matrix
         """
@@ -609,16 +608,42 @@ class LearningProjection(ModulatoryProjection_Base):
         # if self.learning_rate:
         #     params.update({SLOPE:self.learning_rate})
 
-        self.weight_change_matrix = self.function(variable=self.sender.value,
+        learning_signal = self.sender.value
+        matrix = self.receiver.value
+        # If learning_signal is lower dimensional than matrix being trained
+        #    and the latter is a diagonal matrix (square, with values only along the main diagonal)
+        #    and the learning_signal is the same as the matrix,
+        #    then transform the learning_signal into a diagonal matrix of the same dimension as the matrix
+        # Otherwise, if the learning_signal and matrix are not the same shape,
+        #    try expanding dim of learning_signal by making each of its items (along axis 0) an array
+        # Example:
+        #    If learning_signal is from a LearningMechanism that uses Reinforcement Function, then it is a 1d array:
+        #        if the matrix being modified is a 2d array, then convert the learning_signal to a 2d diagonal matrix;
+        #        if the matrix being modified is a 1d array, then expand it so that each item is a 1d array
+        # NOTE: The current version is only guaranteed to work learning_signal.ndim =1 and matrix.ndim = 2
+        if (
+                (learning_signal.ndim < matrix.ndim) and
+                np.allclose(matrix,np.diag(np.diag(matrix))) and
+                len(learning_signal)==len(np.diag(matrix))):
+            learning_signal = np.diag(learning_signal)
+        elif learning_signal.shape != matrix.shape:
+            # Convert 1d array into 2d array to match format of a Projection.matrix
+            learning_signal = np.expand_dims(learning_signal, axis=1)
+            if learning_signal.shape != matrix.shape:
+                raise LearningProjectionError("Problem modifying learning_signal from {} ({}) "
+                                              "to match the matrix of {} it is attempting to modify ({})".
+                                              format(self.sender.owner.name, learning_signal,
+                                                     self.receiver.owner.name, matrix))
+
+        self.weight_change_matrix = self.function(variable=learning_signal,
                                                   params=params,
                                                   context=context)
 
         if self.learning_rate is not None:
             self.weight_change_matrix *= self.learning_rate
 
-
         if not INITIALIZING in context and self.reportOutputPref:
-            print("\n{} weight change matrix: \n{}\n".format(self.name, self.weight_change_matrix))
+            print("\n{} weight change matrix: \n{}\n".format(self.name, np.diag(self.weight_change_matrix)))
 
         return self.value
 

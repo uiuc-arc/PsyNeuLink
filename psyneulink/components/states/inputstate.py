@@ -444,6 +444,7 @@ Class Reference
 ---------------
 
 """
+import collections
 import numbers
 import warnings
 
@@ -798,22 +799,26 @@ class InputState(State_Base):
 
         # Insure that function is Function.LinearCombination
         if not isinstance(self.function.__self__, (LinearCombination, Linear)):
-            raise StateError("{0} of {1} for {2} is {3}; it must be of LinearCombination or Linear type".
-                                      format(FUNCTION,
-                                             self.name,
-                                             self.owner.name,
-                                             self.function.__self__.componentName, ))
+            raise StateError(
+                "{0} of {1} for {2} is {3}; it must be of LinearCombination "
+                "or Linear type".
+                format(FUNCTION,
+                       self.name,
+                       self.owner.name,
+                       self.function.__self__.componentName))
 
         # Insure that self.value is compatible with self.reference_value
-        if self.reference_value is not None and not iscompatible(self.value, self.reference_value):
-            raise InputStateError("Value ({}) of {} {} for {} is not compatible with specified {} ({})".
-                                           format(self.value,
-                                                  self.componentName,
-                                                  self.name,
-                                                  self.owner.name,
-                                                  REFERENCE_VALUE,
-                                                  self.reference_value))
-                                                  # self.owner.variable))
+        if self.reference_value is not None and not iscompatible(self.value,
+                                                                 self.reference_value):
+            raise InputStateError("Value ({}) of {} {} for {} is not "
+                                  "compatible with specified {} ({})".
+                                  format(self.value,
+                                         self.componentName,
+                                         self.name,
+                                         self.owner.name,
+                                         REFERENCE_VALUE,
+                                         self.reference_value))
+                                         # self.owner.variable))
 
     def _instantiate_projections(self, projections, context=None):
         """Instantiate Projections specified in PROJECTIONS entry of params arg of State's constructor
@@ -1040,6 +1045,34 @@ class InputState(State_Base):
 
         return state_spec, params_dict
 
+    @staticmethod
+    def _state_spec_allows_override_variable(spec):
+        '''
+        Returns
+        -------
+            True - if **spec** outlines a spec for creating an InputState whose variable can be
+                overridden by a default_variable or size argument
+            False - otherwise
+
+            ex: specifiying an InputState with a Mechanism allows overriding
+        '''
+        if isinstance(spec, Mechanism):
+            return True
+        if isinstance(spec, collections.Iterable):
+            # generally 2-4 tuple spec, but allows list spec
+            for item in spec:
+                if isinstance(item, Mechanism):
+                    return True
+                # handles tuple spec where first item of tuple is itself a (name, Mechanism) tuple
+                elif (
+                    isinstance(item, collections.Iterable)
+                    and len(item) >= 2
+                    and isinstance(item[1], Mechanism)
+                ):
+                    return True
+
+        return False
+
     @property
     def pathway_projections(self):
         return self.path_afferents
@@ -1079,7 +1112,6 @@ def _instantiate_input_states(owner, input_states=None, reference_value=None, co
     #    while calls from init_methods continue to use owner.input_states (i.e., InputState specifications
     #    assigned in the **input_states** argument of the Mechanism's constructor)
     input_states = input_states or owner.input_states
-
     state_list = _instantiate_state_list(owner=owner,
                                          state_list=input_states,
                                          state_type=InputState,
@@ -1090,6 +1122,7 @@ def _instantiate_input_states(owner, input_states=None, reference_value=None, co
                                          context=context)
 
     # Call from Mechanism.add_states, so add to rather than assign input_states (i.e., don't replace)
+    # IMPLEMENTATION NOTE: USE OF CONTEXT STRING
     if context and 'ADD_STATES' in context:
         owner.input_states.extend(state_list)
     else:
@@ -1108,12 +1141,12 @@ def _instantiate_input_states(owner, input_states=None, reference_value=None, co
             break
 
     if not variable_item_is_OK:
-        # NOTE: This block of code appears unused, and the 'for' loop appears to cause an error anyways. (7/11/17 CW)
         old_variable = owner.instance_defaults.variable
         new_variable = []
         for state in owner.input_states:
             new_variable.append(state.value)
         owner.instance_defaults.variable = np.array(new_variable)
+        owner._update_variable(new_variable)
         if owner.verbosePref:
             warnings.warn(
                 "Variable for {} ({}) has been adjusted to match number and format of its input_states: ({})".format(

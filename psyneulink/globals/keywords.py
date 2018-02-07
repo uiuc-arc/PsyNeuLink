@@ -32,7 +32,7 @@ __all__ = [
     'COMPARATOR_MECHANISM', 'COMPONENT_INIT', 'COMPOSITION_INTERFACE_MECHANISM', 'CONROLLER_PHASE_SPEC', 'CONSTANT',
     'CONSTANT_INTEGRATOR_FUNCTION', 'CONTEXT', 'CONTROL', 'CONTROL_MECHANISM', 'CONTROL_PROJECTION',
     'CONTROL_PROJECTION_PARAMS', 'CONTROL_PROJECTIONS', 'CONTROL_SIGNAL', 'CONTROL_SIGNAL_SPECS', 'CONTROL_SIGNALS',
-    'CONTROLLED_PARAMS', 'CONTROLLER', 'CORRELATION', 'COST_FUNCTION', 'CROSS_ENTROPY', 'CYCLE', 'DDM_MECHANISM', 'DECAY',
+    'CONTROLLED_PARAMS', 'CONTROLLER', 'CORRELATION', 'COST_FUNCTION', 'CROSS_ENTROPY', 'CUSTOM_FUNCTION', 'CYCLE', 'DDM_MECHANISM', 'DECAY',
     'DEFAULT', 'DEFAULT_CONTROL_MECHANISM', 'DEFAULT_MATRIX', 'DEFAULT_PROCESSING_MECHANISM', 'DEFAULT_SYSTEM',
     'DEFERRED_ASSIGNMENT', 'DEFERRED_DEFAULT_NAME', 'DEFERRED_INITIALIZATION', 'DIFFERENCE', 'DIFFERENCE', 'DIFFUSION',
     'DIST_FUNCTION_TYPE', 'DIST_MEAN', 'DIST_SHAPE', 'DISTANCE_FUNCTION', 'DISTANCE_METRICS', 'DISTRIBUTION_FUNCTION_TYPE',
@@ -68,13 +68,14 @@ __all__ = [
     'MAKE_DEFAULT_GATING_MECHANISM',
     'MAPPING_PROJECTION', 'MAPPING_PROJECTION_PARAMS', 'MATRIX', 'MATRIX_KEYWORD_NAMES', 'MATRIX_KEYWORD_SET',
     'MATRIX_KEYWORD_VALUES', 'MATRIX_KEYWORDS', 'MatrixKeywords', 'MAX_INDICATOR', 'MAX_VAL', 'MEAN', 'MECHANISM',
-    'MECHANISM_TIME_SCALE', 'MechanismRoles', 'MECHANISM_VALUE', 'MEDIAN', 'MODULATION', 'MODULATORY_PROJECTION',
+    'MechanismRoles', 'MECHANISM_VALUE', 'MEDIAN', 'MODULATION', 'MODULATORY_PROJECTION',
     'MODULATORY_SIGNAL', 'MONITOR_FOR_CONTROL', 'MONITOR_FOR_LEARNING', 'MUTUAL_ENTROPY', 'NAME', 'NO_CONTEXT',
     'NOISE', 'NORMAL_DIST_FUNCTION', 'OBJECTIVE_FUNCTION_TYPE', 'OBJECTIVE_MECHANISM', 'OBJECTIVE_MECHANISM_OBJECT',
     'OFF', 'OFFSET', 'ON', 'OPERATION', 'ORIGIN', 'ORNSTEIN_UHLENBECK_INTEGRATOR_FUNCTION', 'OUTCOME_FUNCTION',
     'OUTPUT_STATE', 'OUTPUT_STATE_PARAMS', 'OUTPUT_STATES', 'OUTPUT_TYPE', 'OWNER', 'PARAM_CLASS_DEFAULTS',
     'PARAM_INSTANCE_DEFAULTS', 'PARAMETER_STATE', 'PARAMETER_STATE_PARAMS', 'PARAMETER_STATES', 'PARAMS',
-    'PARAMS_CURRENT', 'PATHWAY', 'PATHWAY_PROJECTION', 'PEARSON', 'PREDICTION_MECHANISM', 'PREDICTION_MECHANISM_OUTPUT',
+    'PARAMS_CURRENT', 'PATHWAY', 'PATHWAY_PROJECTION', 'PEARSON',
+    'PREDICTION_MECHANISM', 'PREDICTION_MECHANISMS', 'PREDICTION_MECHANISM_OUTPUT',
     'PREDICTION_MECHANISM_PARAMS', 'PREDICTION_MECHANISM_TYPE', 'PREFS_ARG', 'PRIMARY', 'PROB', 'PROCESS', 'PROCESSING',
     'PROCESS_INIT', 'PROCESSES', 'PROCESSES_DIM', 'PROCESSING_MECHANISM', 'PRODUCT', 'PROJECTION',
     'PROJECTION_PARAMS', 'PROJECTION_SENDER', 'PROJECTION_SENDER_VALUE', 'PROJECTION_TYPE', 'PROJECTIONS',
@@ -84,11 +85,11 @@ __all__ = [
     'SIMPLE', 'SIMPLE_INTEGRATOR_FUNCTION', 'SINGLETON', 'SIZE', 'SLOPE', 'SOFT_CLAMP', 'SOFTMAX_FUNCTION',
     'STABILITY_FUNCTION', 'STANDARD_ARGS','STANDARD_DEVIATION', 'STANDARD_OUTPUT_STATES', 'STATE', 'STATE_PARAMS',
     'STATE_TYPE', 'STATE_VALUE', 'STATES', 'SUBTRACTION', 'SUM', 'SYSTEM', 'SYSTEM_DEFAULT_CONTROLLER',
-    'SYSTEM_INIT', 'TARGET', 'TERMINAL', 'THRESHOLD', 'TIME', 'TIME_SCALE', 'TIME_STEP_SIZE', 'TIME_STEPS_DIM',
-    'TRANSFER_FUNCTION_TYPE', 'TRANSFER_MECHANISM', 'TRIALS_DIM', 'UNCHANGED', 'UNIFORM_DIST_FUNCTION',
+    'SYSTEM_INIT', 'TARGET', 'TERMINAL', 'THRESHOLD', 'TIME', 'TIME_STEP_SIZE', 'TIME_STEPS_DIM',
+    'TRANSFER_FUNCTION_TYPE', 'TRANSFER_MECHANISM', 'TRIAL', 'TRIALS_DIM', 'UNCHANGED', 'UNIFORM_DIST_FUNCTION',
     'USER_DEFINED_FUNCTION', 'USER_DEFINED_FUNCTION_TYPE', 'USER_PARAMS', 'UTILITY_INTEGRATOR_FUNCTION',
     'VALIDATE', 'VALIDATION', 'VALUE', 'VALUE_ASSIGNMENT', 'VALUE_FUNCTION', 'VARIABLE', 'VARIANCE', 'VECTOR',
-    'WALD_DIST_FUNCTION', 'WEIGHT', 'WEIGHTS',
+    'WALD_DIST_FUNCTION', 'WEIGHT', 'WEIGHTS'
 ]
 
 
@@ -170,11 +171,11 @@ class MatrixKeywords:
     ----------
 
     IDENTITY_MATRIX
-        a square matrix of 1's along the diagnoal, 0's elsewhere; this requires that the length of the sender and
+        a square matrix of 1's along the diagonal, 0's elsewhere; this requires that the length of the sender and
         receiver values are the same.
 
     HOLLOW_MATRIX
-        a square matrix of 0's along the diagnoal, 1's elsewhere; this requires that the length of the sender and
+        a square matrix of 0's along the diagonal, 1's elsewhere; this requires that the length of the sender and
         receiver values are the same.
 
     FULL_CONNECTIVITY_MATRIX
@@ -240,17 +241,17 @@ class DistanceMetrics:
     ----------
 
     DIFFERENCE
-        :math:`d = \\sum\limits^{len}(a_1-a_2)`
+        :math:`d = \\sum\\limits^{len}(a_1-a_2)`
 
     EUCLIDEAN
-        :math:`d = \\sum\limits^{len}\\sqrt{(a_1-a_2)^2}`
+        :math:`d = \\sum\\limits^{len}\\sqrt{(a_1-a_2)^2}`
 
     COMMENT:
     ANGLE
     COMMENT
 
     CORRELATION
-        :math:`d = \\frac{\\sum\limits^{len}(a_1-\\bar{a}_1)(a_2-\\bar{a}_2)}{(len-1)\\sigma_{a_1}\\sigma_{a_2}}`
+        :math:`d = \\frac{\\sum\\limits^{len}(a_1-\\bar{a}_1)(a_2-\\bar{a}_2)}{(len-1)\\sigma_{a_1}\\sigma_{a_2}}`
 
     COMMENT:
     PEARSON
@@ -258,10 +259,10 @@ class DistanceMetrics:
     COMMENT
 
     ENTROPY and CROSS_ENTROPY
-        :math:`d = \\sum\limits^{len}a_1log(a_2)`
+        :math:`d = \\sum\\limits^{len}a_1log(a_2)`
 
     ENERGY:
-        :math:`d = -\\frac{1}{2}\\sum\limits_{i,j}a_{1_i}a_{2_j}w_{ij}`
+        :math:`d = -\\frac{1}{2}\\sum\\limits_{i,j}a_{1_i}a_{2_j}w_{ij}`
 
     """
     def __init__(self):
@@ -363,11 +364,6 @@ kwDefaultPreferenceSetOwner = 'DefaultPreferenceSetOwner'
 # kpLogPref = '_log_pref'
 # kpParamValidationPref = '_param_validation_pref'
 # kpVerbosePref = '_verbose_pref'
-#endregion
-
-#region --------------------------------------------    TIME SCALE    --------------------------------------------------
-
-TIME_SCALE = "time_scale"
 #endregion
 
 #region --------------------------------------------    PREFERENCES    -------------------------------------------------
@@ -506,6 +502,7 @@ PARAM_EST_MECHANISM = "ParamEstimationControlMechanism"
 # ObjectiveMechanisms:
 OBJECTIVE_MECHANISM_OBJECT = "ObjectiveMechanism"
 COMPARATOR_MECHANISM = "ComparatorMechanism"
+PREDICTION_ERROR_MECHANISM = "PredictionErrorMechanism"
 
 # ProcessingMechanisms:
 TRANSFER_MECHANISM = "TransferMechanism"
@@ -516,12 +513,14 @@ KWTA = "KWTA"
 INTEGRATOR_MECHANISM = "IntegratorMechanism"
 DDM_MECHANISM = "DDM"
 COMPOSITION_INTERFACE_MECHANISM = "CompositionInterfaceMechanism"
+PROCESSING_MECHANISM = "ProcessingMechanism"
 
 # Functions:
 ARGUMENT_THERAPY_FUNCTION = "Contradiction Function"
 USER_DEFINED_FUNCTION = "USER DEFINED FUNCTION"
 REDUCE_FUNCTION = "Reduce Function"
 LINEAR_COMBINATION_FUNCTION = "LinearCombination Function"
+PREDICTION_ERROR_DELTA_FUNCTION = "PredictionErrorDelta Function"
 COMBINE_MEANS_FUNCTION = "CombineMeans Function"
 LINEAR_FUNCTION = "Linear Function"
 LEABRA_FUNCTION = "Leabra Function"
@@ -543,6 +542,7 @@ LINEAR_MATRIX_FUNCTION = "LinearMatrix Function"
 HEBBIAN_FUNCTION = 'Hebbian Learning Function'
 RL_FUNCTION = 'ReinforcementLearning Function'
 BACKPROPAGATION_FUNCTION = 'Backpropagation Learning Function'
+TDLEARNING_FUNCTION = "TD Learning Function"
 ERROR_DERIVATIVE_FUNCTION = 'Error Derivative Function'
 
 # Distribution functions
@@ -615,6 +615,7 @@ TERMINAL = 'TERMINAL'
 SINGLETON = 'ORIGIN AND TERMINAL'
 SAMPLE = 'SAMPLE'
 TARGET = 'TARGET'
+ERROR = 'ERROR'
 
 RESULTS = 'RESULTS'
 RESULT = 'RESULT'
@@ -632,7 +633,6 @@ STATE_VALUE = "State value"   # Used in State specification dict
 STATE_PARAMS = "State params" # Used in State specification dict
 
 # ParamClassDefaults:
-MECHANISM_TIME_SCALE = "Mechanism Time Scale"
 kwMechanismExecutionSequenceTemplate = "Mechanism Execution Sequence Template"
 
 # Entries for output OrderedDict, describing the current state of the Mechanism
@@ -666,6 +666,7 @@ LEARNED_PARAM = 'learned_param'
 OBJECTIVE_MECHANISM = "objective_mechanism"
 MONITOR_FOR_CONTROL = "monitor_for_control"
 PREDICTION_MECHANISM = "Prediction Mechanism"
+PREDICTION_MECHANISMS = "prediction_mechanisms"
 PREDICTION_MECHANISM_TYPE = "prediction_mechanism_type"
 PREDICTION_MECHANISM_PARAMS = "prediction_mechanism_params"
 PREDICTION_MECHANISM_OUTPUT = "PredictionMechanismOutput"
@@ -773,6 +774,8 @@ DIVISION = 'division'
 SCALAR = 'scalar'
 VECTOR = 'vector'
 
+CUSTOM_FUNCTION = 'custom_function'
+
 GAIN = 'gain'
 BIAS = 'bias'
 SLOPE = 'slope'
@@ -817,8 +820,10 @@ SIMPLE = 'scaled'
 ADAPTIVE = 'adaptive'
 DIFFUSION = 'diffusion'
 
+REWARD = 'reward'
 NETWORK = 'network'
 
+GAMMA = 'gamma'
 LIKELIHOOD_FUNCTION = "likelihood_function"
 
 #endregion

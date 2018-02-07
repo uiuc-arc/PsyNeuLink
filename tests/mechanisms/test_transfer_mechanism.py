@@ -9,6 +9,9 @@ from psyneulink.components.mechanisms.mechanism import MechanismError
 from psyneulink.components.mechanisms.processing.transfermechanism import TransferError
 from psyneulink.components.mechanisms.processing.transfermechanism import TransferMechanism
 from psyneulink.globals.utilities import UtilitiesError
+from psyneulink.components.process import Process
+from psyneulink.components.system import System
+
 
 
 class TestTransferMechanismInputs:
@@ -19,6 +22,7 @@ class TestTransferMechanismInputs:
         T = TransferMechanism(
             name='T',
             default_variable=[0, 0, 0, 0],
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([10, 10, 10, 10])
@@ -31,6 +35,7 @@ class TestTransferMechanismInputs:
         T = TransferMechanism(
             name='T',
             default_variable=[0, 0, 0, 0],
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([10.0, 10.0, 10.0, 10.0])
@@ -102,7 +107,7 @@ class TestTransferMechanismNoise:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=5.0,
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -115,7 +120,7 @@ class TestTransferMechanismNoise:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=NormalDist().function,
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -128,7 +133,7 @@ class TestTransferMechanismNoise:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=[NormalDist().function, NormalDist().function, NormalDist().function, NormalDist().function],
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -143,7 +148,7 @@ class TestTransferMechanismNoise:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=[5.0, 5.0, 5.0, 5.0],
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -156,7 +161,7 @@ class TestTransferMechanismNoise:
                 default_variable=[0, 0],
                 function=Linear(),
                 noise=[5.0, 5.0, 5.0],
-                time_constant=0.1,
+                smoothing_factor=0.1,
                 integrator_mode=True
             )
             T.execute()
@@ -171,7 +176,7 @@ class TestTransferMechanismNoise:
                 default_variable=[0, 0, 0],
                 function=Linear(),
                 noise=[5.0, 5.0],
-                time_constant=0.1,
+                smoothing_factor=0.1,
                 integrator_mode=True
             )
             T.execute()
@@ -187,7 +192,7 @@ class TestDistributionFunctions:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=NormalDist().function,
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -201,7 +206,7 @@ class TestDistributionFunctions:
                 default_variable=[0, 0, 0, 0],
                 function=Linear(),
                 noise=NormalDist(standard_dev=standard_deviation).function,
-                time_constant=1.0,
+                smoothing_factor=1.0,
                 integrator_mode=True
             )
 
@@ -214,7 +219,7 @@ class TestDistributionFunctions:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=ExponentialDist().function,
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -228,7 +233,7 @@ class TestDistributionFunctions:
                 default_variable=[0, 0, 0, 0],
                 function=Linear(),
                 noise=UniformToNormalDist().function,
-                time_constant=1.0
+                smoothing_factor=1.0
             )
             np.random.seed(22)
             val = T.execute([0, 0, 0, 0])
@@ -240,7 +245,7 @@ class TestDistributionFunctions:
                     default_variable=[0, 0, 0, 0],
                     function=Linear(),
                     noise=UniformToNormalDist().function,
-                    time_constant=1.0
+                    smoothing_factor=1.0
                 )
             assert "The UniformToNormalDist function requires the SciPy package." in str(error_text)
 
@@ -252,7 +257,7 @@ class TestDistributionFunctions:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=UniformDist().function,
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -265,7 +270,7 @@ class TestDistributionFunctions:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=GammaDist().function,
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -278,7 +283,7 @@ class TestDistributionFunctions:
             default_variable=[0, 0, 0, 0],
             function=Linear(),
             noise=WaldDist().function,
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -293,7 +298,7 @@ class TestTransferMechanismFunctions:
             name='T',
             default_variable=[0, 0, 0, 0],
             function=Logistic(),
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -305,7 +310,7 @@ class TestTransferMechanismFunctions:
             name='T',
             default_variable=[0, 0, 0, 0],
             function=Exponential(),
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -317,7 +322,7 @@ class TestTransferMechanismFunctions:
             name='T',
             default_variable=[0, 0, 0, 0],
             function=SoftMax(),
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([0, 0, 0, 0])
@@ -329,7 +334,7 @@ class TestTransferMechanismFunctions:
                 name='T',
                 default_variable=[0, 0, 0, 0],
                 function=NormalDist(),
-                time_constant=1.0,
+                smoothing_factor=1.0,
                 integrator_mode=True
             )
             T.execute([0, 0, 0, 0])
@@ -341,7 +346,7 @@ class TestTransferMechanismFunctions:
                 name='T',
                 default_variable=[0, 0, 0, 0],
                 function=Reinforcement(),
-                time_constant=1.0,
+                smoothing_factor=1.0,
                 integrator_mode=True
             )
             T.execute([0, 0, 0, 0])
@@ -353,7 +358,7 @@ class TestTransferMechanismFunctions:
                 name='T',
                 default_variable=[0, 0, 0, 0],
                 function=ConstantIntegrator(),
-                time_constant=1.0,
+                smoothing_factor=1.0,
                 integrator_mode=True
             )
             T.execute([0, 0, 0, 0])
@@ -365,7 +370,7 @@ class TestTransferMechanismFunctions:
                 name='T',
                 default_variable=[0, 0, 0, 0],
                 function=Reduce(),
-                time_constant=1.0,
+                smoothing_factor=1.0,
                 integrator_mode=True
             )
             T.execute([0, 0, 0, 0])
@@ -374,12 +379,12 @@ class TestTransferMechanismFunctions:
 
 class TestTransferMechanismTimeConstant:
 
-    def test_transfer_mech_time_constant_0_8(self):
+    def test_transfer_mech_smoothing_factor_0_8(self):
         T = TransferMechanism(
             name='T',
             default_variable=[0, 0, 0, 0],
             function=Linear(),
-            time_constant=0.8,
+            smoothing_factor=0.8,
             integrator_mode=True
         )
         val = T.execute([1, 1, 1, 1])
@@ -387,34 +392,34 @@ class TestTransferMechanismTimeConstant:
         val = T.execute([1, 1, 1, 1])
         assert np.allclose(val, [[0.96, 0.96, 0.96, 0.96]])
 
-    def test_transfer_mech_time_constant_1_0(self):
+    def test_transfer_mech_smoothing_factor_1_0(self):
         T = TransferMechanism(
             name='T',
             default_variable=[0, 0, 0, 0],
             function=Linear(),
-            time_constant=1.0,
+            smoothing_factor=1.0,
             integrator_mode=True
         )
         val = T.execute([1, 1, 1, 1])
         assert np.allclose(val, [[1.0, 1.0, 1.0, 1.0]])
 
-    def test_transfer_mech_time_constant_0_0(self):
+    def test_transfer_mech_smoothing_factor_0_0(self):
         T = TransferMechanism(
             name='T',
             default_variable=[0, 0, 0, 0],
             function=Linear(),
-            time_constant=0.0,
+            smoothing_factor=0.0,
             integrator_mode=True
         )
         val = T.execute([1, 1, 1, 1])
         assert np.allclose(val, [[0.0, 0.0, 0.0, 0.0]])
 
-    def test_transfer_mech_time_constant_0_8_initial_0_5(self):
+    def test_transfer_mech_smoothing_factor_0_8_initial_0_5(self):
         T = TransferMechanism(
             name='T',
             default_variable=[0, 0, 0, 0],
             function=Linear(),
-            time_constant=0.8,
+            smoothing_factor=0.8,
             initial_value=np.array([[.5, .5, .5, .5]]),
             integrator_mode=True
         )
@@ -425,63 +430,63 @@ class TestTransferMechanismTimeConstant:
         assert np.allclose(val, [[10.98, 11.78, 7.779999999999999, 10.18]]) # testing noise changes to an integrator
 
 
-    def test_transfer_mech_time_constant_0_8_list(self):
+    def test_transfer_mech_smoothing_factor_0_8_list(self):
         with pytest.raises(TransferError) as error_text:
             T = TransferMechanism(
                 name='T',
                 default_variable=[0, 0, 0, 0],
                 function=Linear(),
-                time_constant=[0.8, 0.8, 0.8, 0.8],
+                smoothing_factor=[0.8, 0.8, 0.8, 0.8],
                 integrator_mode=True
             )
             T.execute([1, 1, 1, 1])
         assert (
-            "time_constant parameter" in str(error_text.value)
+            "smoothing_factor parameter" in str(error_text.value)
             and "must be a float" in str(error_text.value)
         )
 
-    def test_transfer_mech_time_constant_2(self):
+    def test_transfer_mech_smoothing_factor_2(self):
         with pytest.raises(TransferError) as error_text:
             T = TransferMechanism(
                 name='T',
                 default_variable=[0, 0, 0, 0],
                 function=Linear(),
-                time_constant=2,
+                smoothing_factor=2,
                 integrator_mode=True
             )
             T.execute([1, 1, 1, 1])
         assert (
-            "time_constant parameter" in str(error_text.value)
+            "smoothing_factor parameter" in str(error_text.value)
             and "must be a float between 0 and 1" in str(error_text.value)
         )
 
-    def test_transfer_mech_time_constant_1(self):
+    def test_transfer_mech_smoothing_factor_1(self):
         with pytest.raises(TransferError) as error_text:
             T = TransferMechanism(
                 name='T',
                 default_variable=[0, 0, 0, 0],
                 function=Linear(),
-                time_constant=1,
+                smoothing_factor=1,
                 integrator_mode=True
             )
             T.execute([1, 1, 1, 1])
         assert (
-            "time_constant parameter" in str(error_text.value)
+            "smoothing_factor parameter" in str(error_text.value)
             and "must be a float between 0 and 1" in str(error_text.value)
         )
 
-    def test_transfer_mech_time_constant_0(self):
+    def test_transfer_mech_smoothing_factor_0(self):
         with pytest.raises(TransferError) as error_text:
             T = TransferMechanism(
                 name='T',
                 default_variable=[0, 0, 0, 0],
                 function=Linear(),
-                time_constant=0,
+                smoothing_factor=0,
                 integrator_mode=True
             )
             T.execute([1, 1, 1, 1])
         assert (
-            "time_constant parameter" in str(error_text.value)
+            "smoothing_factor parameter" in str(error_text.value)
             and "must be a float between 0 and 1" in str(error_text.value)
         )
 
@@ -787,8 +792,149 @@ class TestTransferMechanismMultipleInputStates:
         from psyneulink.globals.keywords import MECHANISM_VALUE
         T = TransferMechanism(input_states=[[[0],[0]],'b','c'],
                                   output_states=MECHANISM_VALUE)
+        print(T.value)
         val = T.execute([[[1],[4]],[2],[3]])
         expected_val = [[[1],[4]],[2],[3]]
         assert len(T.output_states)==1
         assert len(T.output_states[MECHANISM_VALUE].value)==3
+        print("VALUES ----- \n\n", val)
+        print("EXPECTED VALUES ----- \n\n", expected_val)
         assert all(all(a==b for a,b in zip(x,y)) for x,y in zip(val, expected_val))
+
+class TestIntegratorMode:
+    def test_previous_value_persistence_execute(self):
+        T = TransferMechanism(name="T",
+                              initial_value=0.5,
+                              integrator_mode=True,
+                              smoothing_factor=0.1,
+                              noise=0.0)
+
+        assert np.allclose(T.previous_value, 0.5)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        T.execute(1.0)
+        # integration: 0.9*0.5 + 0.1*1.0 + 0.0 = 0.55  --->  previous value = 0.55
+        # linear fn: 0.55*1.0 = 0.55
+        assert np.allclose(T.previous_value, 0.55)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        T.execute(1.0)
+        # integration: 0.9*0.55 + 0.1*1.0 + 0.0 = 0.595  --->  previous value = 0.595
+        # linear fn: 0.595*1.0 = 0.595
+        assert np.allclose(T.previous_value, 0.595)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+    def test_previous_value_persistence_run(self):
+        T = TransferMechanism(name="T",
+                              initial_value=0.5,
+                              integrator_mode=True,
+                              smoothing_factor=0.1,
+                              noise=0.0)
+        P = Process(name="P",
+                    pathway=[T])
+        S = System(name="S",
+                   processes=[P])
+
+        assert np.allclose(T.previous_value, 0.5)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        S.run(inputs={T: 1.0}, num_trials=2)
+        # Trial 1
+        # integration: 0.9*0.5 + 0.1*1.0 + 0.0 = 0.55  --->  previous value = 0.55
+        # linear fn: 0.55*1.0 = 0.55
+        # Trial 2
+        # integration: 0.9*0.55 + 0.1*1.0 + 0.0 = 0.595  --->  previous value = 0.595
+        # linear fn: 0.595*1.0 = 0.595
+        assert np.allclose(T.previous_value, 0.595)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        S.run(inputs={T: 2.0}, num_trials=2)
+        # Trial 3
+        # integration: 0.9*0.595 + 0.1*2.0 + 0.0 = 0.7355  --->  previous value = 0.7355
+        # linear fn: 0.7355*1.0 = 0.7355
+        # Trial 4
+        # integration: 0.9*0.7355 + 0.1*2.0 + 0.0 = 0.86195  --->  previous value = 0.86195
+        # linear fn: 0.86195*1.0 = 0.86195
+
+        assert np.allclose(T.previous_value, 0.86195)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+    def test_previous_value_reset_initializer_execute(self):
+        T = TransferMechanism(name="T",
+                              initial_value=0.5,
+                              integrator_mode=True,
+                              smoothing_factor=0.1,
+                              noise=0.0)
+
+        assert np.allclose(T.previous_value, 0.5)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+        T.execute(1.0)
+        # integration: 0.9*0.5 + 0.1*1.0 + 0.0 = 0.55  --->  previous value = 0.55
+        # linear fn: 0.55*1.0 = 0.55
+        assert np.allclose(T.previous_value, 0.55)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        T.integrator_function.reinitialize = 0.5
+
+        assert np.allclose(T.previous_value, 0.5)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        T.execute(1.0)
+        # integration: 0.9*0.5 + 0.1*1.0 + 0.0 = 0.55  --->  previous value = 0.55
+        # linear fn: 0.55*1.0 = 0.55
+        assert np.allclose(T.previous_value, 0.55)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+
+    def test_previous_reset_initializer_run(self):
+        T = TransferMechanism(name="T",
+                              initial_value=0.5,
+                              integrator_mode=True,
+                              smoothing_factor=0.1,
+                              noise=0.0)
+        P = Process(name="P",
+                    pathway=[T])
+        S = System(name="S",
+                   processes=[P])
+
+        assert np.allclose(T.previous_value, 0.5)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        S.run(inputs={T: 1.0}, num_trials=2)
+        # Trial 1
+        # integration: 0.9*0.5 + 0.1*1.0 + 0.0 = 0.55  --->  previous value = 0.55
+        # linear fn: 0.55*1.0 = 0.55
+        # Trial 2
+        # integration: 0.9*0.55 + 0.1*1.0 + 0.0 = 0.595  --->  previous value = 0.595
+        # linear fn: 0.595*1.0 = 0.595
+        assert np.allclose(T.previous_value, 0.595)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        T.integrator_function.reinitialize = 0.5
+
+        assert np.allclose(T.previous_value, 0.5)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)
+
+        S.run(inputs={T: 1.0}, num_trials=2)
+        # Trial 3
+        # integration: 0.9*0.5 + 0.1*1.0 + 0.0 = 0.55  --->  previous value = 0.55
+        # linear fn: 0.55*1.0 = 0.55
+        # Trial 4
+        # integration: 0.9*0.55 + 0.1*1.0 + 0.0 = 0.595  --->  previous value = 0.595
+        # linear fn: 0.595*1.0 = 0.595
+        assert np.allclose(T.previous_value, 0.595)
+        assert np.allclose(T.initial_value, 0.5)
+        assert np.allclose(T.integrator_function.initializer, 0.5)

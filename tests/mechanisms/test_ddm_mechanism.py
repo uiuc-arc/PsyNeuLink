@@ -1,30 +1,57 @@
+import numpy as np
 import pytest
 import typecheck
-import numpy as np
+
 from psyneulink.components.component import ComponentError
-from psyneulink.components.functions.function import Linear, BogaczEtAl, DriftDiffusionIntegrator, FunctionError, NormalDist
-from psyneulink.library.mechanisms.processing.integrator.ddm import DDM, DDMError
-from psyneulink.scheduling.time import TimeScale
+from psyneulink.components.functions.function import BogaczEtAl, DriftDiffusionIntegrator, FunctionError, NormalDist
 from psyneulink.components.process import Process
 from psyneulink.components.system import System
-from psyneulink.scheduling.scheduler import Scheduler
-from psyneulink.components.mechanisms.processing.transfermechanism import TransferMechanism
-from psyneulink.components.mechanisms.processing.integratormechanism import IntegratorMechanism
-from psyneulink.scheduling.condition import WhenFinished, While
-# ======================================= FUNCTION TESTS ============================================
+from psyneulink.library.mechanisms.processing.integrator.ddm import DDM, DDMError
+from psyneulink.scheduling.condition import WhenFinished
+from psyneulink.scheduling.time import TimeScale
 
-# VALID FUNCTIONS:
+class TestReinitialize:
+    def test_valid_reinitialization(self):
+        D = DDM(name="D",
+                function=DriftDiffusionIntegrator())
+        D.execute(1.0)
+        assert np.allclose([[1.0]], D.function_object.reinitialize[0])
+        assert np.allclose([1.0], D.function_object.reinitialize[1])
 
-# ------------------------------------------------------------------------------------------------
-# TEST 1
-# function = Integrator
+        D.execute(2.0)
+        assert np.allclose([[3.0]], D.function_object.reinitialize[0])
+        assert np.allclose([2.0], D.function_object.reinitialize[1])
+
+        D.function_object.reinitialize = 4.0, 0.1
+
+        D.execute(2.0)
+        assert np.allclose([[6.0]], D.function_object.reinitialize[0])
+        assert np.allclose([1.1], D.function_object.reinitialize[1])
+
+    def test_invalid_reinitialization_too_many_items(self):
+        D = DDM(name="D",
+                function=DriftDiffusionIntegrator())
+        with pytest.raises(FunctionError) as error_text:
+            D.function_object.reinitialize = 4.0, 0.1, 10.0
+        assert("DriftDiffusionIntegrator requires exactly two items (position, time) in order to reinitialize" in
+               str(error_text.value) and "3 items ((4.0, 0.1, 10.0)) were provided to reinitialize" in str(error_text.value))
+
+    def test_invalid_reinitialization_too_few_items(self):
+        D = DDM(name="D",
+                function=DriftDiffusionIntegrator())
+        with pytest.raises(FunctionError) as error_text:
+            D.function_object.reinitialize = 4.0
+        assert("DriftDiffusionIntegrator requires exactly two items (position, time) in order to reinitialize. Only "
+               "one item (4.0) was provided to reinitialize" in str(error_text.value))
+
+
 
 class TestThreshold:
     def test_threshold_param(self):
         D = DDM(name='DDM',
                 function=DriftDiffusionIntegrator(threshold=10.0))
 
-        assert D.function_object.threshold[0] == 10.0
+        assert D.function_object.threshold == 10.0
 
         D.function_object.threshold = 5.0
         assert D.function_object._threshold == 5.0
@@ -48,8 +75,8 @@ class TestThreshold:
         time_points = []
         for i in range(5):
             output = D.execute(2.0)
-            decision_variables.append(output[0][0])
-            time_points.append(output[1][0])
+            decision_variables.append(output[0][0][0])
+            time_points.append(output[1][0][0])
 
         # decision variable accumulation stops
         assert np.allclose(decision_variables, [2.0, 4.0, 5.0, 5.0, 5.0])
@@ -151,7 +178,6 @@ def test_DDM_zero_noise():
             rate=1.0,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     val = float(T.execute(stim)[0])
     assert val == 10
@@ -214,7 +240,6 @@ def test_DDM_noise_int():
                 rate=1.0,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
         float(T.execute(stim)[0])
     assert "DriftDiffusionIntegrator requires noise parameter to be a float" in str(error_text.value)
@@ -235,7 +260,6 @@ def test_DDM_noise_fn():
                 rate=1.0,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
         float(T.execute(stim)[0])
     assert "DriftDiffusionIntegrator requires noise parameter to be a float" in str(error_text.value)
@@ -258,7 +282,6 @@ def test_DDM_input_int():
             rate=1.0,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     val = float(T.execute(stim)[0])
     assert val == 10
@@ -277,7 +300,6 @@ def test_DDM_input_list_len_1():
             rate=1.0,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     val = float(T.execute(stim)[0])
     assert val == 10
@@ -296,7 +318,6 @@ def test_DDM_input_float():
             rate=1.0,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     val = float(T.execute(stim)[0])
     assert val == 10.0
@@ -322,7 +343,6 @@ def test_DDM_input_list_len_2():
                 rate=1.0,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
         float(T.execute(stim)[0])
     assert "must have only a single numeric item" in str(error_text.value)
@@ -348,7 +368,6 @@ def test_DDM_input_fn():
                 rate=1.0,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
         float(T.execute(stim))
     assert "not supported for the input types" in str(error_text.value)
@@ -371,7 +390,6 @@ def test_DDM_rate_int():
             rate=5,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     val = float(T.execute(stim)[0])
     assert val == 50
@@ -392,7 +410,6 @@ def test_DDM_rate_list_len_1():
             rate=[5],
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     val = float(T.execute(stim)[0])
     assert val == 50
@@ -411,7 +428,6 @@ def test_DDM_rate_float():
             rate=5,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     val = float(T.execute(stim)[0])
     assert val == 50
@@ -435,7 +451,6 @@ def test_DDM_input_rate_negative():
             rate=-5.0,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     val = float(T.execute(stim)[0])
     assert val == -50
@@ -466,7 +481,6 @@ def test_DDM_rate_fn():
                 rate=NormalDist().function,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
         float(T.execute(stim)[0])
     assert "incompatible value" in str(error_text.value)
@@ -492,7 +506,6 @@ def test_DDM_size_int_check_var():
             rate=-5.0,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
     assert len(T.instance_defaults.variable) == 1 and T.instance_defaults.variable[0][0] == 0
 
@@ -500,19 +513,22 @@ def test_DDM_size_int_check_var():
 # TEST 2
 # size = float, variable = [.4], check output after execution
 
-def test_DDM_size_int_inputs_():
+def test_DDM_size_int_inputs():
+
     T = DDM(
         name='DDM',
-        size=1.0,
+        size=1,
         function=DriftDiffusionIntegrator(
             noise=0.0,
             rate=-5.0,
             time_step_size=1.0
         ),
-        time_scale=TimeScale.TIME_STEP
     )
-    val = T.execute([.4]).tolist()
-    assert val == [[-2.0], [1.0]]
+    val = T.execute([.4])
+    decision_variable = val[0][0]
+    time = val[1][0]
+    assert decision_variable == -2.0
+    assert time == 1.0
 
 # ------------------------------------------------------------------------------------------------
 
@@ -533,7 +549,6 @@ def test_DDM_mech_size_zero():
                 rate=-5.0,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
     assert "is not a positive number" in str(error_text.value)
 
@@ -552,7 +567,6 @@ def test_DDM_mech_size_negative_one():
                 rate=-5.0,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
     assert "is not a positive number" in str(error_text.value)
 
@@ -571,7 +585,6 @@ def test_DDM_size_too_large():
                 rate=-5.0,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
     assert "must have only a single numeric item" in str(error_text.value)
 
@@ -590,7 +603,6 @@ def test_DDM_size_too_long():
                 rate=-5.0,
                 time_step_size=1.0
             ),
-            time_scale=TimeScale.TIME_STEP
         )
     assert "is greater than 1, implying there are" in str(error_text.value)
 
@@ -606,13 +618,14 @@ def test_DDM_time():
             t0=0.5
         )
     )
-    time_0 = D.function_object.previous_time                # t_0  = 0.5
-    np.testing.assert_allclose(time_0, [0.5], atol=1e-08)
 
-    time_1 = D.execute(10)[1][0]                            # t_1  = 0.5 + 0.2 = 0.7
-    np.testing.assert_allclose(time_1, [0.7], atol=1e-08)
+    time_0 = D.function_object.previous_time   # t_0  = 0.5
+    np.testing.assert_allclose(time_0, 0.5, atol=1e-08)
+
+    time_1 = D.execute(10)[1][0]   # t_1  = 0.5 + 0.2 = 0.7
+    np.testing.assert_allclose(time_1, 0.7, atol=1e-08)
 
     for i in range(10):                                     # t_11 = 0.7 + 10*0.2 = 2.7
         D.execute(10)
-    time_12 = D.execute(10)[1][0]                           # t_12 = 2.7 + 0.2 = 2.9
-    np.testing.assert_allclose(time_12, [2.9], atol=1e-08)
+    time_12 = D.execute(10)[1][0]                              # t_12 = 2.7 + 0.2 = 2.9
+    np.testing.assert_allclose(time_12, 2.9, atol=1e-08)

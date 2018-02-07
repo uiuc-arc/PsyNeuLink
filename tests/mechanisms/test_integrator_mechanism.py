@@ -9,7 +9,122 @@ from psyneulink.components.mechanisms.processing.integratormechanism import Inte
 from psyneulink.scheduling.time import TimeScale
 
 
-# ======================================= FUNCTION TESTS ============================================
+class TestReinitialize:
+    def test_FHN_valid_reinitialization(self):
+        I = IntegratorMechanism(name="I",
+                function=FHNIntegrator())
+        I.execute(1.0)
+        assert np.allclose([[0.05127053]], I.function_object.reinitialize[0])
+        assert np.allclose([[0.00276967]], I.function_object.reinitialize[1])
+        assert np.allclose([[ 0.05]], I.function_object.reinitialize[2])
+
+        I.function_object.reinitialize = 0.01, 0.02, 0.03
+
+        I.execute(1.0)
+        assert np.allclose([[0.06075727]], I.function_object.reinitialize[0])
+        assert np.allclose([[0.02274597]], I.function_object.reinitialize[1])
+        assert np.allclose([[0.08]], I.function_object.reinitialize[2])
+
+    def test_FHN_invalid_reinitialization_too_many_items(self):
+        I = IntegratorMechanism(name="I",
+                function=FHNIntegrator())
+        with pytest.raises(FunctionError) as error_text:
+            I.function_object.reinitialize = 4.0, 0.1, 10.0, 20.0
+        assert("FHNIntegrator requires exactly three items (v, w, time) in order to reinitialize" in
+               str(error_text.value) and "4 items ((4.0, 0.1, 10.0, 20.0)) were provided to reinitialize" in str(error_text.value))
+
+    def test_FHN_invalid_reinitialization_too_few_items(self):
+        I = IntegratorMechanism(name="I",
+                function=FHNIntegrator())
+        with pytest.raises(FunctionError) as error_text:
+            I.function_object.reinitialize = 4.0
+        assert("FHNIntegrator requires exactly three items (v, w, time) in order to reinitialize. Only "
+               "one item (4.0) was provided to reinitialize" in str(error_text.value))
+
+    def test_AGTUtility_valid_reinitialization(self):
+        I = IntegratorMechanism(name="I",
+                function=AGTUtilityIntegrator())
+        I.execute(1.0)
+        assert np.allclose([[0.9]], I.function_object.reinitialize[0])
+        assert np.allclose([[0.1]], I.function_object.reinitialize[1])
+
+        I.function_object.reinitialize = 0.2, 0.08
+
+        assert np.allclose([[0.2]], I.function_object.reinitialize[0])
+        assert np.allclose([[0.08]], I.function_object.reinitialize[1])
+
+    def test_AGTUtility_invalid_reinitialization_too_many_items(self):
+        I = IntegratorMechanism(name="I",
+                function=AGTUtilityIntegrator())
+        with pytest.raises(FunctionError) as error_text:
+            I.function_object.reinitialize = 4.0, 0.1, 10.0
+        assert("AGTUtilityIntegrator requires exactly two items (short term utility, long term utility) in order to reinitialize" in
+               str(error_text.value) and "3 items ((4.0, 0.1, 10.0)) were provided to reinitialize" in str(error_text.value))
+
+    def test_AGTUtility_invalid_reinitialization_too_few_items(self):
+        I = IntegratorMechanism(name="I",
+                function=AGTUtilityIntegrator())
+        with pytest.raises(FunctionError) as error_text:
+            I.function_object.reinitialize = 4.0
+        assert("AGTUtilityIntegrator requires exactly two items (short term utility, long term utility) in order to reinitialize. Only "
+               "one item (4.0) was provided to reinitialize" in str(error_text.value))
+
+    def test_integrator_simple_with_reinitialize(self):
+        I = IntegratorMechanism(
+            name='IntegratorMechanism',
+            function=SimpleIntegrator(
+            ),
+        )
+    #     # P = Process(pathway=[I])
+
+        #  returns previous_value + rate*variable + noise
+        # so in this case, returns 10.0
+        val = float(I.execute(10))
+
+        # testing initializer
+        I.function_object.reinitialize = 5.0
+
+        val2 = float(I.execute(0))
+
+        assert [val, val2] == [10.0, 5.0]
+
+    def test_integrator_adaptive_with_reinitialize(self):
+        I = IntegratorMechanism(
+            name='IntegratorMechanism',
+            function=AdaptiveIntegrator(
+                rate=0.5
+            ),
+        )
+        # val = float(I.execute(10)[0])
+        # P = Process(pathway=[I])
+        val = float(I.execute(10))
+        # returns (rate)*variable + (1-rate*previous_value) + noise
+        # rate = 1, noise = 0, so in this case, returns 10.0
+
+        # testing initializer
+        I.function_object.reinitialize = 1.0
+        val2 = float(I.execute(1))
+
+        assert [val, val2] == [5.0, 1.0]
+
+    def test_integrator_constant_with_reinitialize(self):
+        I = IntegratorMechanism(
+            name='IntegratorMechanism',
+            function=ConstantIntegrator(
+                rate=1.0
+            ),
+        )
+        # val = float(I.execute(10)[0])
+        # P = Process(pathway=[I])
+        val = float(I.execute())
+        # returns previous_value + rate + noise
+        # rate = 1.0, noise = 0, so in this case returns 1.0
+
+        # testing initializer
+        I.function_object.reinitialize = 10.0
+        val2 = float(I.execute())
+
+        assert [val, val2] == [1.0, 11.0]
 
 class TestIntegratorFunctions:
 
@@ -138,93 +253,10 @@ class TestIntegratorFunctions:
         # np.testing.assert_allclose(time_12, [2.9], atol=1e-08)
 
     def test_integrator_no_function(self):
-        I = IntegratorMechanism(time_scale=TimeScale.TIME_STEP)
+        I = IntegratorMechanism()
         # P = Process(pathway=[I])
         val = float(I.execute(10))
         assert val == 5
-
-
-class TestResetInitializer:
-
-    def test_integrator_simple_with_reset_intializer(self):
-        I = IntegratorMechanism(
-            name='IntegratorMechanism',
-            function=SimpleIntegrator(
-            ),
-            time_scale=TimeScale.TIME_STEP
-        )
-    #     # P = Process(pathway=[I])
-
-        #  returns previous_value + rate*variable + noise
-        # so in this case, returns 10.0
-        val = float(I.execute(10))
-
-        # testing initializer
-        I.function_object.reset_initializer = 5.0
-
-        val2 = float(I.execute(0))
-
-        assert [val, val2] == [10.0, 5.0]
-
-    def test_integrator_adaptive_with_reset_intializer(self):
-        I = IntegratorMechanism(
-            name='IntegratorMechanism',
-            function=AdaptiveIntegrator(
-                rate=0.5
-            ),
-            time_scale=TimeScale.TIME_STEP
-        )
-        # val = float(I.execute(10)[0])
-        # P = Process(pathway=[I])
-        val = float(I.execute(10))
-        # returns (rate)*variable + (1-rate*previous_value) + noise
-        # rate = 1, noise = 0, so in this case, returns 10.0
-
-        # testing initializer
-        I.function_object.reset_initializer = 1.0
-        val2 = float(I.execute(1))
-
-        assert [val, val2] == [5.0, 1.0]
-
-    def test_integrator_constant_with_reset_intializer(self):
-        I = IntegratorMechanism(
-            name='IntegratorMechanism',
-            function=ConstantIntegrator(
-                rate=1.0
-            ),
-            time_scale=TimeScale.TIME_STEP
-        )
-        # val = float(I.execute(10)[0])
-        # P = Process(pathway=[I])
-        val = float(I.execute())
-        # returns previous_value + rate + noise
-        # rate = 1.0, noise = 0, so in this case returns 1.0
-
-        # testing initializer
-        I.function_object.reset_initializer = 10.0
-        val2 = float(I.execute())
-
-        assert [val, val2] == [1.0, 11.0]
-
-    def test_integrator_diffusion_with_reset_intializer(self):
-        I = IntegratorMechanism(
-            name='IntegratorMechanism',
-            function=DriftDiffusionIntegrator(
-            ),
-            time_scale=TimeScale.TIME_STEP
-        )
-        # val = float(I.execute(10)[0])
-        # P = Process(pathway=[I])
-        val = float(I.execute(10))
-
-        # testing initializer
-        I.function_object.reset_initializer = 1.0
-        val2 = float(I.execute(0))
-
-        assert [val, val2] == [10.0, 1.0]
-
-# ======================================= INPUT TESTS ============================================
-
 
 class TestIntegratorInputs:
     # Part 1: VALID INPUT:
@@ -530,12 +562,11 @@ class TestIntegratorNoise:
             function=SimpleIntegrator(
                 noise=NormalDist().function
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = float(I.execute(10))
 
-        I.function_object.reset_initializer = 5.0
+        I.function_object.reinitialize = 5.0
 
         val2 = float(I.execute(0))
 
@@ -550,7 +581,6 @@ class TestIntegratorNoise:
                 noise=NormalDist().function,
                 default_variable=[0, 0, 0, 0]
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = I.execute([10, 10, 10, 10])[0]
@@ -563,7 +593,6 @@ class TestIntegratorNoise:
             function=AccumulatorIntegrator(
                 noise=NormalDist().function
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = float(I.execute(10))
@@ -578,7 +607,6 @@ class TestIntegratorNoise:
                 noise=NormalDist().function,
                 default_variable=[0, 0, 0, 0]
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = I.execute([10, 10, 10, 10])[0]
@@ -590,7 +618,6 @@ class TestIntegratorNoise:
             function=ConstantIntegrator(
                 noise=NormalDist().function
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = float(I.execute(10))
@@ -605,7 +632,6 @@ class TestIntegratorNoise:
                 noise=NormalDist().function,
                 default_variable=[0, 0, 0, 0]
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = I.execute([10, 10, 10, 10])[0]
@@ -618,7 +644,6 @@ class TestIntegratorNoise:
             function=AdaptiveIntegrator(
                 noise=NormalDist().function
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = float(I.execute(10))
@@ -633,7 +658,6 @@ class TestIntegratorNoise:
                 noise=NormalDist().function,
                 default_variable=[0, 0, 0, 0]
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = I.execute([10, 10, 10, 10])[0]
@@ -646,7 +670,6 @@ class TestIntegratorNoise:
             function=DriftDiffusionIntegrator(
                 noise=5.0,
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         val = float(I.execute(10))
@@ -663,7 +686,6 @@ class TestIntegratorNoise:
                 initializer=1.0,
                 rate=0.25
             ),
-            time_scale=TimeScale.TIME_STEP
         )
 
         # val = 1.0 + 0.5 * (1.0 - 0.25 * 2.5) * 1.0 + np.sqrt(1.0 * 2.0) * np.random.normal()

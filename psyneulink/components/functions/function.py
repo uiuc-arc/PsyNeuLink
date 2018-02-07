@@ -17,6 +17,7 @@ Combination Functions:
   * `Reduce`
   * `LinearCombination`
   * `CombineMeans`
+  * `PredictionErrorDelta`
 
 TransferMechanism Functions:
   * `Linear`
@@ -40,6 +41,7 @@ Integrator Functions:
 
 Distribution Functions:
   * `NormalDist`
+  * `UniformToNormalDist`
   * `ExponentialDist`
   * `UniformDist`
   * `GammaDist`
@@ -53,6 +55,10 @@ Learning Functions:
   * `Hebbian`
   * `Reinforcement`
   * `BackPropagation`
+  * `TDLearning`
+
+Custom Function:
+  * `UserDefinedFunction`
 
 .. _Function_Overview:
 
@@ -183,24 +189,9 @@ from random import randint
 
 from psyneulink.components.component import ComponentError, function_type, method_type, parameter_keywords
 from psyneulink.components.shellclasses import Function
-from psyneulink.globals.keywords import \
-    VARIABLE, ACCUMULATOR_INTEGRATOR_FUNCTION, ADAPTIVE_INTEGRATOR_FUNCTION, ALL, \
-    ARGUMENT_THERAPY_FUNCTION, AUTO_ASSIGN_MATRIX, AUTO_DEPENDENT, BACKPROPAGATION_FUNCTION, BETA, BIAS, \
-    COMBINATION_FUNCTION_TYPE, COMBINE_MEANS_FUNCTION, CONSTANT_INTEGRATOR_FUNCTION, CORRELATION, CROSS_ENTROPY, DECAY, \
-    DIFFERENCE, DISTANCE_FUNCTION, DISTANCE_METRICS, DIST_FUNCTION_TYPE, DIST_MEAN, DistanceMetrics,\
-    DIST_SHAPE, DRIFT_DIFFUSION_INTEGRATOR_FUNCTION, ENERGY, ENTROPY, EUCLIDEAN, EXAMPLE_FUNCTION_TYPE, EXECUTING, \
-    EXPONENTIAL_DIST_FUNCTION, EXPONENTIAL_FUNCTION, EXPONENTS, FHN_INTEGRATOR_FUNCTION, FULL_CONNECTIVITY_MATRIX, \
-    FUNCTION, FUNCTION_OUTPUT_TYPE, FUNCTION_OUTPUT_TYPE_CONVERSION, FUNCTION_PARAMS, GAIN, GAMMA_DIST_FUNCTION, \
-    HEBBIAN_FUNCTION, HIGH, HOLLOW_MATRIX, IDENTITY_MATRIX, INCREMENT, INITIALIZER, \
-    INITIALIZING, INPUT_STATES, INTEGRATOR_FUNCTION, INTEGRATOR_FUNCTION_TYPE, INTERCEPT, LEARNING_FUNCTION_TYPE, \
-    LEARNING_RATE, LINEAR_COMBINATION_FUNCTION, LINEAR_FUNCTION, LINEAR_MATRIX_FUNCTION, LOGISTIC_FUNCTION, LOW, MATRIX, \
-    MATRIX_KEYWORD_NAMES, MATRIX_KEYWORD_VALUES, MAX_INDICATOR, MAX_VAL, NOISE, NORMAL_DIST_FUNCTION, \
-    OBJECTIVE_FUNCTION_TYPE, OFFSET, OPERATION, ORNSTEIN_UHLENBECK_INTEGRATOR_FUNCTION, OUTPUT_STATES, OUTPUT_TYPE, \
-    PARAMETER_STATE_PARAMS, PEARSON, PROB, PRODUCT, RANDOM_CONNECTIVITY_MATRIX, RATE, RECEIVER, REDUCE_FUNCTION, \
-    RL_FUNCTION, SCALE, SIMPLE_INTEGRATOR_FUNCTION, SLOPE, SOFTMAX_FUNCTION, STABILITY_FUNCTION, STANDARD_DEVIATION, \
-    SUM, TIME_STEP_SIZE, TRANSFER_FUNCTION_TYPE, UNIFORM_DIST_FUNCTION, USER_DEFINED_FUNCTION, \
-    USER_DEFINED_FUNCTION_TYPE, UTILITY_INTEGRATOR_FUNCTION, WALD_DIST_FUNCTION, WEIGHTS, NORMALIZING_FUNCTION_TYPE,\
-    kwComponentCategory, kwPreferenceSetName, LIKELIHOOD_FUNCTION_TYPE, LIKELIHOOD_FUNCTION
+
+from psyneulink.globals.keywords import ACCUMULATOR_INTEGRATOR_FUNCTION, ADAPTIVE_INTEGRATOR_FUNCTION, ALL, ARGUMENT_THERAPY_FUNCTION, AUTO_ASSIGN_MATRIX, AUTO_DEPENDENT, BACKPROPAGATION_FUNCTION, BETA, BIAS, COMBINATION_FUNCTION_TYPE, COMBINE_MEANS_FUNCTION, CONSTANT_INTEGRATOR_FUNCTION, CORRELATION, CROSS_ENTROPY, CUSTOM_FUNCTION, DECAY, DIFFERENCE, DISTANCE_FUNCTION, DISTANCE_METRICS, DIST_FUNCTION_TYPE, DIST_MEAN, DIST_SHAPE, DRIFT_DIFFUSION_INTEGRATOR_FUNCTION, DistanceMetrics, ENERGY, ENTROPY, EUCLIDEAN, EXAMPLE_FUNCTION_TYPE, EXECUTING, EXPONENTIAL_DIST_FUNCTION, EXPONENTIAL_FUNCTION, EXPONENTS, FHN_INTEGRATOR_FUNCTION, FULL_CONNECTIVITY_MATRIX, FUNCTION, FUNCTION_OUTPUT_TYPE, FUNCTION_OUTPUT_TYPE_CONVERSION, FUNCTION_PARAMS, GAIN, GAMMA_DIST_FUNCTION, HEBBIAN_FUNCTION, HIGH, HOLLOW_MATRIX, IDENTITY_MATRIX, INCREMENT, INITIALIZER, INITIALIZING, INPUT_STATES, INTEGRATOR_FUNCTION, INTEGRATOR_FUNCTION_TYPE, INTERCEPT, LEARNING, LEARNING_FUNCTION_TYPE, LEARNING_RATE, LINEAR_COMBINATION_FUNCTION, LINEAR_FUNCTION, LINEAR_MATRIX_FUNCTION, LOGISTIC_FUNCTION, LOW, MATRIX, MATRIX_KEYWORD_NAMES, MATRIX_KEYWORD_VALUES, MAX_INDICATOR, MAX_VAL, NOISE, NORMALIZING_FUNCTION_TYPE, NORMAL_DIST_FUNCTION, OBJECTIVE_FUNCTION_TYPE, OFFSET, OPERATION, ORNSTEIN_UHLENBECK_INTEGRATOR_FUNCTION, OUTPUT_STATES, OUTPUT_TYPE, PARAMETER_STATE_PARAMS, PEARSON, PREDICTION_ERROR_DELTA_FUNCTION, PROB, PRODUCT, RANDOM_CONNECTIVITY_MATRIX, RATE, RECEIVER, REDUCE_FUNCTION, RL_FUNCTION, SCALE, SIMPLE_INTEGRATOR_FUNCTION, SLOPE, SOFTMAX_FUNCTION, STABILITY_FUNCTION, STANDARD_DEVIATION, SUM, TDLEARNING_FUNCTION, TIME_STEP_SIZE, TRANSFER_FUNCTION_TYPE, UNIFORM_DIST_FUNCTION, USER_DEFINED_FUNCTION, USER_DEFINED_FUNCTION_TYPE, UTILITY_INTEGRATOR_FUNCTION, VARIABLE, WALD_DIST_FUNCTION, WEIGHTS, kwComponentCategory, kwPreferenceSetName, LIKELIHOOD_FUNCTION_TYPE, LIKELIHOOD_FUNCTION
+
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref, kpRuntimeParamStickyAssignmentPref
 from psyneulink.globals.preferences.preferenceset import PreferenceEntry, PreferenceLevel
 from psyneulink.globals.registry import register_category
@@ -208,20 +199,30 @@ from psyneulink.globals.utilities import AutoNumber, is_distance_metric, is_matr
 from psyneulink.scheduling.time import TimeScale
 
 __all__ = [
-    'AccumulatorIntegrator', 'AdaptiveIntegrator', 'ADDITIVE', 'ADDITIVE_PARAM', 'AdditiveParam', 'AGTUtilityIntegrator',
-    'ArgumentTherapy', 'AUTOASSOCIATIVE', 'BackPropagation', 'BogaczEtAl', 'BOUNDS', 'CombinationFunction', 'CombineMeans',
-    'ConstantIntegrator', 'DISABLE', 'DISABLE_PARAM', 'Distance', 'DistributionFunction', 'DRIFT_RATE',
-    'DRIFT_RATE_VARIABILITY', 'DriftDiffusionIntegrator', 'EPSILON', 'ERROR_MATRIX', 'Exponential', 'ExponentialDist',
-    'FHNIntegrator', 'Function_Base', 'function_keywords', 'FunctionError', 'FunctionOutputType', 'FunctionRegistry',
-    'GammaDist', 'get_matrix', 'get_param_value_for_function', 'get_param_value_for_keyword', 'Hebbian', 'Integrator',
-    'IntegratorFunction', 'is_Function', 'is_function_type', 'kwBogaczEtAl', 'kwNavarrosAndFuss', 'LCAIntegrator',
-    'LEARNING_ACTIVATION_FUNCTION', 'LEARNING_ACTIVATION_INPUT', 'LEARNING_ACTIVATION_OUTPUT', 'LEARNING_ERROR_OUTPUT',
-    'LearningFunction', 'Linear', 'LinearCombination', 'LinearMatrix', 'Logistic', 'max_vs_avg', 'max_vs_next',
-    'ModulatedParam', 'ModulationParam', 'MULTIPLICATIVE', 'MULTIPLICATIVE_PARAM', 'MultiplicativeParam', 'NavarroAndFuss',
-    'NF_Results', 'NON_DECISION_TIME', 'NormalDist', 'ObjectiveFunction', 'OrnsteinUhlenbeckIntegrator', 'OVERRIDE',
-    'OVERRIDE_PARAM', 'PERTINACITY', 'PROPENSITY', 'Reduce', 'Reinforcement', 'ReturnVal', 'SimpleIntegrator', 'SoftMax',
-    'Stability', 'STARTING_POINT', 'STARTING_POINT_VARIABILITY', 'THRESHOLD', 'TransferFunction', 'TRESHOLD_VARIABILITY',
-    'UniformDist', 'UserDefinedFunction', 'WaldDist', 'WT_MATRIX_RECEIVERS_DIM', 'WT_MATRIX_SENDERS_DIM'
+    'AccumulatorIntegrator', 'AdaptiveIntegrator', 'ADDITIVE', 'ADDITIVE_PARAM',
+    'AdditiveParam', 'AGTUtilityIntegrator', 'ArgumentTherapy',
+    'AUTOASSOCIATIVE', 'BackPropagation', 'BogaczEtAl', 'BOUNDS',
+    'CombinationFunction', 'CombineMeans', 'ConstantIntegrator', 'DISABLE',
+    'DISABLE_PARAM', 'Distance', 'DistributionFunction', 'DRIFT_RATE',
+    'DRIFT_RATE_VARIABILITY', 'DriftDiffusionIntegrator', 'EPSILON',
+    'ERROR_MATRIX', 'Exponential', 'ExponentialDist', 'FHNIntegrator',
+    'Function_Base', 'function_keywords', 'FunctionError', 'FunctionOutputType',
+    'FunctionRegistry', 'GammaDist', 'get_matrix', 'get_param_value_for_function',
+    'get_param_value_for_keyword', 'Hebbian', 'Integrator',
+    'IntegratorFunction', 'is_Function', 'is_function_type', 'kwBogaczEtAl',
+    'kwNavarrosAndFuss', 'LCAIntegrator', 'LEARNING_ACTIVATION_FUNCTION',
+    'LEARNING_ACTIVATION_INPUT', 'LEARNING_ACTIVATION_OUTPUT',
+    'LEARNING_ERROR_OUTPUT', 'LearningFunction', 'Linear', 'LinearCombination',
+    'LinearMatrix', 'Logistic', 'max_vs_avg', 'max_vs_next', 'ModulatedParam',
+    'ModulationParam', 'MULTIPLICATIVE', 'MULTIPLICATIVE_PARAM',
+    'MultiplicativeParam', 'NavarroAndFuss', 'NF_Results', 'NON_DECISION_TIME',
+    'NormalDist', 'ObjectiveFunction', 'OrnsteinUhlenbeckIntegrator',
+    'OVERRIDE', 'OVERRIDE_PARAM', 'PERTINACITY', 'PredictionErrorDeltaFunction',
+    'PROPENSITY', 'Reduce', 'Reinforcement', 'ReturnVal', 'SimpleIntegrator',
+    'SoftMax', 'Stability', 'STARTING_POINT', 'STARTING_POINT_VARIABILITY',
+    'TDLearning', 'THRESHOLD', 'TransferFunction', 'THRESHOLD_VARIABILITY',
+    'UniformDist', 'UniformToNormalDist', 'UserDefinedFunction', 'WaldDist', 'WT_MATRIX_RECEIVERS_DIM',
+    'WT_MATRIX_SENDERS_DIM'
 ]
 
 EPSILON = np.finfo(float).eps
@@ -229,6 +230,7 @@ EPSILON = np.finfo(float).eps
 FunctionRegistry = {}
 
 function_keywords = {FUNCTION_OUTPUT_TYPE, FUNCTION_OUTPUT_TYPE_CONVERSION}
+
 
 class FunctionError(Exception):
     def __init__(self, error_value):
@@ -627,10 +629,6 @@ class Function_Base(Function):
                           name=name,
                           context=context)
         self.owner = owner
-        if self.owner is not None:
-            self.owner_name = ' ' + self.owner.name
-        else:
-            self.owner_name = ''
 
         super().__init__(default_variable=default_variable,
                          param_defaults=params,
@@ -638,8 +636,26 @@ class Function_Base(Function):
                          prefs=prefs,
                          context=context)
 
+    def _validate_parameter_spec(self, param, param_name, numeric_only=True):
+        """Validates function param
+        Replace direct call to parameter_spec in tc, which seems to not get called by Function __init__()'s"""
+        if not parameter_spec(param, numeric_only):
+            owner_name = 'of ' + self.owner_name if self.owner else ""
+            raise FunctionError("{} is not a valid specification for the {} argument of {}{}".
+                                format(param, param_name, self.__class__.__name__, owner_name))
+
     def execute(self, variable=None, params=None, context=None):
         return self.function(variable=variable, params=params, context=context)
+
+    def get_current_function_param(self, param_name):
+        try:
+            return self.owner._parameter_states[param_name].value
+        except (AttributeError, TypeError):
+            try:
+                return self._parameter_states[param_name].value
+            except (AttributeError, TypeError):
+
+                return getattr(self, param_name)
 
     @property
     def functionOutputType(self):
@@ -680,6 +696,13 @@ class Function_Base(Function):
         for param_name, param_value in sorted(self.user_params.items()):
             print("\t{}: {}".format(param_name, param_value))
         print('')
+
+    @property
+    def owner_name(self):
+        try:
+            return self.owner.name
+        except AttributeError:
+            return '<no owner>'
 
 # *****************************************   EXAMPLE FUNCTION   *******************************************************
 
@@ -882,7 +905,6 @@ class ArgumentTherapy(Function_Base):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Returns a boolean that is (or tends to be) the same as or opposite the one passed in.
@@ -909,8 +931,8 @@ class ArgumentTherapy(Function_Base):
 
         # Compute the function
         statement = variable
-        propensity = self.paramsCurrent[PROPENSITY]
-        pertinacity = self.paramsCurrent[PERTINACITY]
+        propensity = self.get_current_function_param(PROPENSITY)
+        pertinacity = self.get_current_function_param(PERTINACITY)
         whim = randint(-10, 10)
 
         if propensity == self.Manner.OBSEQUIOUS:
@@ -931,34 +953,95 @@ class ArgumentTherapy(Function_Base):
 
 class UserDefinedFunction(Function_Base):
     """
-    Function_Base(           \
-         function,           \
-         variable=None,      \
+    UserDefinedFunction(           \
+         custom_function=None,           \
+         default_variable=None,      \
          params=None,        \
          owner=None,         \
          name=None,          \
          prefs=None          \
     )
+    COMMENT:
+        CW 1/25/18: Below is the documentation from before I modified the UserDefinedFunction. I leave it here as a
+        comment. Also, this doc is a bit long: should it be a separate doc page?
 
-    Implement user-defined Function.
+        Implement user-defined Function.
 
-    This is used to "wrap" custom functions in the PsyNeuLink `Function API <LINK>`.
-    It is automatically invoked and applied to any function that is assigned to the `function <Component.function>`
-    attribute of a PsyNeuLink component (other than a Function itself).  The function can take any arguments and
-    return any values.  However, if UserDefinedFunction is used to create a custom version of another PsyNeuLink
-    `Function <Function>`, then it must conform to the requirements of that Function's type.
+        This is used to "wrap" custom functions in the PsyNeuLink `Function API <LINK>`.
+        It is automatically invoked and applied to any function that is assigned to the `function <Component.function>`
+        attribute of a PsyNeuLink component (other than a Function itself).  The function can take any arguments and
+        return any values.  However, if UserDefinedFunction is used to create a custom version of another PsyNeuLink
+        `Function <Function>`, then it must conform to the requirements of that Function's type.
+
+        .. note::
+            Currently the arguments for the `function <UserDefinedFunction.function>` of a UserDefinedFunction are NOT
+            assigned as attributes of the UserDefinedFunction object or its owner, nor to its :keyword:`user_params` dict.
+    COMMENT
+
+    This is used to "wrap" custom functions in the PsyNeuLink Function API. It is automatically invoked and applied to
+    user-defined functions that are assigned to the `function <Component.function>` attribute of a PsyNeuLink component
+    (other than a Function itself). UserDefinedFunction is generally used with `ProcessingMechanism`. For example, if
+    you want a mechanism that takes in a vector of length 3, then calculates the sum and adds 2, you could write::
+
+        >>> import psyneulink as pnl
+        >>> def myFunction(variable, params, context):
+        ...     return sum(variable[0]) + 2
+        >>> myMech = pnl.ProcessingMechanism(function = myFunction, size = 3, name = 'myMech')
+        >>> myMech.execute(input = [1, 2, 3])
+
+    Equivalently, you can also explicitly create a `UserDefinedFunction` and use it as the function::
+
+        >>> import psyneulink as pnl
+        >>> def myFunction(variable, params, context):
+        ...     return sum(variable[0]) + 2
+        >>> U = pnl.UserDefinedFunction(custom_function=myFunction, default_variable = [[0, 0, 0]])
+        >>> myMech = pnl.ProcessingMechanism(function = U, size = 3, name = 'myMech')
+        >>> myMech.execute(input = [1, 2, 3])
 
     .. note::
-       Currently the arguments for the `function <UserDefinedFunction.function>` of a UserDefinedFunction are NOT
-       assigned as attributes of the UserDefinedFunction object or its owner, nor to its :keyword:`user_params` dict.
+        Be sure to match the **default_variable** argument of the `UserDefinedFunction` with the **default_variable**
+        of the mechanism. (In this example, for `myMech`, `size = 3` is equivalent to `default_variable = [[0, 0, 0]]`.)
+
+    Custom functions can be as elaborate as desired, and can even include PsyNeuLink functions indirectly, such as::
+
+        >>> import psyneulink as pnl
+        >>> L = pnl.Logistic(gain = 2)
+        >>> def myFunction(variable, params, context):
+        ...     return L.function(variable) + 2
+        >>> myMech = pnl.ProcessingMechanism(function = myFunction, size = 3, name = 'myMech')
+        >>> myMech.execute(input = [1, 2, 3])
+
+    Custom functions should generally ignore the **params** and **context** arguments, since **variable** is
+    the input to the function.
+
+    COMMENT:
+        CW 1/29/18: Adding params for custom functions sounds useful, but slightly thorny.
+    COMMENT
+
+    .. note::
+        Note that variable's format may be slightly different than you expect, because PsyNeuLink may change the
+        formatting while processing the input. For example, PsyNeuLink converts an input of [1, 2, 3] to [[1, 2, 3]].
+        If your custom_function returns the sum of the input, you should use `sum(variable[0])` in this case rather
+        than `sum(variable)`. When in doubt, add a `print(variable)` or `print(type(variable))` statement
+        in your custom function to verify the variable's format.
+
 
     Arguments
     ---------
 
-    function : function
+    COMMENT:
+        CW 1/26/18: Again, commented here is the old version, because I'm afraid I may have missed some functionality.
+        custom_function : function
         specifies function to "wrap." It can be any function, take any arguments (including standard ones,
         such as :keyword:`params` and :keyword:`context`) and return any value(s), so long as these are consistent
         with the context in which the UserDefinedFunction will be used.
+    COMMENT
+    custom_function : function
+        specifies the function to "wrap." It can be any function, but like any PsyNeuLink function it must take three
+        named arguments: :keyword:`variable` (the input to the function), :keyword:`params`, and :keyword:`context`. The
+        `custom_function` can return any value(s), so long as they fit with the context. For example, if the dimensions
+        of your custom function's output change, then it is not appropriate to pass your function's output to a
+        `MappingProjection`, since the `MappingProjection` expects input of consistent dimensions.
 
     variable : value : default ClassDefaults.variable
         specifies the format and a default value for the input to `function <Function>`.
@@ -984,8 +1067,8 @@ class UserDefinedFunction(Function_Base):
         format and default value can be specified by the :keyword:`variable` argument of the constructor;  otherwise,
         they are specified by the Function's :keyword:`ClassDefaults.variable`.
 
-    function : function
-        called by the Function's `owner <Function_Base.owner>` when it is executed.
+    custom_function : function
+        the user-specified function: called by the Function's `owner <Function_Base.owner>` when it is executed.
 
     COMMENT:
     functionOutputTypeConversion : Bool : False
@@ -1019,22 +1102,23 @@ class UserDefinedFunction(Function_Base):
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     paramClassDefaults.update({
         FUNCTION_OUTPUT_TYPE_CONVERSION: False,
-        PARAMETER_STATE_PARAMS: None
+        PARAMETER_STATE_PARAMS: None,
+        CUSTOM_FUNCTION: None
     })
 
     @tc.typecheck
     def __init__(self,
-                 function,
-                 variable=None,
+                 custom_function=None,
+                 default_variable=None,
                  params=None,
                  owner=None,
                  prefs: is_pref_set = None,
                  context=componentName + INITIALIZING):
         # Assign args to params and functionParams dicts (kwConstants must == arg names)
-        params = self._assign_args_to_param_dicts(params=params)
-        self.user_defined_function = function
+        params = self._assign_args_to_param_dicts(custom_function=custom_function, params=params)
+        # self.custom_function = custom_function
 
-        super().__init__(default_variable=variable,
+        super().__init__(default_variable=default_variable,
                          params=params,
                          owner=owner,
                          prefs=prefs,
@@ -1042,11 +1126,11 @@ class UserDefinedFunction(Function_Base):
 
         self.functionOutputType = None
 
-        # IMPLEMENT: PARSE ARGUMENTS FOR user_defined_function AND ASSIGN TO user_params
+        # IMPLEMENT: PARSE ARGUMENTS FOR custom_function AND ASSIGN TO user_params
 
     def function(self,
                  **kwargs):
-        return self.user_defined_function(**kwargs)
+        return self.custom_function(**kwargs)
 
 
 # region **********************************  COMBINATION FUNCTIONS  ****************************************************
@@ -1240,7 +1324,6 @@ class Reduce(CombinationFunction):  # ------------------------------------------
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Calculate sum or product of the elements for each array in `variable <Reduce.variable>`,
@@ -1270,25 +1353,25 @@ class Reduce(CombinationFunction):  # ------------------------------------------
         # Validate variable and assign to variable, and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        operation = self.paramsCurrent[OPERATION]
-        scale = self.paramsCurrent[SCALE]
-        offset = self.paramsCurrent[OFFSET]
+        operation = self.get_current_function_param(OPERATION)
+        scale = self.get_current_function_param(SCALE)
+        offset = self.get_current_function_param(OFFSET)
 
         # Calculate using relevant aggregation operation and return
-        if (operation is SUM):
+        if operation is SUM:
             result = np.sum(variable) * scale + offset
         elif operation is PRODUCT:
             result = np.product(variable) * scale + offset
         else:
             raise FunctionError("Unrecognized operator ({0}) for Reduce function".
-                                format(self.paramsCurrent[OPERATION].self.Operation.SUM))
+                                format(self.get_current_function_param(OPERATION)))
         return result
 
 
 class LinearCombination(CombinationFunction):  # ------------------------------------------------------------------------
     # FIX: CONFIRM THAT 1D KWEIGHTS USES EACH ELEMENT TO SCALE CORRESPONDING VECTOR IN VARIABLE
     # FIX  CONFIRM THAT LINEAR TRANSFORMATION (OFFSET, SCALE) APPLY TO THE RESULTING ARRAY
-    # FIX: CONFIRM RETURNS LIST IF GIVEN LIST, AND SIMLARLY FOR NP.ARRAY
+    # FIX: CONFIRM RETURNS LIST IF GIVEN LIST, AND SIMILARLY FOR NP.ARRAY
     """
     LinearCombination(     \
          default_variable, \
@@ -1478,8 +1561,10 @@ class LinearCombination(CombinationFunction):  # -------------------------------
     @tc.typecheck
     def __init__(self,
                  default_variable=ClassDefaults.variable,
-                 weights:tc.optional(parameter_spec)=None,
-                 exponents:tc.optional(parameter_spec)=None,
+                 # weights: tc.optional(parameter_spec)=None,
+                 # exponents: tc.optional(parameter_spec)=None,
+                 weights=None,
+                 exponents=None,
                  operation: tc.enum(SUM, PRODUCT)=SUM,
                  scale=None,
                  offset=None,
@@ -1534,8 +1619,9 @@ class LinearCombination(CombinationFunction):  # -------------------------------
                 else:
                     new_length = len(variable[i])
                 if old_length != new_length:
-                    raise FunctionError("Length of all arrays in variable {0} for {1} must be the same".
-                                        format(variable, self.__class__.__name__))
+                    raise FunctionError("Length of all arrays in variable {0} "
+                                        "for {1} must be the same".format(variable,
+                                                                          self.__class__.__name__))
         return variable
 
     def _validate_params(self, request_set, target_set=None, context=None):
@@ -1544,7 +1630,7 @@ class LinearCombination(CombinationFunction):  # -------------------------------
         Check that WEIGHTS and EXPONENTS are lists or np.arrays of numbers with length equal to variable
         Check that SCALE and OFFSET are either scalars or np.arrays of numbers with length and shape equal to variable
 
-        Note: the checks of compatiability with variable are only performed for validation calls during execution
+        Note: the checks of compatibility with variable are only performed for validation calls during execution
               (i.e., from check_args(), since during initialization or COMMAND_LINE assignment,
               a parameter may be re-assigned before variable assigned during is known
         """
@@ -1556,18 +1642,20 @@ class LinearCombination(CombinationFunction):  # -------------------------------
                                  context=context)
 
         if WEIGHTS in target_set and target_set[WEIGHTS] is not None:
+            self._validate_parameter_spec(target_set[WEIGHTS], WEIGHTS, numeric_only=True)
             target_set[WEIGHTS] = np.atleast_2d(target_set[WEIGHTS]).reshape(-1, 1)
-            if EXECUTING in context:
+            if any(c in context for c in {EXECUTING, LEARNING}):
                 if len(target_set[WEIGHTS]) != len(self.instance_defaults.variable):
                     raise FunctionError("Number of weights ({0}) is not equal to number of items in variable ({1})".
-                                        format(len(target_set[WEIGHTS]), len(self.instance_defaults.variable.shape)))
+                                        format(len(target_set[WEIGHTS]), len(self.instance_defaults.variable)))
 
         if EXPONENTS in target_set and target_set[EXPONENTS] is not None:
+            self._validate_parameter_spec(target_set[EXPONENTS], EXPONENTS, numeric_only=True)
             target_set[EXPONENTS] = np.atleast_2d(target_set[EXPONENTS]).reshape(-1, 1)
-            if EXECUTING in context:
+            if any(c in context for c in {EXECUTING, LEARNING}):
                 if len(target_set[EXPONENTS]) != len(self.instance_defaults.variable):
                     raise FunctionError("Number of exponents ({0}) does not equal number of items in variable ({1})".
-                                        format(len(target_set[EXPONENTS]), len(self.instance_defaults.variable.shape)))
+                                        format(len(target_set[EXPONENTS]), len(self.instance_defaults.variable)))
 
         if SCALE in target_set and target_set[SCALE] is not None:
             scale = target_set[SCALE]
@@ -1578,14 +1666,15 @@ class LinearCombination(CombinationFunction):  # -------------------------------
             else:
                 raise FunctionError("{} param of {} ({}) must be a scalar or an np.ndarray".
                                     format(SCALE, self.name, scale))
-            if EXECUTING in context:
+            if (c in context for c in {EXECUTING, LEARNING}):
                 if (isinstance(scale, np.ndarray) and
                         (scale.size != self.instance_defaults.variable.size or
                          scale.shape != self.instance_defaults.variable.shape)):
                     raise FunctionError("Scale is using Hadamard modulation "
                                         "but its shape and/or size (shape: {}, size:{}) "
                                         "do not match the variable being modulated (shape: {}, size: {})".
-                                        format(scale.shape, scale.size, self.instance_defaults.variable.shape, self.instance_defaults.variable.size))
+                                        format(scale.shape, scale.size, self.instance_defaults.variable.shape,
+                                               self.instance_defaults.variable.size))
 
         if OFFSET in target_set and target_set[OFFSET] is not None:
             offset = target_set[OFFSET]
@@ -1596,14 +1685,15 @@ class LinearCombination(CombinationFunction):  # -------------------------------
             else:
                 raise FunctionError("{} param of {} ({}) must be a scalar or an np.ndarray".
                                     format(OFFSET, self.name, offset))
-            if EXECUTING in context:
+            if (c in context for c in {EXECUTING, LEARNING}):
                 if (isinstance(offset, np.ndarray) and
                         (offset.size != self.instance_defaults.variable.size or
                          offset.shape != self.instance_defaults.variable.shape)):
                     raise FunctionError("Offset is using Hadamard modulation "
                                         "but its shape and/or size (shape: {}, size:{}) "
                                         "do not match the variable being modulated (shape: {}, size: {})".
-                                        format(offset.shape, offset.size, self.instance_defaults.variable.shape, self.instance_defaults.variable.size))
+                                        format(offset.shape, offset.size, self.instance_defaults.variable.shape,
+                                               self.instance_defaults.variable.size))
 
             # if not operation:
             #     raise FunctionError("Operation param missing")
@@ -1611,11 +1701,9 @@ class LinearCombination(CombinationFunction):  # -------------------------------
             #     raise FunctionError("Operation param ({0}) must be Operation.SUM or Operation.PRODUCT".
             #     format(operation))
 
-
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Apply `weights <LinearCombination.weights>` and/or `exponents <LinearCombinations.weights>` to the
@@ -1650,22 +1738,23 @@ class LinearCombination(CombinationFunction):  # -------------------------------
 
         # Validate variable and assign to variable, and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
-        exponents = self.exponents
-        weights = self.weights
-        operation = self.operation
+
+        weights = self.get_current_function_param(WEIGHTS)
+        exponents = self.get_current_function_param(EXPONENTS)
+        operation = self.get_current_function_param(OPERATION)
+        scale = self.get_current_function_param(SCALE)
+        offset = self.get_current_function_param(OFFSET)
+
         # QUESTION:  WHICH IS LESS EFFICIENT:
         #                A) UNECESSARY ARITHMETIC OPERATIONS IF SCALE AND/OR OFFSET ARE 1.0 AND 0, RESPECTIVELY?
         #                   (DOES THE COMPILER KNOW NOT TO BOTHER WITH MULT BY 1 AND/OR ADD 0?)
         #                B) EVALUATION OF IF STATEMENTS TO DETERMINE THE ABOVE?
         # IMPLEMENTATION NOTE:  FOR NOW, ASSUME B) ABOVE, AND ASSIGN DEFAULT "NULL" VALUES TO offset AND scale
-        if self.offset is None:
+        if offset is None:
             offset = 0.0
-        else:
-            offset = self.offset
-        if self.scale is None:
+
+        if scale is None:
             scale = 1.0
-        else:
-            scale = self.scale
 
         # IMPLEMENTATION NOTE: CONFIRM: SHOULD NEVER OCCUR, AS _validate_variable NOW ENFORCES 2D np.ndarray
         # If variable is 0D or 1D:
@@ -1677,9 +1766,14 @@ class LinearCombination(CombinationFunction):  # -------------------------------
         if exponents is not None:
             # Avoid divide by zero warning:
             #    make sure there are no zeros for an element that is assigned a negative exponent
-            if INITIALIZING in context and any(not any(i) and j < 0 for i, j in zip(variable, exponents)):
-                variable = self._update_variable(np.ones_like(variable))
+            # Allow during initialization because 0s are common in default_variable argument
+            if context is not None and INITIALIZING in context:
+                try:
+                    variable = self._update_variable(variable ** exponents)
+                except ZeroDivisionError:
+                    variable = self._update_variable(np.ones_like(variable))
             else:
+                # if this fails with ZeroDivisionError it should not be caught outside of initialization
                 variable = self._update_variable(variable ** exponents)
 
         # Apply weights if they were specified
@@ -1688,7 +1782,7 @@ class LinearCombination(CombinationFunction):  # -------------------------------
 
         # CALCULATE RESULT USING RELEVANT COMBINATION OPERATION AND MODULATION
 
-        if (operation is SUM):
+        if operation is SUM:
             if isinstance(scale, numbers.Number):
                 # Scalar scale and offset
                 if isinstance(offset, numbers.Number):
@@ -1705,7 +1799,7 @@ class LinearCombination(CombinationFunction):  # -------------------------------
                     hadamard_product = np.product([np.sum([variable], axis=0), scale], axis=0)
                     result = np.sum(np.append([hadamard_product], [offset], axis=0), axis=0)
 
-        elif (operation is PRODUCT):
+        elif operation is PRODUCT:
             product = np.product(variable, axis=0)
             if isinstance(scale, numbers.Number):
                 # Scalar scale and offset
@@ -1725,7 +1819,7 @@ class LinearCombination(CombinationFunction):  # -------------------------------
 
         else:
             raise FunctionError("Unrecognized operator ({0}) for LinearCombination function".
-                                format(self.paramsCurrent[OPERATION].self.Operation.SUM))
+                                format(operation.self.Operation.SUM))
         return result
 
     @property
@@ -1873,8 +1967,8 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
 
     exponents : 1d or 2d np.array : default None
         if it is 1d, each element is used to exponentiate the elements of the corresponding array of
-        `variable <CombineMeanss.variable>`;  if it is 2d, the element of each array is used to exponentiate
-        the correspnding element of the corresponding array of `variable <CombineMeans.variable>`.
+        `variable <CombineMeans.variable>`;  if it is 2d, the element of each array is used to exponentiate
+        the corresponding element of the corresponding array of `variable <CombineMeans.variable>`.
         In either case, exponentiating is applied after application of the `weights <CombineMeans.weights>`
         (if any are specified).
 
@@ -1940,8 +2034,10 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
     @tc.typecheck
     def __init__(self,
                  default_variable=ClassDefaults.variable,
-                 weights:tc.optional(parameter_spec)=None,
-                 exponents:tc.optional(parameter_spec)=None,
+                 # weights:tc.optional(parameter_spec)=None,
+                 # exponents:tc.optional(parameter_spec)=None,
+                 weights=None,
+                 exponents=None,
                  operation: tc.enum(SUM, PRODUCT)=SUM,
                  scale=None,
                  offset=None,
@@ -1978,12 +2074,12 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
         return variable
 
     def _validate_params(self, request_set, target_set=None, context=None):
-        """Validate weghts, exponents, scale and offset parameters
+        """Validate weights, exponents, scale and offset parameters
 
         Check that WEIGHTS and EXPONENTS are lists or np.arrays of numbers with length equal to variable
         Check that SCALE and OFFSET are either scalars or np.arrays of numbers with length and shape equal to variable
 
-        Note: the checks of compatiability with variable are only performed for validation calls during execution
+        Note: the checks of compatibility with variable are only performed for validation calls during execution
               (i.e., from check_args(), since during initialization or COMMAND_LINE assignment,
               a parameter may be re-assigned before variable assigned during is known
         """
@@ -1996,14 +2092,14 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
 
         if WEIGHTS in target_set and target_set[WEIGHTS] is not None:
             target_set[WEIGHTS] = np.atleast_2d(target_set[WEIGHTS]).reshape(-1, 1)
-            if EXECUTING in context:
+            if (c in context for c in {EXECUTING, LEARNING}):
                 if len(target_set[WEIGHTS]) != len(self.instance_defaults.variable):
                     raise FunctionError("Number of weights ({0}) is not equal to number of items in variable ({1})".
                                         format(len(target_set[WEIGHTS]), len(self.instance_defaults.variable.shape)))
 
         if EXPONENTS in target_set and target_set[EXPONENTS] is not None:
             target_set[EXPONENTS] = np.atleast_2d(target_set[EXPONENTS]).reshape(-1, 1)
-            if EXECUTING in context:
+            if (c in context for c in {EXECUTING, LEARNING}):
                 if len(target_set[EXPONENTS]) != len(self.instance_defaults.variable):
                     raise FunctionError("Number of exponents ({0}) does not equal number of items in variable ({1})".
                                         format(len(target_set[EXPONENTS]), len(self.instance_defaults.variable.shape)))
@@ -2017,7 +2113,7 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
             else:
                 raise FunctionError("{} param of {} ({}) must be a scalar or an np.ndarray".
                                     format(SCALE, self.name, scale))
-            if EXECUTING in context:
+            if (c in context for c in {EXECUTING, LEARNING}):
                 if (isinstance(scale, np.ndarray) and
                         (scale.size != self.instance_defaults.variable.size or
                          scale.shape != self.instance_defaults.variable.shape)):
@@ -2035,7 +2131,7 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
             else:
                 raise FunctionError("{} param of {} ({}) must be a scalar or an np.ndarray".
                                     format(OFFSET, self.name, offset))
-            if EXECUTING in context:
+            if (c in context for c in {EXECUTING, LEARNING}):
                 if (isinstance(offset, np.ndarray) and
                         (offset.size != self.instance_defaults.variable.size or
                          offset.shape != self.instance_defaults.variable.shape)):
@@ -2054,7 +2150,6 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """Calculate and combine means of items in `variable <CombineMean.variable>`.
 
@@ -2088,22 +2183,22 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
         # Validate variable and assign to variable, and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        exponents = self.exponents
-        weights = self.weights
-        operation = self.operation
+        exponents = self.get_current_function_param(EXPONENTS)
+        weights = self.get_current_function_param(WEIGHTS)
+        operation = self.get_current_function_param(OPERATION)
+        offset = self.get_current_function_param(OFFSET)
+        scale = self.get_current_function_param(SCALE)
+
         # QUESTION:  WHICH IS LESS EFFICIENT:
         #                A) UNECESSARY ARITHMETIC OPERATIONS IF SCALE AND/OR OFFSET ARE 1.0 AND 0, RESPECTIVELY?
         #                   (DOES THE COMPILER KNOW NOT TO BOTHER WITH MULT BY 1 AND/OR ADD 0?)
         #                B) EVALUATION OF IF STATEMENTS TO DETERMINE THE ABOVE?
         # IMPLEMENTATION NOTE:  FOR NOW, ASSUME B) ABOVE, AND ASSIGN DEFAULT "NULL" VALUES TO offset AND scale
-        if self.offset is None:
+        if offset is None:
             offset = 0.0
-        else:
-            offset = self.offset
-        if self.scale is None:
+
+        if scale is None:
             scale = 1.0
-        else:
-            scale = self.scale
 
         # IMPLEMENTATION NOTE: CONFIRM: SHOULD NEVER OCCUR, AS _validate_variable NOW ENFORCES 2D np.ndarray
         # If variable is 0D or 1D:
@@ -2130,15 +2225,15 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
 
         # CALCULATE RESULT USING RELEVANT COMBINATION OPERATION AND MODULATION
 
-        if (operation is SUM):
+        if operation is SUM:
             result = np.sum(means, axis=0) * scale + offset
 
-        elif (operation is PRODUCT):
+        elif operation is PRODUCT:
             result = np.product(means, axis=0) * scale + offset
 
         else:
             raise FunctionError("Unrecognized operator ({0}) for CombineMeans function".
-                                format(self.paramsCurrent[OPERATION].self.Operation.SUM))
+                                format(self.get_current_function_param(OPERATION)))
         return result
 
     @property
@@ -2162,6 +2257,166 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
     @scale.setter
     def scale(self, val):
         self._scale = val
+
+
+GAMMA = 'gamma'
+class PredictionErrorDeltaFunction(CombinationFunction):
+    """
+    Function that calculates the temporal difference prediction error
+    """
+    componentName = PREDICTION_ERROR_DELTA_FUNCTION
+
+    classPreferences = {
+        kwPreferenceSetName: 'PredictionErrorDeltaCustomClassPreferences',
+        kpReportOutputPref: PreferenceEntry(False, PreferenceLevel.INSTANCE),
+        kpRuntimeParamStickyAssignmentPref: PreferenceEntry(False,
+                                                            PreferenceLevel.INSTANCE)
+    }
+
+    class ClassDefaults(CombinationFunction.ClassDefaults):
+        variable = [[1], [1]]
+
+    paramClassDefaults = Function_Base.paramClassDefaults.copy()
+    multiplicative_param = None
+    additive_param = None
+
+    @tc.typecheck
+    def __init__(self,
+                 default_variable=ClassDefaults.variable,
+                 gamma: tc.optional(float) = 1.0,
+                 params=None,
+                 owner=None,
+                 prefs: is_pref_set = None,
+                 context=componentName + INITIALIZING):
+        # Assign args to params and functionParams dicts
+        # (kwConstants must == arg names)
+        params = self._assign_args_to_param_dicts(gamma=gamma,
+                                                  params=params)
+
+        super().__init__(default_variable=default_variable,
+                         params=params,
+                         owner=owner,
+                         prefs=prefs,
+                         context=context)
+
+        self.gamma = gamma
+
+    def _validate_variable(self, variable, context=None):
+        """
+        Insure that all items of variable are numeric
+
+        Parameters
+        ----------
+        variable
+        context
+
+        Returns
+        -------
+        variable if all items are numeric
+        """
+        variable = self._update_variable(super()._validate_variable(variable=variable, context=context))
+
+        if isinstance(variable, (list, np.ndarray)):
+            if isinstance(variable, np.ndarray) and not variable.ndim:
+                return variable
+            length = 0
+            for i in range(1, len(variable)):
+                if i == 0:
+                    continue
+                if isinstance(variable[i - 1], numbers.Number):
+                    old_length = 1
+                else:
+                    old_length = len(variable[i - 1])
+                if isinstance(variable[i], numbers.Number):
+                    new_length = 1
+                else:
+                    new_length = len(variable[i])
+                if old_length != new_length:
+                    raise FunctionError("Length of all arrays in variable {} "
+                                        "for {} must be the same".format(variable,
+                                                                         self.__class__.__name__))
+        return variable
+
+    def _validate_params(self, request_set, target_set=None, context=None):
+        """
+        Checks that WEIGHTS is a list or np.array of numbers with length equal
+        to variable.
+
+        Note: the checks of compatibility with variable are only performed for
+        validation calls during execution (i.e. from `check_args()`), since
+        during initialization or COMMAND_LINE assignment, a parameter may be
+        re-assigned before variable assigned during is known
+
+        Parameters
+        ----------
+        request_set
+        target_set
+        context
+
+        Returns
+        -------
+        None
+        """
+        super()._validate_params(request_set,
+                                 target_set=target_set,
+                                 context=context)
+
+        if GAMMA in target_set and target_set[GAMMA] is not None:
+            self._validate_parameter_spec(target_set[GAMMA] ,GAMMA, numeric_only=True)
+
+        if WEIGHTS in target_set and target_set[WEIGHTS] is not None:
+            self._validate_parameter_spec(target_set[WEIGHTS] ,WEIGHTS, numeric_only=True)
+            target_set[WEIGHTS] = np.atleast_2d(target_set[WEIGHTS]).reshape(-1,1)
+            if EXECUTING in context:
+                if len(target_set[WEIGHTS]) != len(
+                        self.instance_defaults.variable):
+                    raise FunctionError("Number of weights {} is not equal to "
+                                        "number of items in variable {}".format(
+                        len(target_set[WEIGHTS]),
+                        len(self.instance_defaults.variable.shape)))
+
+    def function(self,
+                 variable=None,
+                 params=None,
+                 context=None):
+        """
+        Calculates the prediction error using the arrays in `variable
+        <PredictionErrorDeltaFunction.variable>` and returns the resulting
+        array.
+
+        Parameters
+        ----------
+        variable : 2d np.array : default ClassDefaults.variable
+            a 2d array representing the sample and target values to be used to
+            calculate the temporal difference delta values. Both arrays must
+            have the same length
+
+        params : Dict[param keyword, param value] : default None
+            a `parameter dictionary <ParameterState_Specification>` that
+            specifies the parameters for the function. Values specified for
+            parameters in the dictionary override any assigned to those
+            parameters in arguments of the constructor.
+
+
+        Returns
+        -------
+        delta values : 1d np.array
+            the result of
+                :math: `\\delta(t) = r(t) + \\gamma sample(t) - sample(t - 1)`
+
+        """
+        variable = self._update_variable(self._check_args(variable=variable,
+                                                          params=params,
+                                                          context=context))
+        gamma = self.get_current_function_param(GAMMA)
+        sample = variable[0]
+        reward = variable[1]
+        delta = np.zeros(sample.shape)
+
+        for t in range(1, len(sample)):
+            delta[t] = reward[t] + gamma * sample[t] - sample[t - 1]
+        return delta
+
 
 # *********************************** NORMALIZING FUNCTIONS **************************************************
 
@@ -2206,6 +2461,7 @@ class NormalizingFunction(Function_Base):
     @additive.setter
     def additive(self, val):
         setattr(self, self.additive_param, val)
+
 
 class SoftMax(NormalizingFunction):
     """
@@ -2263,7 +2519,7 @@ class SoftMax(NormalizingFunction):
 
     output : ALL, MAX_VAL, MAX_INDICATOR, or PROB
         determines how the SoftMax-transformed values of the elements in `variable <SoftMax.variable>` are reported
-        in the array returned by `function <SoftMax.funtion>`:
+        in the array returned by `function <SoftMax.function>`:
             * **ALL**: array of all SoftMax-transformed values (the default);
             * **MAX_VAL**: SoftMax-transformed value for the element with the maximum such value, 0 for all others;
             * **MAX_INDICATOR**: 1 for the element with the maximum SoftMax-transformed value, 0 for all others;
@@ -2322,7 +2578,6 @@ class SoftMax(NormalizingFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: e**(`gain <SoftMax.gain>` * `variable <SoftMax.variable>`) /
@@ -2351,8 +2606,8 @@ class SoftMax(NormalizingFunction):
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
         # Assign the params and return the result
-        output_type = self.params[OUTPUT_TYPE]
-        gain = self.params[GAIN]
+        output_type = self.get_current_function_param(OUTPUT_TYPE)
+        gain = self.get_current_function_param(GAIN)
 
         # Modulate variable by gain
         v = gain * variable
@@ -2626,7 +2881,6 @@ class Linear(TransferFunction):  # ---------------------------------------------
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: `slope <Linear.slope>` * `variable <Linear.variable>` + `intercept <Linear.intercept>`.
@@ -2651,8 +2905,8 @@ class Linear(TransferFunction):  # ---------------------------------------------
         """
 
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
-        slope = self.paramsCurrent[SLOPE]
-        intercept = self.paramsCurrent[INTERCEPT]
+        slope = self.get_current_function_param(SLOPE)
+        intercept = self.get_current_function_param(INTERCEPT)
         outputType = self.functionOutputType
 
         # MODIFIED 11/9/17 NEW:
@@ -2730,7 +2984,7 @@ class Linear(TransferFunction):  # ---------------------------------------------
 
         """
 
-        return self.slope
+        return self.get_current_function_param(SLOPE)
 
 
 class Exponential(TransferFunction):  # --------------------------------------------------------------------------------
@@ -2837,7 +3091,6 @@ class Exponential(TransferFunction):  # ----------------------------------------
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: `scale <Exponential.scale>`
@@ -2863,10 +3116,8 @@ class Exponential(TransferFunction):  # ----------------------------------------
         """
 
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
-
-        # Assign the params and return the result
-        rate = self.paramsCurrent[RATE]
-        scale = self.paramsCurrent[SCALE]
+        rate = self.get_current_function_param(RATE)
+        scale = self.get_current_function_param(SCALE)
 
         return scale * np.exp(rate * variable)
 
@@ -2883,7 +3134,7 @@ class Exponential(TransferFunction):  # ----------------------------------------
             `rate <Exponential.rate>` * input.
 
         """
-        return self.rate * input
+        return self.get_current_function_param(RATE) * input
 
 
 class Logistic(TransferFunction):  # ------------------------------------------------------------------------------------
@@ -2948,6 +3199,8 @@ class Logistic(TransferFunction):  # -------------------------------------------
         value added to each element of `variable <Logistic.variable>` after applying the `gain <Logistic.gain>`
         (if it is specified).
 
+    bounds : (0,1)
+
     owner : Component
         `component <Component>` to which the Function has been assigned.
 
@@ -2998,7 +3251,6 @@ class Logistic(TransferFunction):  # -------------------------------------------
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return:
@@ -3027,9 +3279,9 @@ class Logistic(TransferFunction):  # -------------------------------------------
         """
 
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
-        gain = self.paramsCurrent[GAIN]
-        bias = self.paramsCurrent[BIAS]
-        offset = self.paramsCurrent[OFFSET]
+        gain = self.get_current_function_param(GAIN)
+        bias = self.get_current_function_param(BIAS)
+        offset = self.get_current_function_param(OFFSET)
 
         return 1 / (1 + np.exp(-gain*(variable-bias) + offset))
 
@@ -3047,245 +3299,6 @@ class Logistic(TransferFunction):  # -------------------------------------------
 
         """
         return output * (1 - output)
-
-# ------------------------------------------------------------------------------------
-
-# class SoftMax(TransferFunction):
-#     """
-#     SoftMax(               \
-#          default_variable, \
-#          gain=1.0,         \
-#          output=ALL,       \
-#          params=None,      \
-#          owner=None,       \
-#          name=None,        \
-#          prefs=None        \
-#          )
-#
-#     .. _SoftMax:
-#
-#     SoftMax transform of variable (see `The Softmax function and its derivative
-#     <http://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/>`_ for a nice discussion).
-#
-#     Arguments
-#     ---------
-#
-#     default_variable : 1d np.array : default ClassDefaults.variable
-#         specifies a template for the value to be transformed.
-#
-#     gain : float : default 1.0
-#         specifies a value by which to multiply `variable <Softmax.variable>` before SoftMax transformation.
-#
-#     output : ALL, MAX_VAL, MAX_INDICATOR, or PROB : default ALL
-#         specifies the format of array returned by `function <SoftMax.function>`
-#         (see `output <SoftMax.output>` for details).
-#
-#     params : Dict[param keyword: param value] : default None
-#         a `parameter dictionary <ParameterState_Specification>` that specifies the parameters for the
-#         function.  Values specified for parameters in the dictionary override any assigned to those parameters in
-#         arguments of the constructor.
-#
-#     owner : Component
-#         `component <Component>` to which to assign the Function.
-#
-#     name : str : default see `name <Function.name>`
-#         specifies the name of the Function.
-#
-#     prefs : PreferenceSet or specification dict : default Function.classPreferences
-#         specifies the `PreferenceSet` for the Function (see `prefs <Function_Base.prefs>` for details).
-#
-#     Attributes
-#     ----------
-#
-#     variable : 1d np.array
-#         contains value to be transformed.
-#
-#     gain : float
-#         value by which `variable <Logistic.variable>` is multiplied before the SoftMax transformation;  determines
-#         the "sharpness" of the distribution.
-#
-#     output : ALL, MAX_VAL, MAX_INDICATOR, or PROB
-#         determines how the SoftMax-transformed values of the elements in `variable <SoftMax.variable>` are reported
-#         in the array returned by `function <SoftMax.funtion>`:
-#             * **ALL**: array of all SoftMax-transformed values (the default);
-#             * **MAX_VAL**: SoftMax-transformed value for the element with the maximum such value, 0 for all others;
-#             * **MAX_INDICATOR**: 1 for the element with the maximum SoftMax-transformed value, 0 for all others;
-#             * **PROB**: probabilistically chosen element based on SoftMax-transformed values after normalizing sum of
-#               values to 1, 0 for all others.
-#
-#     bounds : None if `output <SoftMax.output>` == MAX_VAL, else (0,1) : default (0,1)
-#
-#     owner : Component
-#         `component <Component>` to which the Function has been assigned.
-#
-#     name : str
-#         the name of the Function; if it is not specified in the **name** argument of the constructor, a
-#         default is assigned by FunctionRegistry (see `Naming` for conventions used for default and duplicate names).
-#
-#     prefs : PreferenceSet or specification dict : Function.classPreferences
-#         the `PreferenceSet` for function; if it is not specified in the **prefs** argument of the Function's
-#         constructor, a default is assigned using `classPreferences` defined in __init__.py (see :doc:`PreferenceSet
-#         <LINK>` for details).
-#     """
-#
-#     componentName = SOFTMAX_FUNCTION
-#
-#     bounds = (0,1)
-#     multiplicative_param = GAIN
-#     additive_param = None
-#
-#     class ClassDefaults(TransferFunction.ClassDefaults):
-#         variable = 0
-#
-#     paramClassDefaults = Function_Base.paramClassDefaults.copy()
-#
-#     @tc.typecheck
-#     def __init__(self,
-#                  default_variable=ClassDefaults.variable,
-#                  gain: parameter_spec = 1.0,
-#                  output: tc.enum(ALL, MAX_VAL, MAX_INDICATOR, PROB) = ALL,
-#                  params: tc.optional(dict) = None,
-#                  owner=None,
-#                  prefs: is_pref_set = None,
-#                  context='SoftMax Init'):
-#
-#         # Assign args to params and functionParams dicts (kwConstants must == arg names)
-#         params = self._assign_args_to_param_dicts(gain=gain,
-#                                                   output=output,
-#                                                   params=params)
-#         if output is MAX_VAL:
-#             bounds = None
-#
-#         super().__init__(default_variable=default_variable,
-#                          params=params,
-#                          owner=owner,
-#                          prefs=prefs,
-#                          context=context)
-#
-#     def function(self,
-#                  variable=None,
-#                  params=None,
-#                  time_scale=TimeScale.TRIAL,
-#                  context=None):
-#         """
-#         Return: e**(`gain <SoftMax.gain>` * `variable <SoftMax.variable>`) /
-#         sum(e**(`gain <SoftMax.gain>` * `variable <SoftMax.variable>`)),
-#         filtered by `ouptput <SoftMax.output>` specification.
-#
-#         Arguments
-#         ---------
-#
-#         variable : 1d np.array : default ClassDefaults.variable
-#            an array to be transformed.
-#
-#         params : Dict[param keyword: param value] : default None
-#             a `parameter dictionary <ParameterState_Specification>` that specifies the parameters for the
-#             function.  Values specified for parameters in the dictionary override any assigned to those parameters in
-#             arguments of the constructor.
-#
-#         time_scale :  TimeScale : default TimeScale.TRIAL
-#             specifies whether the function is executed on the time_step or trial time scale.
-#
-#         Returns
-#         -------
-#
-#         SoftMax transformation of variable : number or np.array
-#
-#         """
-#
-#         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
-#
-#         # Assign the params and return the result
-#         output_type = self.params[OUTPUT_TYPE]
-#         gain = self.params[GAIN]
-#
-#         # Modulate variable by gain
-#         v = gain * variable
-#         # Shift by max to avoid extreme values:
-#         v = v - np.max(v)
-#         # Exponentiate
-#         v = np.exp(v)
-#         # Normalize (to sum to 1)
-#         sm = v / np.sum(v, axis=0)
-#
-#         # For the element that is max of softmax, set it's value to its softmax value, set others to zero
-#         if output_type is MAX_VAL:
-#             max_value = np.max(sm)
-#             sm = np.where(sm == max_value, max_value, 0)
-#
-#         # For the element that is max of softmax, set its value to 1, set others to zero
-#         elif output_type is MAX_INDICATOR:
-#             # sm = np.where(sm == np.max(sm), 1, 0)
-#             max_value = np.max(sm)
-#             sm = np.where(sm == max_value, 1, 0)
-#
-#         # Choose a single element probabilistically based on softmax of their values;
-#         #    leave that element's value intact, set others to zero
-#         elif output_type is PROB:
-#             cum_sum = np.cumsum(sm)
-#             random_value = np.random.uniform()
-#             chosen_item = next(element for element in cum_sum if element > random_value)
-#             chosen_in_cum_sum = np.where(cum_sum == chosen_item, 1, 0)
-#             sm = variable * chosen_in_cum_sum
-#
-#         return sm
-#
-#     def derivative(self, output, input=None):
-#         """
-#         derivative(output)
-#
-#         Calculate the derivative of `function <SoftMax.function>`.  If OUTPUT_TYPE for the SoftMax Function is ALL,
-#         return Jacobian matrix (derivative for each element of the output array with respect to each of the others):
-#             COMMENT:
-#                 D[j]/S[i] = S[i](d[i,j] - S[j]) where d[i,j]=1 if i==j; d[i,j]=0 if i!=j.
-#             COMMENT
-#             D\\ :sub:`j`\\ S\\ :sub:`i` = S\\ :sub:`i`\\ (𝜹\\ :sub:`i,j` - S\\ :sub:`j`),
-#             where 𝜹\\ :sub:`i,j`\\ =1 if i=j and 𝜹\\ :sub:`i,j`\\ =0 if i≠j.
-#         If OUTPUT_TYPE is MAX_VAL or MAX_INDICATOR, return 1d array of the derivatives of the maximum
-#         value with respect to the others (calculated as above). If OUTPUT_TYPE is PROB, raise an exception
-#         (since it is ambiguous as to which element would have been chosen by the SoftMax function)
-#
-#         Returns
-#         -------
-#
-#         derivative :  1d or 2d np.array (depending on OUTPUT_TYPE of SoftMax)
-#             derivative of values returns by SoftMax.
-#
-#         """
-#
-#         output_type = self.params[OUTPUT_TYPE]
-#         size = len(output)
-#         sm = self.function(output, params={OUTPUT_TYPE: ALL})
-#
-#         if output_type is ALL:
-#             # Return full Jacobian matrix of derivatives
-#             derivative = np.empty([size, size])
-#             for j in range(size):
-#                 for i, val in zip(range(size), output):
-#                     if i==j:
-#                         d = 1
-#                     else:
-#                         d = 0
-#                     derivative[j,i] = sm[i] * (d - sm[j])
-#
-#         elif output_type in {MAX_VAL, MAX_INDICATOR}:
-#             # Return 1d array of derivatives for max element (i.e., the one chosen by SoftMax)
-#             derivative = np.empty(size)
-#             # Get the element of output returned as non-zero when output_type is not ALL
-#             index_of_max = int(np.where(output==np.max(output))[0])
-#             max_val = sm[index_of_max]
-#             for i in range(size):
-#                 if i==index_of_max:
-#                     d = 1
-#                 else:
-#                     d = 0
-#                 derivative[i] = sm[i] * (d - max_val)
-#
-#         else:
-#             raise FunctionError("Can't calculate derivative for SoftMax function{} since OUTPUT_TYPE is PROB "
-#                                 "(and therefore the relevant element is ambiguous)".format(self.owner_name))
-#
-#         return derivative
 
 class LinearMatrix(TransferFunction):  # -------------------------------------------------------------------------------
     """
@@ -3340,6 +3353,22 @@ class LinearMatrix(TransferFunction):  # ---------------------------------------
     matrix : number, list, 1d or 2d np.ndarray, np.matrix, function, or matrix keyword : default IDENTITY_MATRIX
         specifies matrix used to transform `variable <LinearMatrix.variable>`
         (see `matrix <LinearMatrix.matrix>` for specification details).
+
+        When LinearMatrix is the `function <Projection.function>` of a projection:
+
+            - the matrix specification must be compatible with the variables of the `sender <Projection.sender>` and
+              `receiver <Projection.receiver>`
+
+            - a matrix keyword specification generates a matrix based on the sender and receiver shapes
+
+        When LinearMatrix is instantiated on its own, or as the function of `Mechanism` or `State`:
+
+            - the matrix specification must be compatible with the function's own `variable <LinearMatrix.variable>`
+
+            - if matrix is not specified, a square identity matrix is generated based on the number of columns in
+              `variable <LinearMatrix.variable>`
+
+            - matrix keywords are not valid matrix specifications
 
     bounds : None
 
@@ -3409,7 +3438,7 @@ class LinearMatrix(TransferFunction):  # ---------------------------------------
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  matrix:tc.optional(is_matrix) = None,
                  params=None,
                  owner=None,
@@ -3431,24 +3460,24 @@ class LinearMatrix(TransferFunction):  # ---------------------------------------
 
         self._matrix = self.instantiate_matrix(self.paramsCurrent[MATRIX])
 
-    def _validate_variable(self, variable, context=None):
-        """Insure that variable passed to LinearMatrix is a max 2D np.array
-
-        :param variable: (max 2D np.array)
-        :param context:
-        :return:
-        """
-        variable = self._update_variable(super()._validate_variable(variable, context))
-
-        # Check that variable <= 2D
-        try:
-            if not variable.ndim <= 2:
-                raise FunctionError("variable ({0}) for {1} must be a numpy.ndarray of dimension at most 2".format(variable, self.__class__.__name__))
-        except AttributeError:
-            raise FunctionError("PROGRAM ERROR: variable ({0}) for {1} should be a numpy.ndarray".
-                                    format(variable, self.__class__.__name__))
-
-        return variable
+    # def _validate_variable(self, variable, context=None):
+    #     """Insure that variable passed to LinearMatrix is a max 2D np.array
+    #
+    #     :param variable: (max 2D np.array)
+    #     :param context:
+    #     :return:
+    #     """
+    #     variable = self._update_variable(super()._validate_variable(variable, context))
+    #
+    #     # Check that variable <= 2D
+    #     try:
+    #         if not variable.ndim <= 2:
+    #             raise FunctionError("variable ({0}) for {1} must be a numpy.ndarray of dimension at most 2".format(variable, self.__class__.__name__))
+    #     except AttributeError:
+    #         raise FunctionError("PROGRAM ERROR: variable ({0}) for {1} should be a numpy.ndarray".
+    #                                 format(variable, self.__class__.__name__))
+    #
+    #     return variable
 
 
     def _validate_params(self, request_set, target_set=None, context=None):
@@ -3464,158 +3493,211 @@ class LinearMatrix(TransferFunction):  # ---------------------------------------
         """
 
         super()._validate_params(request_set, target_set, context)
+
         param_set = target_set
-        sender = self.instance_defaults.variable
-        # Note: this assumes variable is a 1D np.array, as enforced by _validate_variable
-        sender_len = sender.size
+        # proxy for checking whether the owner is a projection
+        if hasattr(self.owner, "receiver"):
+            sender = self.instance_defaults.variable
+            # Note: this assumes variable is a 1D np.array, as enforced by _validate_variable
+            sender_len = sender.size
 
-        # FIX: RELABEL sender -> input AND receiver -> output
-        # FIX: THIS NEEDS TO BE CLEANED UP:
-        #      - AT LEAST CHANGE THE NAME FROM kwReceiver TO output_template OR SOMETHING LIKE THAT
-        #      - MAKE ARG?  OR ADD OTHER PARAMS:  E.G., FILLER?
-        #      - OR REFACTOR TO INCLUDE AS MATRIX SPEC:
-        #                  IF MATRIX IS 1D, USE AS OUTPUT TEMPLATE
-        #                     IF ALL ITS VALUES ARE 1'S => FULL CONNECTIVITY MATRIX
-        #                     IF ALL ITS VALUES ARE 0'S => RANDOM CONNECTIVITY MATRIX
-        #                     NOTE:  NO NEED FOR IDENTITY MATRIX, AS THAT WOULD BE SQUARE SO NO NEED FOR OUTPUT TEMPLATE
-        #      - DOCUMENT WHEN DONE
-        # MODIFIED 3/26/17 OLD:
-        # Check for and validate kwReceiver first, since it may be needed to validate and/or construct the matrix
-        # First try to get receiver from specification in params
-        if RECEIVER in param_set:
-            self.receiver = param_set[RECEIVER]
-            # Check that specification is a list of numbers or an np.array
-            if ((isinstance(self.receiver, list) and all(isinstance(elem, numbers.Number) for elem in self.receiver)) or
-                    isinstance(self.receiver, np.ndarray)):
-                self.receiver = np.atleast_1d(self.receiver)
-            else:
-                raise FunctionError("receiver param ({0}) for {1} must be a list of numbers or an np.array".
-                                    format(self.receiver, self.name))
-        # No receiver, so use sender as template (assuming square -- e.g., identity -- matrix)
-        else:
-            if (self.owner and self.owner.prefs.verbosePref) or self.prefs.verbosePref:
-                print("Identity matrix requested but kwReceiver not specified; sender length ({0}) will be used".
-                      format(sender_len))
-            self.receiver = param_set[RECEIVER] = sender
-
-        receiver_len = len(self.receiver)
-
-        # Check rest of params
-        message = ""
-        for param_name, param_value in param_set.items():
-
-            # Receiver param already checked above
-            if param_name is RECEIVER:
-                continue
-
-            # Not currently used here
-            if param_name in function_keywords:
-                continue
-
-            if param_name is AUTO_DEPENDENT:
-                continue
-
-            # Matrix specification param
-            elif param_name == MATRIX:
-
-                # A number (to be used as a filler), so OK
-                if isinstance(param_value, numbers.Number):
-                    continue
-
-                # np.matrix or np.ndarray provided, so validate that it is numeric and check dimensions
-                elif isinstance(param_value, (list, np.ndarray, np.matrix)):
-                    # get dimensions specified by:
-                    #   variable (sender): width/cols/outer index
-                    #   kwReceiver param: height/rows/inner index
-
-                    weight_matrix = np.matrix(param_value)
-                    if 'U' in repr(weight_matrix.dtype):
-                        raise FunctionError("Non-numeric entry in MATRIX specification ({}) for the {} function of {}".
-                                            format(param_value), self.name, self.owner.name)
-
-                    if weight_matrix.ndim != 2:
-                        raise FunctionError("The matrix provided for the {} function of {} must be 2d (it is {}d".
-                                            format(weight_matrix.ndim, self.name, self.owner.name))
-
-                    matrix_rows = weight_matrix.shape[0]
-                    matrix_cols = weight_matrix.shape[1]
-
-                    # Check that number of rows equals length of sender vector (variable)
-                    if matrix_rows != sender_len:
-                        raise FunctionError("The number of rows ({}) of the matrix provided for {} function of {} "
-                                            "does not equal the length ({}) of the sender vector (variable)".
-                                            format(matrix_rows, self.name, self.owner.name, sender_len))
-
-                # Auto, full or random connectivity matrix requested (using keyword):
-                # Note:  assume that these will be properly processed by caller
-                #        (e.g., MappingProjection._instantiate_receiver)
-                elif param_value in MATRIX_KEYWORD_VALUES:
-                    continue
-
-                # Identity matrix requested (using keyword), so check send_len == receiver_len
-                elif param_value in {IDENTITY_MATRIX, HOLLOW_MATRIX}:
-                    # Receiver length doesn't equal sender length
-                    if not (self.receiver.shape == sender.shape and self.receiver.size == sender.size):
-                        # if self.owner.prefs.verbosePref:
-                        #     print ("Identity matrix requested, but length of receiver ({0})"
-                        #            " does not match length of sender ({1});  sender length will be used".
-                        #            format(receiver_len, sender_len))
-                        # # Set receiver to sender
-                        # param_set[kwReceiver] = sender
-                        raise FunctionError("{} requested for the {} function of {}, "
-                                            "but length of receiver ({}) does not match length of sender ({})".
-                                            format(param_value, self.name, self.owner.name, receiver_len, sender_len))
-                    continue
-
-                # list used to describe matrix, so convert to 2D np.array and pass to validation of matrix below
-                elif isinstance(param_value, list):
-                    try:
-                        param_value = np.atleast_2d(param_value)
-                    except (ValueError, TypeError) as error_msg:
-                        raise FunctionError("Error in list specification ({}) of matrix for the {} function of {}: {})".
-                                            # format(param_value, self.__class__.__name__, error_msg))
-                                            format(param_value, self.name, self.owner.name, error_msg))
-
-                # string used to describe matrix, so convert to np.matrix and pass to validation of matrix below
-                elif isinstance(param_value, str):
-                    try:
-                        param_value = np.matrix(param_value)
-                    except (ValueError, TypeError) as error_msg:
-                        raise FunctionError("Error in string specification ({}) of the matrix "
-                                            "for the {} function of {}: {})".
-                                            # format(param_value, self.__class__.__name__, error_msg))
-                                            format(param_value, self.name, self.owner.name, error_msg))
-
-                # function so:
-                # - assume it uses random.rand()
-                # - call with two args as place markers for cols and rows
-                # -  validate that it returns an np.array or np.matrix
-                elif isinstance(param_value, function_type):
-                    test = param_value(1, 1)
-                    if not isinstance(test, (np.ndarray, np.matrix)):
-                        raise FunctionError("A function is specified for the matrix of the {} function of {}: {}) "
-                                            "that returns a value ({}) that is neither a matrix nor an array".
-                                            # format(param_value, self.__class__.__name__, test))
-                                            format(self.name, self.owner.name, param_value, test))
-
+            # FIX: RELABEL sender -> input AND receiver -> output
+            # FIX: THIS NEEDS TO BE CLEANED UP:
+            #      - AT LEAST CHANGE THE NAME FROM kwReceiver TO output_template OR SOMETHING LIKE THAT
+            #      - MAKE ARG?  OR ADD OTHER PARAMS:  E.G., FILLER?
+            #      - OR REFACTOR TO INCLUDE AS MATRIX SPEC:
+            #                  IF MATRIX IS 1D, USE AS OUTPUT TEMPLATE
+            #                     IF ALL ITS VALUES ARE 1'S => FULL CONNECTIVITY MATRIX
+            #                     IF ALL ITS VALUES ARE 0'S => RANDOM CONNECTIVITY MATRIX
+            #                     NOTE:  NO NEED FOR IDENTITY MATRIX, AS THAT WOULD BE SQUARE SO NO NEED FOR OUTPUT TEMPLATE
+            #      - DOCUMENT WHEN DONE
+            # MODIFIED 3/26/17 OLD:
+            # Check for and validate kwReceiver first, since it may be needed to validate and/or construct the matrix
+            # First try to get receiver from specification in params
+            if RECEIVER in param_set:
+                self.receiver = param_set[RECEIVER]
+                # Check that specification is a list of numbers or an np.array
+                if ((isinstance(self.receiver, list) and all(
+                        isinstance(elem, numbers.Number) for elem in self.receiver)) or
+                        isinstance(self.receiver, np.ndarray)):
+                    self.receiver = np.atleast_1d(self.receiver)
                 else:
-                    raise FunctionError("Value of {} param ({}) for the {} function of {} "
-                                        "must be a matrix, a number (for filler), or a matrix keyword ({})".
-                                        format(param_name,
-                                               param_value,
-                                               self.name,
-                                               self.owner.name,
-                                               MATRIX_KEYWORD_NAMES))
+                    raise FunctionError("receiver param ({0}) for {1} must be a list of numbers or an np.array".
+                                        format(self.receiver, self.name))
+            # No receiver, so use sender as template (assuming square -- e.g., identity -- matrix)
             else:
-                message += "Unrecognized param ({}) specified for the {} function of {}\n".format(param_name,
-                                                                                                self.componentName,
-                                                                                                self.owner.name)
-                continue
+                if (self.owner and self.owner.prefs.verbosePref) or self.prefs.verbosePref:
+                    print("Identity matrix requested but kwReceiver not specified; sender length ({0}) will be used".
+                          format(sender_len))
+                self.receiver = param_set[RECEIVER] = sender
 
-        if message:
-            raise FunctionError(message)
+            receiver_len = len(self.receiver)
+
+            # Check rest of params
+            message = ""
+            for param_name, param_value in param_set.items():
+
+                # Receiver param already checked above
+                if param_name is RECEIVER:
+                    continue
+
+                # Not currently used here
+                if param_name in function_keywords:
+                    continue
+
+                if param_name is AUTO_DEPENDENT:
+                    continue
+
+                # Matrix specification param
+                elif param_name == MATRIX:
+
+                    # A number (to be used as a filler), so OK
+                    if isinstance(param_value, numbers.Number):
+                        continue
+
+                    # np.matrix or np.ndarray provided, so validate that it is numeric and check dimensions
+                    elif isinstance(param_value, (list, np.ndarray, np.matrix)):
+                        # get dimensions specified by:
+                        #   variable (sender): width/cols/outer index
+                        #   kwReceiver param: height/rows/inner index
+
+                        weight_matrix = np.matrix(param_value)
+                        if 'U' in repr(weight_matrix.dtype):
+                            raise FunctionError("Non-numeric entry in MATRIX "
+                                                "specification ({}) for the {} "
+                                                "function of {}".format(param_value,
+                                                                        self.name,
+                                                                        self.owner_name))
+
+                        if weight_matrix.ndim != 2:
+                            raise FunctionError("The matrix provided for the {} function of {} must be 2d (it is {}d".
+                                                format(weight_matrix.ndim, self.name, self.owner_name))
+
+                        matrix_rows = weight_matrix.shape[0]
+                        matrix_cols = weight_matrix.shape[1]
+
+                        # Check that number of rows equals length of sender vector (variable)
+                        if matrix_rows != sender_len:
+                            raise FunctionError("The number of rows ({}) of the "
+                                                "matrix provided for {} function "
+                                                "of {} does not equal the length "
+                                                "({}) of the sender vector "
+                                                "(variable)".format(matrix_rows,
+                                                                    self.name,
+                                                                    self.owner_name,
+                                                                    sender_len))
+
+                    # Auto, full or random connectivity matrix requested (using keyword):
+                    # Note:  assume that these will be properly processed by caller
+                    #        (e.g., MappingProjection._instantiate_receiver)
+                    elif param_value in MATRIX_KEYWORD_VALUES:
+                        continue
+
+                    # Identity matrix requested (using keyword), so check send_len == receiver_len
+                    elif param_value in {IDENTITY_MATRIX, HOLLOW_MATRIX}:
+                        # Receiver length doesn't equal sender length
+                        if not (self.receiver.shape == sender.shape and self.receiver.size == sender.size):
+                            # if self.owner.prefs.verbosePref:
+                            #     print ("Identity matrix requested, but length of receiver ({0})"
+                            #            " does not match length of sender ({1});  sender length will be used".
+                            #            format(receiver_len, sender_len))
+                            # # Set receiver to sender
+                            # param_set[kwReceiver] = sender
+                            raise FunctionError("{} requested for the {} function of {}, "
+                                                "but length of receiver ({}) does not match length of sender ({})".
+                                                format(param_value, self.name, self.owner_name, receiver_len,
+                                                       sender_len))
+                        continue
+
+                    # list used to describe matrix, so convert to 2D np.array and pass to validation of matrix below
+                    elif isinstance(param_value, list):
+                        try:
+                            param_value = np.atleast_2d(param_value)
+                        except (ValueError, TypeError) as error_msg:
+                            raise FunctionError(
+                                "Error in list specification ({}) of matrix for the {} function of {}: {})".
+                                # format(param_value, self.__class__.__name__, error_msg))
+                                format(param_value, self.name, self.owner_name, error_msg))
+
+                    # string used to describe matrix, so convert to np.matrix and pass to validation of matrix below
+                    elif isinstance(param_value, str):
+                        try:
+                            param_value = np.matrix(param_value)
+                        except (ValueError, TypeError) as error_msg:
+                            raise FunctionError("Error in string specification ({}) of the matrix "
+                                                "for the {} function of {}: {})".
+                                                # format(param_value, self.__class__.__name__, error_msg))
+                                                format(param_value, self.name, self.owner_name, error_msg))
+
+                    # function so:
+                    # - assume it uses random.rand()
+                    # - call with two args as place markers for cols and rows
+                    # -  validate that it returns an np.array or np.matrix
+                    elif isinstance(param_value, function_type):
+                        test = param_value(1, 1)
+                        if not isinstance(test, (np.ndarray, np.matrix)):
+                            raise FunctionError("A function is specified for the matrix of the {} function of {}: {}) "
+                                                "that returns a value ({}) that is neither a matrix nor an array".
+                                                # format(param_value, self.__class__.__name__, test))
+                                                format(self.name, self.owner_name, param_value, test))
+
+                    elif param_value is None:
+                        raise FunctionError("TEMP ERROR: param value is None.")
+
+                    else:
+                        raise FunctionError("Value of {} param ({}) for the {} function of {} "
+                                            "must be a matrix, a number (for filler), or a matrix keyword ({})".
+                                            format(param_name,
+                                                   param_value,
+                                                   self.name,
+                                                   self.owner_name,
+                                                   MATRIX_KEYWORD_NAMES))
+                else:
+                    message += "Unrecognized param ({}) specified for the {} function of {}\n".format(param_name,
+                                                                                                      self.componentName,
+                                                                                                      self.owner_name)
+                    continue
+            if message:
+                raise FunctionError(message)
+
+        # owner is a mechanism, state
+        # OR function was defined on its own (no owner)
+        else:
+            if MATRIX in param_set:
+                param_value = param_set[MATRIX]
+
+                # numeric value specified; verify that it is compatible with variable
+                if isinstance(param_value, (float, list, np.ndarray, np.matrix)):
+                    if np.size(np.atleast_2d(param_value), 0) != np.size(np.atleast_2d(self.instance_defaults.variable),1):
+                        raise FunctionError("Specification of matrix and/or default_variable for {} is not valid. "
+                                            "The shapes of variable {} and matrix {} are not compatible for "
+                                            "multiplication".format(self.name,
+                                                                    np.shape(np.atleast_2d(self.instance_defaults.variable)),
+                                                                    np.shape(np.atleast_2d(param_value))))
+
+                # keyword matrix specified - not valid outside of a projection
+                elif param_value in MATRIX_KEYWORD_VALUES:
+                    raise FunctionError("{} is not a valid specification for the matrix parameter of {}. Keywords "
+                                        "may only be used to specify the matrix parameter of a Projection's "
+                                        "LinearMatrix function. When the LinearMatrix function is implemented in a "
+                                        "mechanism, such as {}, the correct matrix cannot be determined from a "
+                                        "keyword. Instead, the matrix must be fully specified as a float, list, "
+                                        "np.ndarray, or np.matrix".
+                                        format(param_value, self.name, self.owner.name))
+
+                # The only remaining valid option is matrix = None (sorted out in instantiate_attribs_before_fn)
+                elif param_value is not None:
+                    raise FunctionError("Value of the matrix param ({}) for the {} function of {} "
+                                        "must be a matrix, a number (for filler), or a matrix keyword ({})".
+                                        format(param_value,
+                                               self.name,
+                                               self.owner_name,
+                                               MATRIX_KEYWORD_NAMES))
 
     def _instantiate_attributes_before_function(self, context=None):
+        if self.matrix is None and not hasattr(self.owner, "receiver"):
+            variable_length = np.size(np.atleast_2d(self.instance_defaults.variable), 1)
+            self.matrix = np.identity(variable_length)
         self.matrix = self.instantiate_matrix(self.matrix)
 
     def instantiate_matrix(self, specification, context=None):
@@ -3630,36 +3712,38 @@ class LinearMatrix(TransferFunction):  # ---------------------------------------
 
         :return matrix: (2D list)
         """
+        from psyneulink.components.projections.projection import Projection
+        if isinstance(self.owner, Projection):
+            # Matrix provided (and validated in _validate_params); convert to np.array
+            if isinstance(specification, np.matrix):
+                return np.array(specification)
 
-        # Matrix provided (and validated in _validate_params); convert to np.array
-        if isinstance(specification, np.matrix):
-            return np.array(specification)
+            sender = self.instance_defaults.variable
+            sender_len = sender.shape[0]
+            try:
+                receiver = self.receiver
+            except:
+                raise FunctionError("Can't instantiate matrix specification ({}) for the {} function of {} "
+                                    "since its receiver has not been specified".
+                                    format(specification, self.name, self.owner_name))
+                # receiver = sender
+            receiver_len = receiver.shape[0]
 
-        sender = self.instance_defaults.variable
-        sender_len = sender.shape[0]
-        try:
-            receiver = self.receiver
-        except:
-            raise FunctionError("Can't instantiate matrix specification ({}) for the {} function of {} "
-                                "since its receiver has not been specified".
-                                format(specification, self.name, self.owner.name))
-            # receiver = sender
-        receiver_len = receiver.shape[0]
+            matrix = get_matrix(specification, rows=sender_len, cols=receiver_len, context=context)
 
-        matrix = get_matrix(specification, rows=sender_len, cols=receiver_len, context=context)
-
-        # This should never happen (should have been picked up in validate_param or above)
-        if matrix is None:
-            raise FunctionError("MATRIX param ({}) for the {} function of {} must be a matrix, a function that returns "
-                                "one, a matrix specification keyword ({}), or a number (filler)".
-                                format(specification, self.name, self.owner.name, MATRIX_KEYWORD_NAMES))
+            # This should never happen (should have been picked up in validate_param or above)
+            if matrix is None:
+                raise FunctionError("MATRIX param ({}) for the {} function of {} must be a matrix, a function that returns "
+                                    "one, a matrix specification keyword ({}), or a number (filler)".
+                                    format(specification, self.name, self.owner_name, MATRIX_KEYWORD_NAMES))
+            else:
+                return matrix
         else:
-            return matrix
+            return np.array(specification)
 
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: `variable <LinearMatrix.variable>` • `matrix <LinearMatrix.matrix>`
@@ -3685,8 +3769,8 @@ class LinearMatrix(TransferFunction):  # ---------------------------------------
 
         # Note: this calls _validate_variable and _validate_params which are overridden above;
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
-
-        return np.dot(variable, self.matrix)
+        matrix = self.get_current_function_param(MATRIX)
+        return np.dot(variable, matrix)
 
     def keyword(self, keyword):
 
@@ -3701,7 +3785,7 @@ class LinearMatrix(TransferFunction):  # ---------------------------------------
 
         if matrix is None:
             raise FunctionError("Unrecognized keyword ({}) specified for the {} function of {}".
-                                format(keyword, self.name, self.owner.name))
+                                format(keyword, self.name, self.owner_name))
         else:
             return matrix
 
@@ -4019,6 +4103,15 @@ class Integrator(IntegratorFunction):  # ---------------------------------------
     previous_value : 1d np.array : default ClassDefaults.variable
         stores previous value with which `variable <Integrator.variable>` is integrated.
 
+    reinitialize : float or np.array
+        Sets
+
+        - `previous_value <Integrator.previous_value>`
+        - `initializer <Integrator.initial_value>`
+        - `value <Integrator.value>`
+
+        to the quantity specified, which effectively begins accumulation over again at the specified value
+
     owner : Component
         `component <Component>` to which the Function has been assigned.
 
@@ -4215,18 +4308,19 @@ class Integrator(IntegratorFunction):  # ---------------------------------------
 
         return value
 
-
     def function(self, *args, **kwargs):
         raise FunctionError("Integrator is not meant to be called explicitly")
 
     @property
-    def reset_initializer(self):
-        return self._initializer
+    def reinitialize(self):
+        return self.previous_value
 
-    @reset_initializer.setter
-    def reset_initializer(self, val):
+    @reinitialize.setter
+    def reinitialize(self, val):
         self._initializer = val
+        self.value = val
         self.previous_value = val
+
 
 class SimpleIntegrator(
     Integrator):  # --------------------------------------------------------------------------------
@@ -4319,6 +4413,15 @@ class SimpleIntegrator(
     previous_value : 1d np.array : default ClassDefaults.variable
         stores previous value with which `variable <SimpleIntegrator.variable>` is integrated.
 
+    reinitialize : float or np.array
+        Sets
+
+        - `previous_value <SimpleIntegrator.previous_value>`
+        - `initializer <SimpleIntegrator.initializer>`
+        - `value <SimpleIntegrator.value>`
+
+        to the quantity specified, which effectively begins accumulation over again at the specified value
+
     owner : Component
         `component <Component>` to which the Function has been assigned.
 
@@ -4378,7 +4481,6 @@ class SimpleIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: `variable <Linear.slope>` combined with `previous_value <SimpleIntegrator.previous_value>`
@@ -4405,31 +4507,21 @@ class SimpleIntegrator(
 
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        rate = np.array(self.paramsCurrent[RATE]).astype(float)
+        rate = np.array(self.get_current_function_param(RATE)).astype(float)
 
-        if self.offset is None:
+        offset = self.get_current_function_param(OFFSET)
+        if offset is None:
             offset = 0.0
-        else:
-            offset = self.offset
 
         # execute noise if it is a function
-        noise = self._try_execute_param(self.noise, variable)
-
-        # try:
-        #     previous_value = self._initializer
-        # except (TypeError, KeyError):
+        noise = self._try_execute_param(self.get_current_function_param(NOISE), variable)
         previous_value = self.previous_value
-
-        # previous_value = np.atleast_2d(previous_value)
         new_value = variable
-
-
-        # if params and VARIABLE in params:
-        #     new_value = params[VARIABLE]
 
         value = previous_value + (new_value * rate) + noise
 
         adjusted_value = value + offset
+
         # If this NOT an initialization run, update the old value
         # If it IS an initialization run, leave as is
         #    (don't want to count it as an execution step)
@@ -4459,7 +4551,7 @@ class LCAIntegrator(
 
     .. math::
 
-        rate \\dot previous\\_value + variable + noise \\sqrt{time\\_step\\_size}
+        rate \\cdot previous\\_value + variable + noise \\sqrt{time\\_step\\_size}
 
     COMMENT:
     `rate <LCAIntegrator.rate>` * `previous_value <LCAIntegrator.previous_value>` + \
@@ -4514,7 +4606,7 @@ class LCAIntegrator(
         applies to the corresponding element of `variable <LCAIntegrator.variable>`.
 
     noise : float, function, list, or 1d np.array
-        specifies random value to be added in each call to `function <LCAIntegrator.function>`.
+        specifies a value to be added in each call to `function <LCAIntegrator.function>`.
 
         If noise is a list or array, it must be the same length as `variable <LCAIntegrator.default_variable>`.
 
@@ -4536,6 +4628,15 @@ class LCAIntegrator(
 
     previous_value : 1d np.array : default ClassDefaults.variable
         stores previous value with which `variable <LCAIntegrator.variable>` is integrated.
+
+    reinitialize : float or np.array
+        Sets
+
+        - `previous_value <LCAIntegrator.previous_value>`
+        - `initializer <LCAIntegrator.initializer>`
+        - `value <LCAIntegrator.value>`
+
+        to the quantity specified, which effectively begins accumulation over again at the specified value
 
     owner : Component
         `component <Component>` to which the Function has been assigned.
@@ -4598,7 +4699,6 @@ class LCAIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return:
@@ -4627,32 +4727,24 @@ class LCAIntegrator(
 
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        rate = np.array(self.paramsCurrent[RATE]).astype(float)
+        rate = np.atleast_1d(self.get_current_function_param(RATE))
+        initializer = self.get_current_function_param(INITIALIZER)  # unnecessary?
+        time_step_size = self.get_current_function_param(TIME_STEP_SIZE)
+        offset = self.get_current_function_param(OFFSET)
 
-        if self.offset is None:
+        if offset is None:
             offset = 0.0
-        else:
-            offset = self.offset
 
         # execute noise if it is a function
-        noise = self._try_execute_param(self.noise, variable)
-
-        # try:
-        #     previous_value = self._initializer
-        # except (TypeError, KeyError):
+        noise = self._try_execute_param(self.get_current_function_param(NOISE), variable)
         previous_value = self.previous_value
-
-        # previous_value = np.atleast_2d(previous_value)
         new_value = variable
 
-
-        # if params and VARIABLE in params:
-        #     new_value = params[VARIABLE]
-
         # Gilzenrat: previous_value + (-previous_value + variable)*self.time_step_size + noise --> rate = -1
-        value = previous_value + (rate*previous_value + new_value)*self.time_step_size + noise*(self.time_step_size**0.5)
+        value = previous_value + (rate*previous_value + new_value)*time_step_size + noise*(time_step_size**0.5)
 
         adjusted_value = value + offset
+
         # If this NOT an initialization run, update the old value
         # If it IS an initialization run, leave as is
         #    (don't want to count it as an execution step)
@@ -4660,8 +4752,20 @@ class LCAIntegrator(
             self.previous_value = adjusted_value
 
         return adjusted_value
-class ConstantIntegrator(
-    Integrator):  # --------------------------------------------------------------------------------
+
+    @property
+    def reinitialize(self):
+        return self.previous_value
+
+    @reinitialize.setter
+    def reinitialize(self, val):
+        self._initializer = val
+        self.value = val
+        self.previous_value = val
+        self.previous_time = 0.0
+
+
+class ConstantIntegrator(Integrator):  # --------------------------------------------------------------------------------
     """
     ConstantIntegrator(                 \
         default_variable=None,          \
@@ -4753,6 +4857,15 @@ class ConstantIntegrator(
 
         If initializer is a list or array, it must be the same length as `variable <ConstantIntegrator.default_variable>`.
 
+    reinitialize : float or np.array
+        Sets
+
+        - `previous_value <ConstantIntegrator.previous_value>`
+        - `initializer <ConstantIntegrator.initializer>`
+        - `value <ConstantIntegrator.value>`
+
+        to the quantity specified, which effectively begins accumulation over again at the specified value
+
     previous_value : 1d np.array : default ClassDefaults.variable
         stores previous value to which `rate <ConstantIntegrator.rate>` and `noise <ConstantIntegrator.noise>` will be
         added.
@@ -4826,7 +4939,6 @@ class ConstantIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: the sum of `previous_value <ConstantIntegrator.previous_value>`, `rate <ConstantIntegrator.rate>`, and
@@ -4850,25 +4962,16 @@ class ConstantIntegrator(
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
         rate = np.array(self.rate).astype(float)
-        offset = self.offset
-        scale = self.scale
-
-        # CAVEAT: why was self.variable never used in this function before it was functionalized?
-        # execute noise if it is a function
+        offset = self.get_current_function_param(OFFSET)
+        scale = self.get_current_function_param(SCALE)
         noise = self._try_execute_param(self.noise, variable)
 
-
-        # try:
-        #     previous_value = params[INITIALIZER]
-        # except (TypeError, KeyError):
-        previous_value = self.previous_value
-
-        previous_value = np.atleast_2d(previous_value)
+        previous_value = np.atleast_2d(self.previous_value)
 
         value = previous_value + rate + noise
 
-
         adjusted_value = value*scale + offset
+
         # If this NOT an initialization run, update the old value
         # If it IS an initialization run, leave as is
         #    (don't want to count it as an execution step)
@@ -4974,6 +5077,15 @@ class AdaptiveIntegrator(
     previous_value : 1d np.array : default ClassDefaults.variable
         stores previous value with which `variable <AdaptiveIntegrator.variable>` is integrated.
 
+    reinitialize : float or np.array
+        Sets
+
+        - `previous_value <AdaptiveIntegrator.previous_value>`
+        - `initializer <AdaptiveIntegrator.initializer>`
+        - `value <AdaptiveIntegrator.value>`
+
+        to the quantity specified, which effectively begins accumulation over again at the specified value
+
     owner : Component
         `component <Component>` to which the Function has been assigned.
 
@@ -5039,7 +5151,7 @@ class AdaptiveIntegrator(
         if RATE in request_set:
             rate = request_set[RATE]
             if isinstance(rate, (list, np.ndarray)):
-                if len(rate) != np.array(self.instance_defaults.variable).size:
+                if len(rate) != 1 and len(rate) != np.array(self.instance_defaults.variable).size:
                     # If the variable was not specified, then reformat it to match rate specification
                     #    and assign ClassDefaults.variable accordingly
                     # Note: this situation can arise when the rate is parametrized (e.g., as an array) in the
@@ -5105,7 +5217,6 @@ class AdaptiveIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: some fraction of `variable <AdaptiveIntegrator.variable>` combined with some fraction of `previous_value
@@ -5131,21 +5242,16 @@ class AdaptiveIntegrator(
         """
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        rate = np.array(self.paramsCurrent[RATE]).astype(float)
-        offset = self.paramsCurrent[OFFSET]
+        rate = np.array(self.get_current_function_param(RATE)).astype(float)
+        offset = self.get_current_function_param(OFFSET)
         # execute noise if it is a function
-        noise = self._try_execute_param(self.noise, variable)
+        noise = self._try_execute_param(self.get_current_function_param(NOISE), variable)
 
+        previous_value = np.atleast_2d(self.previous_value)
 
-        # try:
-        #     previous_value = params[INITIALIZER]
-        # except (TypeError, KeyError):
-        previous_value = self.previous_value
-
-        previous_value = np.atleast_2d(previous_value)
-        # value = (1 - rate) * previous_value + rate * new_value + noise
         value = (1-rate)*previous_value + rate*variable + noise
         adjusted_value = value + offset
+
         # If this NOT an initialization run, update the old value
         # If it IS an initialization run, leave as is
         #    (don't want to count it as an execution step)
@@ -5266,6 +5372,21 @@ class DriftDiffusionIntegrator(
     previous_value : 1d np.array : default ClassDefaults.variable
         stores previous value with which `variable <DriftDiffusionIntegrator.variable>` is integrated.
 
+    reinitialize : float or np.array
+        Takes 2 items (i.e my_integrator.reinitialize = 1.0, 2.0), each of which is a float or array
+
+        Sets
+
+        - `previous_value <DriftDiffusionIntegrator.previous_value>`
+        - `initializer <DriftDiffusionIntegrator.initializer>`
+        - `value <DriftDiffusionIntegrator.value>`
+
+        to the quantity specified in reinitialize[0].
+
+        Sets `previous_time <DriftDiffusionIntegrator.previous_time>` to the quantity specified in reinitialize[1].
+
+        Effectively begins accumulation over again at the original starting point and time, or new ones
+
     threshold : float : default 0.0
         when used properly determines the threshold (boundaries) of the drift diffusion process (i.e., at which the
         integration process is assumed to terminate).
@@ -5335,7 +5456,6 @@ class DriftDiffusionIntegrator(
 
         # Assign here as default, for use in initialization of function
         self.previous_value = self.paramClassDefaults[INITIALIZER]
-
         super().__init__(default_variable=default_variable,
                          params=params,
                          owner=owner,
@@ -5356,7 +5476,6 @@ class DriftDiffusionIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: One time step of evidence accumulation according to the Drift Diffusion Model
@@ -5385,31 +5504,22 @@ class DriftDiffusionIntegrator(
         """
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        rate = np.array(self.paramsCurrent[RATE]).astype(float)
-        offset = self.paramsCurrent[OFFSET]
+        rate = np.array(self.get_current_function_param(RATE)).astype(float)
+        offset = self.get_current_function_param(OFFSET)
+        noise = self.get_current_function_param(NOISE)
+        threshold = self.get_current_function_param(THRESHOLD)
+        time_step_size = self.get_current_function_param(TIME_STEP_SIZE)
 
-        time_step_size = self.paramsCurrent[TIME_STEP_SIZE]
+        previous_value = np.atleast_2d(self.previous_value)
 
-        noise = self.noise
-
-        # try:
-        #     previous_value = params[INITIALIZER]
-        # except (TypeError, KeyError):
-        previous_value = self.previous_value
-
-        previous_value = np.atleast_2d(previous_value)
-        new_value = variable
-
-
-        value = previous_value + rate * new_value * time_step_size  \
+        value = previous_value + rate * variable * time_step_size  \
                 + np.sqrt(time_step_size * noise) * np.random.normal()
 
-        if np.all(abs(value) < self.threshold):
+        if np.all(abs(value) < threshold):
             adjusted_value = value + offset
         else:
-            adjusted_value = self.threshold
-            for i in range(len(value)):
-                adjusted_value[i] = self.threshold[i]*np.sign(value[i][0])
+            adjusted_value = np.atleast_2d(threshold)
+
         # If this NOT an initialization run, update the old value and time
         # If it IS an initialization run, leave as is
         #    (don't want to count it as an execution step)
@@ -5417,7 +5527,30 @@ class DriftDiffusionIntegrator(
             self.previous_value = adjusted_value
             self.previous_time += time_step_size
 
+        # FIX?
+        # Current output format is [[[decision_variable]], time]
         return adjusted_value
+
+    @property
+    def reinitialize(self):
+        return self.previous_value, self.previous_time
+
+    @reinitialize.setter
+    def reinitialize(self, value):
+        try:
+            val, time = value
+            self._initializer = val
+            self.value = val
+            self.previous_value = val
+            self.previous_time = time
+        except (ValueError, TypeError):
+            num_items = len(np.atleast_1d(value))
+            if num_items == 1:
+                raise FunctionError("DriftDiffusionIntegrator requires exactly two items (position, time) in order to "
+                                    "reinitialize. Only one item ({}) was provided to reinitialize {}.".format(value, self.name))
+
+            raise FunctionError("DriftDiffusionIntegrator requires exactly two items (position, time) in order to "
+                                "reinitialize. {} items ({}) were provided to reinitialize {}.".format(num_items, value, self.name))
 
 class OrnsteinUhlenbeckIntegrator(
     Integrator):  # --------------------------------------------------------------------------------
@@ -5516,6 +5649,20 @@ class OrnsteinUhlenbeckIntegrator(
     previous_value : 1d np.array : default ClassDefaults.variable
         stores previous value with which `variable <OrnsteinUhlenbeckIntegrator.variable>` is integrated.
 
+    reinitialize : float or np.array
+        Sets
+
+        - `previous_value <OrnsteinUhlenbeckIntegrator.previous_value>`
+        - `initializer <OrnsteinUhlenbeckIntegrator.initializer>`
+        - `value <OrnsteinUhlenbeckIntegrator.value>`
+
+        to the quantity specified in reinitialize[0]
+
+        Sets `previous_time <OrnsteinUhlenbeckIntegrator.previous_time>` to the quantity specified in reinitialize[1].
+
+        Effectively begins accumulation over again at the specified value and time
+
+
     previous_time : float
         stores previous time at which the function was executed and accumulates with each execution according to
         `time_step_size <OrnsteinUhlenbeckIntegrator.default_time_step_size>`.
@@ -5597,7 +5744,6 @@ class OrnsteinUhlenbeckIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: One time step of evidence accumulation according to the Ornstein Uhlenbeck Model
@@ -5625,22 +5771,16 @@ class OrnsteinUhlenbeckIntegrator(
         updated value of integral : 2d np.array
 
         """
+
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
+        rate = np.array(self.get_current_function_param(RATE)).astype(float)
+        offset = self.get_current_function_param(OFFSET)
+        time_step_size = self.get_current_function_param(TIME_STEP_SIZE)
+        decay = self.get_current_function_param(DECAY)
+        noise = self.get_current_function_param(NOISE)
 
-        rate = np.array(self.paramsCurrent[RATE]).astype(float)
-        offset = self.paramsCurrent[OFFSET]
+        previous_value = np.atleast_2d(self.previous_value)
 
-        time_step_size = self.paramsCurrent[TIME_STEP_SIZE]
-        decay = self.paramsCurrent[DECAY]
-
-        noise = self.noise
-
-        # try:
-        #     previous_value = params[INITIALIZER]
-        # except (TypeError, KeyError):
-        previous_value = self.previous_value
-
-        previous_value = np.atleast_2d(previous_value)
         # dx = (lambda*x + A)dt + c*dW
         value = previous_value + (decay * previous_value - rate * variable) * time_step_size + np.sqrt(
             time_step_size * noise) * np.random.normal()
@@ -5656,8 +5796,28 @@ class OrnsteinUhlenbeckIntegrator(
 
         return adjusted_value
 
-class FHNIntegrator(
-    Integrator):  # --------------------------------------------------------------------------------
+    @property
+    def reinitialize(self):
+        return self.previous_value, self.previous_time
+
+    @reinitialize.setter
+    def reinitialize(self, value):
+        try:
+            val, time = value
+            self._initializer = val
+            self.value = val
+            self.previous_value = val
+            self.previous_time = time
+        except (ValueError, TypeError):
+            num_items = len(np.atleast_1d(value))
+            if num_items == 1:
+                raise FunctionError("OrnsteinUhlenbeckIntegrator requires exactly two items (position, time) in order to "
+                                    "reinitialize. Only one item ({}) was provided to reinitialize {}.".format(value, self.name))
+
+            raise FunctionError("OrnsteinUhlenbeckIntegrator requires exactly two items (position, time) in order to "
+                                "reinitialize. {} items ({}) were provided to reinitialize {}.".format(num_items, value, self.name))
+
+class FHNIntegrator(Integrator):  # --------------------------------------------------------------------------------
     """
     FHNIntegrator(                      \
         default_variable=1.0,           \
@@ -6024,31 +6184,32 @@ class FHNIntegrator(
     time_constant_w : float : default 12.5
         scaling factor on the dv/dt equation
 
+    reinitialize : float or np.array
+        Takes 3 items (i.e my_integrator.reinitialize = 1.0, 2.0, 3.0), each of which is a float or array 
+
+        Sets
+
+        - `previous_v <DriftDiffusionIntegrator.previous_v>`
+        - `initial_v <DriftDiffusionIntegrator.initial_v>`
+
+        to the quantity specified in reinitialize[0].
+
+        Sets
+
+        - `previous_w <DriftDiffusionIntegrator.previous_w>`
+        - `initial_w <DriftDiffusionIntegrator.initial_w>`
+
+        to the quantity specified in reinitialize[1].
+
+        Sets `previous_time <DriftDiffusionIntegrator.previous_time>` to the quantity specified in reinitialize[2].
+
+        Effectively begins accumulation over again at the specified v, w, and time.
+
     prefs : PreferenceSet or specification dict : default Function.classPreferences
         the `PreferenceSet` for the Function (see `prefs <Function_Base.prefs>` for details).
     """
 
     MODE = 'mode'
-    # offset=0.0,
-    # scale=1.0,
-    # initial_w=0.0,
-    # initial_v=0.0,
-    # time_step_size=0.1,
-    # t_0=0.0,
-    # a_v=-1/3,
-    # b_v=0.0,
-    # c_v=1.0,
-    # d_v=0.0,
-    # e_v=-1.0,
-    # f_v=1.0,
-    # time_constant_v=1.0,
-    # a_w=1.0,
-    # b_w=-0.8,
-    # c_w=0.7,
-    # threshold=-1.0,
-    # time_constant_w=12.5,
-    # mode=1.0,
-    # uncorrelated_activity=0.0,
 
     componentName = FHN_INTEGRATOR_FUNCTION
 
@@ -6123,7 +6284,7 @@ class FHNIntegrator(
 
         self.previous_v = self.initial_v
         self.previous_w = self.initial_w
-        self.previous_t = self.t_0
+        self.previous_time = self.t_0
         super().__init__(
             default_variable=default_variable,
             params=params,
@@ -6141,22 +6302,40 @@ class FHNIntegrator(
             raise FunctionError("Invalid integration method ({}) selected for {}. Choose 'RK4' or 'EULER'".
                                 format(self.integration_method, self.name))
 
-    def _euler_FHN(self, previous_value_v, previous_value_w, previous_time, slope_v, slope_w, time_step_size):
+    def _euler_FHN(self, previous_value_v, previous_value_w, previous_time, slope_v, slope_w, time_step_size, a_v,
+                   threshold, b_v, c_v, d_v, e_v, f_v, time_constant_v, mode, a_w, b_w, c_w, uncorrelated_activity,
+                   time_constant_w):
 
         slope_v_approx = slope_v(previous_time,
                                    previous_value_v,
-                                   previous_value_w)
+                                   previous_value_w,
+                                   a_v,
+                                   threshold,
+                                   b_v,
+                                   c_v,
+                                   d_v,
+                                   e_v,
+                                   f_v,
+                                   time_constant_v)
 
         slope_w_approx = slope_w(previous_time,
-                                   previous_value_w,
-                                   previous_value_v)
+                                 previous_value_w,
+                                 previous_value_v,
+                                 mode,
+                                 a_w,
+                                 b_w,
+                                 c_w,
+                                 uncorrelated_activity,
+                                 time_constant_w)
 
         new_v = previous_value_v + time_step_size*slope_v_approx
         new_w = previous_value_w + time_step_size*slope_w_approx
 
         return new_v, new_w
 
-    def _runge_kutta_4_FHN(self, previous_value_v, previous_value_w, previous_time, slope_v, slope_w, time_step_size):
+    def _runge_kutta_4_FHN(self, previous_value_v, previous_value_w, previous_time, slope_v, slope_w, time_step_size,
+                           a_v, threshold, b_v, c_v, d_v, e_v, f_v, time_constant_v, mode, a_w, b_w, c_w,
+                           uncorrelated_activity, time_constant_w):
 
         # First approximation
         # v is approximately previous_value_v
@@ -6164,22 +6343,50 @@ class FHNIntegrator(
 
         slope_v_approx_1 = slope_v(previous_time,
                                    previous_value_v,
-                                   previous_value_w)
+                                   previous_value_w,
+                                   a_v,
+                                   threshold,
+                                   b_v,
+                                   c_v,
+                                   d_v,
+                                   e_v,
+                                   f_v,
+                                   time_constant_v)
 
         slope_w_approx_1 = slope_w(previous_time,
                                    previous_value_w,
-                                   previous_value_v)
+                                   previous_value_v,
+                                   mode,
+                                   a_w,
+                                   b_w,
+                                   c_w,
+                                   uncorrelated_activity,
+                                   time_constant_w)
         # Second approximation
         # v is approximately previous_value_v + 0.5 * time_step_size * slope_w_approx_1
         # w is approximately previous_value_w + 0.5 * time_step_size * slope_w_approx_1
 
         slope_v_approx_2 = slope_v(previous_time + time_step_size/2,
                                    previous_value_v + (0.5 * time_step_size * slope_v_approx_1),
-                                   previous_value_w + (0.5 * time_step_size * slope_w_approx_1))
+                                   previous_value_w + (0.5 * time_step_size * slope_w_approx_1),
+                                   a_v,
+                                   threshold,
+                                   b_v,
+                                   c_v,
+                                   d_v,
+                                   e_v,
+                                   f_v,
+                                   time_constant_v)
 
         slope_w_approx_2 = slope_w(previous_time + time_step_size/2,
                                    previous_value_w + (0.5 * time_step_size * slope_w_approx_1),
-                                   previous_value_v + (0.5 * time_step_size * slope_v_approx_1))
+                                   previous_value_v + (0.5 * time_step_size * slope_v_approx_1),
+                                   mode,
+                                   a_w,
+                                   b_w,
+                                   c_w,
+                                   uncorrelated_activity,
+                                   time_constant_w)
 
         # Third approximation
         # v is approximately previous_value_v + 0.5 * time_step_size * slope_v_approx_2
@@ -6187,11 +6394,25 @@ class FHNIntegrator(
 
         slope_v_approx_3 = slope_v(previous_time + time_step_size/2,
                                    previous_value_v + (0.5 * time_step_size * slope_v_approx_2),
-                                   previous_value_w + (0.5 * time_step_size * slope_w_approx_2))
+                                   previous_value_w + (0.5 * time_step_size * slope_w_approx_2),
+                                   a_v,
+                                   threshold,
+                                   b_v,
+                                   c_v,
+                                   d_v,
+                                   e_v,
+                                   f_v,
+                                   time_constant_v)
 
         slope_w_approx_3 = slope_w(previous_time + time_step_size/2,
                                    previous_value_w + (0.5 * time_step_size * slope_w_approx_2),
-                                   previous_value_v + (0.5 * time_step_size * slope_v_approx_2))
+                                   previous_value_v + (0.5 * time_step_size * slope_v_approx_2),
+                                   mode,
+                                   a_w,
+                                   b_w,
+                                   c_w,
+                                   uncorrelated_activity,
+                                   time_constant_w)
 
         # Fourth approximation
         # v is approximately previous_value_v + time_step_size * slope_v_approx_3
@@ -6199,11 +6420,25 @@ class FHNIntegrator(
 
         slope_v_approx_4 = slope_v(previous_time + time_step_size,
                                    previous_value_v + (time_step_size * slope_v_approx_3),
-                                   previous_value_w + (time_step_size * slope_v_approx_3))
+                                   previous_value_w + (time_step_size * slope_v_approx_3),
+                                   a_v,
+                                   threshold,
+                                   b_v,
+                                   c_v,
+                                   d_v,
+                                   e_v,
+                                   f_v,
+                                   time_constant_v)
 
         slope_w_approx_4 = slope_w(previous_time + time_step_size,
                                    previous_value_w + (time_step_size * slope_v_approx_3),
-                                   previous_value_v + (time_step_size * slope_v_approx_3))
+                                   previous_value_v + (time_step_size * slope_v_approx_3),
+                                   mode,
+                                   a_w,
+                                   b_w,
+                                   c_w,
+                                   uncorrelated_activity,
+                                   time_constant_w)
 
         new_v = previous_value_v \
                 + (time_step_size/6)*(slope_v_approx_1 + 2*(slope_v_approx_2 + slope_v_approx_3) + slope_v_approx_4)
@@ -6217,7 +6452,6 @@ class FHNIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: current v, current w
@@ -6249,10 +6483,28 @@ class FHNIntegrator(
         current value of v , current value of w : float, list, or np.array
 
         """
-        def dv_dt(time, v, w):
 
-            val= (self.a_v*(v**3) + (1+self.threshold)*self.b_v*(v**2) + (-self.threshold)*self.c_v*v + self.d_v
-                    + self.e_v*self.previous_w + self.f_v*variable)/self.time_constant_v
+        a_v = self.get_current_function_param("a_v")
+        b_v = self.get_current_function_param("b_v")
+        c_v = self.get_current_function_param("c_v")
+        d_v = self.get_current_function_param("d_v")
+        e_v = self.get_current_function_param("e_v")
+        f_v = self.get_current_function_param("f_v")
+        time_constant_v = self.get_current_function_param("time_constant_v")
+        threshold = self.get_current_function_param("threshold")
+        a_w = self.get_current_function_param("a_w")
+        b_w = self.get_current_function_param("b_w")
+        c_w = self.get_current_function_param("c_w")
+        uncorrelated_activity = self.get_current_function_param("uncorrelated_activity")
+        time_constant_w = self.get_current_function_param("time_constant_w")
+        mode = self.get_current_function_param("mode")
+        integration_method = self.get_current_function_param("integration_method")
+        time_step_size = self.get_current_function_param(TIME_STEP_SIZE)
+
+        def dv_dt(time, v, w, a_v, threshold, b_v, c_v, d_v, e_v, f_v, time_constant_v):
+
+            val= (a_v*(v**3) + (1+threshold)*b_v*(v**2) + (-threshold)*c_v*v + d_v
+                    + e_v*self.previous_w + f_v*variable)/time_constant_v
 
             # Standard coefficients - hardcoded for testing
             # val = v - (v**3)/3 - w + variable
@@ -6262,9 +6514,9 @@ class FHNIntegrator(
 
             return val
 
-        def dw_dt(time, w, v):
-            val = (self.mode*self.a_w*self.previous_v + self.b_w*w + self.c_w +
-                    (1-self.mode)*self.uncorrelated_activity)/self.time_constant_w
+        def dw_dt(time, w, v, mode, a_w, b_w, c_w, uncorrelated_activity, time_constant_w):
+            val = (mode*a_w*self.previous_v + b_w*w + c_w +
+                    (1-mode)*uncorrelated_activity)/time_constant_w
 
             # Standard coefficients - hardcoded for testing
             # val = (v + 0.7 - 0.8*w)/12.5
@@ -6274,33 +6526,86 @@ class FHNIntegrator(
             # val = (v - 0.5*w)
 
             return val
-        if self.integration_method == "RK4":
+        if integration_method == "RK4":
             approximate_values = self._runge_kutta_4_FHN(self.previous_v,
                                                          self.previous_w,
-                                                         self.previous_t,
+                                                         self.previous_time,
                                                          dv_dt,
                                                          dw_dt,
-                                                         self.time_step_size)
-        elif self.integration_method == "EULER":
+                                                         time_step_size,
+                                                         a_v,
+                                                         threshold,
+                                                         b_v,
+                                                         c_v,
+                                                         d_v,
+                                                         e_v,
+                                                         f_v,
+                                                         time_constant_v,
+                                                         mode,
+                                                         a_w,
+                                                         b_w,
+                                                         c_w,
+                                                         uncorrelated_activity,
+                                                         time_constant_w)
+
+
+        elif integration_method == "EULER":
             approximate_values = self._euler_FHN(self.previous_v,
                                                          self.previous_w,
-                                                         self.previous_t,
+                                                         self.previous_time,
                                                          dv_dt,
                                                          dw_dt,
-                                                         self.time_step_size)
+                                                         time_step_size,
+                                                         a_v,
+                                                         threshold,
+                                                         b_v,
+                                                         c_v,
+                                                         d_v,
+                                                         e_v,
+                                                         f_v,
+                                                         time_constant_v,
+                                                         mode,
+                                                         a_w,
+                                                         b_w,
+                                                         c_w,
+                                                         uncorrelated_activity,
+                                                         time_constant_w)
         else:
             raise FunctionError("Invalid integration method ({}) selected for {}".
-                                format(self.integration_method, self.name))
+                                format(integration_method, self.name))
 
         if not context or INITIALIZING not in context:
             self.previous_v = approximate_values[0]
             self.previous_w = approximate_values[1]
-            self.previous_t += self.time_step_size[0]
+            self.previous_time += time_step_size
 
-        return self.previous_v, self.previous_w, self.previous_t
+        return self.previous_v, self.previous_w, self.previous_time
 
-class AccumulatorIntegrator(
-    Integrator):  # --------------------------------------------------------------------------------
+    @property
+    def reinitialize(self):
+        return self.previous_v, self.previous_w, self.previous_time
+
+    @reinitialize.setter
+    def reinitialize(self, value):
+        try:
+            v, w, time = value
+            self._initial_v = v
+            self.previous_v = v
+            self._initial_w = w
+            self.previous_w = w
+            self.previous_time = time
+            self.value = v, w, time
+
+        except (ValueError, TypeError):
+            num_items = len(np.atleast_1d(value))
+            if num_items == 1:
+                raise FunctionError("FHNIntegrator requires exactly three items (v, w, time) in order to "
+                                    "reinitialize. Only one item ({}) was provided to reinitialize {}.".format(value, self.name))
+
+            raise FunctionError("FHNIntegrator requires exactly three items (v, w, time) in order to "
+                                "reinitialize. {} items ({}) were provided to reinitialize {}.".format(num_items, value, self.name))
+
+class AccumulatorIntegrator(Integrator):  # --------------------------------------------------------------------------------
     """
     AccumulatorIntegrator(              \
         default_variable=None,          \
@@ -6408,6 +6713,15 @@ class AccumulatorIntegrator(
     previous_value : 1d np.array : default ClassDefaults.variable
         stores previous value to which `rate <AccumulatorIntegrator.rate>` and `noise <AccumulatorIntegrator.noise>`
         will be added.
+
+    reinitialize : float or np.array
+        Sets
+
+        - `previous_value <AccumulatorIntegrator.previous_value>`
+        - `initializer <AccumulatorIntegrator.initializer>`
+        - `value <AccumulatorIntegrator.value>`
+
+        to the quantity specified, which effectively begins accumulation over again at the specified value
 
     owner : Component
         `component <Component>` to which the Function has been assigned.
@@ -6559,7 +6873,6 @@ class AccumulatorIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: `previous_value <ConstantIntegrator.previous_value>` combined with `rate <ConstantIntegrator.rate>` and
@@ -6582,25 +6895,15 @@ class AccumulatorIntegrator(
         """
         self._accumulator_check_args(variable, params=params, context=context)
 
-        # rate = np.array(self.rate).astype(float)
-        # increment = self.increment
+        rate = self.get_current_function_param(RATE)
+        increment = self.get_current_function_param(INCREMENT)
+        noise = self._try_execute_param(self.get_current_function_param(NOISE), variable)
 
-        if self.rate is None:
+        if rate is None:
             rate = 1.0
-        else:
-            rate = self.rate
 
-        if self.increment is None:
+        if increment is None:
             increment = 0.0
-        else:
-            increment = self.increment
-
-        # execute noise if it is a function
-        noise = self._try_execute_param(self.noise, variable)
-
-        # try:
-        #     previous_value = params[INITIALIZER]
-        # except (TypeError, KeyError):
 
         previous_value = np.atleast_2d(self.previous_value)
 
@@ -6613,8 +6916,8 @@ class AccumulatorIntegrator(
             self.previous_value = value
         return value
 
-class AGTUtilityIntegrator(
-    Integrator):  # --------------------------------------------------------------------------------
+
+class AGTUtilityIntegrator(Integrator):  # --------------------------------------------------------------------------------
     """
     AGTUtilityIntegrator(                    \
         default_variable=None,            \
@@ -6746,6 +7049,27 @@ class AGTUtilityIntegrator(
         stores previous value with which `variable <AGTUtilityIntegrator.variable>` is integrated using the EWMA filter and
         long term parameters
 
+    reinitialize : float or np.array
+        Takes 2 items (i.e my_integrator.reinitialize = 1.0, 2.0), each of which is a float or array
+
+        Sets
+
+        - `previous_short_term_utility <AGTUtilityIntegrator.previous_short_term_utility>`
+        - `initial_short_term_utility <AGTUtilityIntegrator.initial_short_term_utility>`
+
+        to the quantity specified in reinitialize[0].
+
+        Sets
+
+        - `previous_long_term_utility <AGTUtilityIntegrator.previous_long_term_utility>`
+        - `initial_long_term_utility <AGTUtilityIntegrator.initial_long_term_utility>`
+
+        to the quantity specified in reinitialize[1].
+
+        sets `value <AGTUtilityIntegrator.value>` to the to the quantity specified in reinitialize[2].
+
+        This effectively begins accumulation over again at the specified utilities.
+
     owner : Component
         `component <Component>` to which the Function has been assigned.
 
@@ -6828,7 +7152,7 @@ class AGTUtilityIntegrator(
         if RATE in request_set:
             rate = request_set[RATE]
             if isinstance(rate, (list, np.ndarray)):
-                if len(rate) != np.array(self.instance_defaults.variable).size:
+                if len(rate) != 1 and len(rate) != np.array(self.instance_defaults.variable).size:
                     # If the variable was not specified, then reformat it to match rate specification
                     #    and assign ClassDefaults.variable accordingly
                     # Note: this situation can arise when the rate is parametrized (e.g., as an array) in the
@@ -6906,7 +7230,6 @@ class AGTUtilityIntegrator(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: some fraction of `variable <AGTUtilityIntegrator.variable>` combined with some fraction of `previous_value
@@ -6931,41 +7254,48 @@ class AGTUtilityIntegrator(
         """
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        rate = np.array(self.paramsCurrent[RATE]).astype(float)
-        offset = self.paramsCurrent[OFFSET]
+        rate = np.array(self.get_current_function_param(RATE)).astype(float)
+        offset = self.get_current_function_param(OFFSET)
         # execute noise if it is a function
-        noise = self._try_execute_param(self.noise, variable)
+        noise = self._try_execute_param(self.get_current_function_param(NOISE), variable)
+        long_term_rate = self.get_current_function_param("long_term_rate")
+        long_term_gain = self.get_current_function_param("long_term_gain")
+        long_term_bias = self.get_current_function_param("long_term_bias")
+        short_term_rate = self.get_current_function_param("short_term_rate")
+        short_term_gain = self.get_current_function_param("short_term_gain")
+        short_term_bias = self.get_current_function_param("short_term_bias")
+        operation = self.get_current_function_param(OPERATION)
 
         # long term params applied to variable
         long_term_utility = self._EWMA_filter(self.previous_long_term_utility,
-                                            self.long_term_rate,
+                                            long_term_rate,
                                             variable)
         long_term_utility_logistic = self._logistic(variable=long_term_utility,
-                                                    gain=self.long_term_gain,
-                                                    bias=self.long_term_bias
+                                                    gain=long_term_gain,
+                                                    bias=long_term_bias
                                                     )
         self.long_term_utility_logistic = long_term_utility_logistic
 
         # short term params applied to variable
         short_term_utility=self._EWMA_filter(self.previous_short_term_utility,
-                                            self.short_term_rate,
+                                            short_term_rate,
                                             variable)
         short_term_utility_logistic=self._logistic(variable=short_term_utility,
-                                                    gain=self.short_term_gain,
-                                                    bias=self.short_term_bias
+                                                    gain=short_term_gain,
+                                                    bias=short_term_bias
                                                     )
         self.short_term_utility_logistic = short_term_utility_logistic
 
-        if self.operation == "s*l":
+        if operation == "s*l":
             # Engagement in current task = [1—logistic(short term utility)]*[logistic{long - term utility}]
             value = (1-short_term_utility_logistic)*long_term_utility_logistic
-        elif self.operation =="s-l":
+        elif operation =="s-l":
             # Engagement in current task = [1—logistic(short term utility)] - [logistic{long - term utility}]
             value = (1-short_term_utility_logistic) - long_term_utility_logistic
-        elif self.operation =="s+l":
+        elif operation =="s+l":
             # Engagement in current task = [1—logistic(short term utility)] + [logistic{long - term utility}]
             value = (1 - short_term_utility_logistic) + long_term_utility_logistic
-        elif self.operation =="l-s":
+        elif operation =="l-s":
             # Engagement in current task = [logistic{long - term utility}] - [1—logistic(short term utility)]
             value = long_term_utility_logistic - (1-short_term_utility_logistic)
 
@@ -6979,11 +7309,36 @@ class AGTUtilityIntegrator(
             self.previous_short_term_utility = short_term_utility
 
         return adjusted_value
+
+    @property
+    def reinitialize(self):
+        return self.previous_short_term_utility, self.previous_long_term_utility
+
+    @reinitialize.setter
+    def reinitialize(self, value):
+        try:
+            short, long = value
+            self._initial_short_term_utility = short
+            self.previous_short_term_utility = short
+            self._initial_long_term_utility = long
+            self.previous_long_term_utility = long
+
+        except (ValueError, TypeError):
+            num_items = len(np.atleast_1d(value))
+            if num_items == 1:
+                raise FunctionError("AGTUtilityIntegrator requires exactly two items (short term utility, long term utility) in order to "
+                                    "reinitialize. Only one item ({}) was provided to reinitialize {}.".format(value,
+                                                                                                               self.name))
+            raise FunctionError("AGTUtilityIntegrator requires exactly two items (short term utility, long term utility) in order to "
+                                "reinitialize. {} items ({}) were provided to reinitialize {}.".format(num_items, value,
+                                                                                                       self.name))
+
+
 # Note:  For any of these that correspond to args, value must match the name of the corresponding arg in __init__()
 DRIFT_RATE = 'drift_rate'
 DRIFT_RATE_VARIABILITY = 'DDM_DriftRateVariability'
 THRESHOLD = 'threshold'
-TRESHOLD_VARIABILITY = 'DDM_ThresholdRateVariability'
+THRESHOLD_VARIABILITY = 'DDM_ThresholdRateVariability'
 STARTING_POINT = 'starting_point'
 STARTING_POINT_VARIABILITY = "DDM_StartingPointVariability"
 # NOISE = 'noise' -- Defined in Keywords
@@ -7137,7 +7492,6 @@ class BogaczEtAl(
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: terminal value of decision variable (equal to threshold), mean accuracy (error rate; ER) and mean
@@ -7163,11 +7517,19 @@ class BogaczEtAl(
 
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        drift_rate = float(self.drift_rate) * float(variable)
-        threshold = float(self.threshold)
-        starting_point = float(self.starting_point)
-        noise = float(self.noise)
-        t0 = float(self.t0)
+        attentional_drift_rate = float(self.get_current_function_param(DRIFT_RATE))
+        stimulus_drift_rate = float(variable)
+        drift_rate = attentional_drift_rate * stimulus_drift_rate
+        threshold = float(self.get_current_function_param(THRESHOLD))
+        starting_point = float(self.get_current_function_param(STARTING_POINT))
+        noise = float(self.get_current_function_param(NOISE))
+        t0 = float(self.get_current_function_param(NON_DECISION_TIME))
+
+        # drift_rate = float(self.drift_rate) * float(variable)
+        # threshold = float(self.threshold)
+        # starting_point = float(self.starting_point)
+        # noise = float(self.noise)
+        # t0 = float(self.t0)
 
         self.bias = bias = (starting_point + threshold) / (2 * threshold)
 
@@ -7196,25 +7558,22 @@ class BogaczEtAl(
                 y0tilde = -1 * (is_neg_drift == 1) * threshold + (is_neg_drift == 0) * threshold
             x0tilde = y0tilde / drift_rate_normed
 
-            old_settings = np.seterr(over='raise', under='raise')
+            with np.errstate(over='raise', under='raise'):
+                try:
+                    rt = ztilde * np.tanh(ztilde * atilde) + \
+                         ((2 * ztilde * (1 - np.exp(-2 * x0tilde * atilde))) / (
+                         np.exp(2 * ztilde * atilde) - np.exp(-2 * ztilde * atilde)) - x0tilde) + t0
+                    er = 1 / (1 + np.exp(2 * ztilde * atilde)) - \
+                         ((1 - np.exp(-2 * x0tilde * atilde)) / (np.exp(2 * ztilde * atilde) - np.exp(-2 * ztilde * atilde)))
 
-            try:
-                rt = ztilde *np.tanh(ztilde * atilde) + \
-                     ((2 * ztilde * (1 - np.exp(-2 * x0tilde * atilde))) / (
-                     np.exp(2 * ztilde * atilde) - np.exp(-2 * ztilde * atilde)) - x0tilde) + t0
-                er = 1 / (1 + np.exp(2 * ztilde * atilde)) - \
-                     ((1 - np.exp(-2 * x0tilde * atilde)) / (np.exp(2 * ztilde * atilde) - np.exp(-2 * ztilde * atilde)))
-
-            except FloatingPointError:
-                # Per Mike Shvartsman:
-                # If ±2*ztilde*atilde (~ 2*z*a/(c^2) gets very large, the diffusion vanishes relative to drift
-                # and the problem is near-deterministic. Without diffusion, error rate goes to 0 or 1
-                # depending on the sign of the drift, and so decision time goes to a point mass on z/a – x0, and
-                # generates a "RuntimeWarning: overflow encountered in exp"
-                er = 0
-                rt = ztilde / atilde - x0tilde + t0
-
-            np.seterr(**old_settings)
+                except FloatingPointError:
+                    # Per Mike Shvartsman:
+                    # If ±2*ztilde*atilde (~ 2*z*a/(c^2) gets very large, the diffusion vanishes relative to drift
+                    # and the problem is near-deterministic. Without diffusion, error rate goes to 0 or 1
+                    # depending on the sign of the drift, and so decision time goes to a point mass on z/a – x0, and
+                    # generates a "RuntimeWarning: overflow encountered in exp"
+                    er = 0
+                    rt = ztilde / atilde - x0tilde + t0
 
             # This last line makes it report back in terms of a fixed reference point
             #    (i.e., closer to 1 always means higher p(upper boundary))
@@ -7223,7 +7582,6 @@ class BogaczEtAl(
             er = (is_neg_drift == 1) * (1 - er) + (is_neg_drift == 0) * (er)
 
         return rt, er
-
 
     def derivative(self, output=None, input=None):
         """
@@ -7265,9 +7623,9 @@ class BogaczEtAl(
             <BogaczEtAl.drift_rate>`.
 
         """
-        Z = output or self.threshold
-        A = input or self.drift_rate
-        c = self.noise
+        Z = output or self.get_current_function_param(THRESHOLD)
+        A = input or self.get_current_function_param(DRIFT_RATE)
+        c = self.get_current_function_param(NOISE)
         c_sq = c**2
         E = np.exp(-2*Z*A/c_sq)
         D_iti = 0
@@ -7289,6 +7647,7 @@ class NF_Results(IntEnum):
     COND_RTS = 3
     COND_VAR_RTS = 4
     COND_SKEW_RTS = 5
+
 
 # ----------------------------------------------------------------------------
 class NavarroAndFuss(IntegratorFunction):
@@ -7455,7 +7814,6 @@ class NavarroAndFuss(IntegratorFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """
         Return: terminal value of decision variable, mean accuracy (error rate; ER), mean response time (RT),
@@ -7482,11 +7840,11 @@ class NavarroAndFuss(IntegratorFunction):
 
         self._check_args(variable=variable, params=params, context=context)
 
-        drift_rate = float(self.drift_rate)
-        threshold = float(self.threshold)
-        starting_point = float(self.starting_point)
-        noise = float(self.noise)
-        t0 = float(self.t0)
+        drift_rate = float(self.get_current_function_param(DRIFT_RATE))
+        threshold = float(self.get_current_function_param(THRESHOLD))
+        starting_point = float(self.get_current_function_param(STARTING_POINT))
+        noise = float(self.get_current_function_param(NOISE))
+        t0 = float(self.get_current_function_param(NON_DECISION_TIME))
 
         # used to pass values in a way that the matlab script can handle
         ddm_struct = {
@@ -7609,15 +7967,14 @@ class NormalDist(DistributionFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         # Validate variable and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        mean = self.paramsCurrent[DIST_MEAN]
-        standard_dev = self.paramsCurrent[STANDARD_DEVIATION]
+        mean = self.get_current_function_param(DIST_MEAN)
+        standard_deviation = self.get_current_function_param(STANDARD_DEVIATION)
 
-        result = np.random.normal(mean, standard_dev)
+        result = np.random.normal(mean, standard_deviation)
 
         return result
 
@@ -7729,7 +8086,6 @@ class UniformToNormalDist(DistributionFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
 
         try:
@@ -7740,11 +8096,11 @@ class UniformToNormalDist(DistributionFunction):
         # Validate variable and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        mean = self.paramsCurrent[DIST_MEAN]
-        standard_dev = self.paramsCurrent[STANDARD_DEVIATION]
+        mean = self.get_current_function_param(DIST_MEAN)
+        standard_deviation = self.get_current_function_param(STANDARD_DEVIATION)
 
         sample = np.random.rand(1)[0]
-        return ((np.sqrt(2) * erfinv(2 * sample - 1)) * standard_dev) + mean
+        return ((np.sqrt(2) * erfinv(2 * sample - 1)) * standard_deviation) + mean
 
 class ExponentialDist(DistributionFunction):
     """
@@ -7830,13 +8186,11 @@ class ExponentialDist(DistributionFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         # Validate variable and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        beta = self.paramsCurrent[BETA]
-
+        beta = self.get_current_function_param(BETA)
         result = np.random.exponential(beta)
 
         return result
@@ -7935,14 +8289,12 @@ class UniformDist(DistributionFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         # Validate variable and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        low = self.paramsCurrent[LOW]
-        high = self.paramsCurrent[HIGH]
-
+        low = self.get_current_function_param(LOW)
+        high = self.get_current_function_param(HIGH)
         result = np.random.uniform(low, high)
 
         return result
@@ -8042,13 +8394,12 @@ class GammaDist(DistributionFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         # Validate variable and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        scale = self.paramsCurrent[SCALE]
-        dist_shape = self.paramsCurrent[DIST_SHAPE]
+        scale = self.get_current_function_param(SCALE)
+        dist_shape = self.get_current_function_param(DIST_SHAPE)
 
         result = np.random.gamma(dist_shape, scale)
 
@@ -8147,13 +8498,12 @@ class WaldDist(DistributionFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         # Validate variable and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        scale = self.paramsCurrent[SCALE]
-        mean = self.paramsCurrent[DIST_MEAN]
+        scale = self.get_current_function_param(SCALE)
+        mean = self.get_current_function_param(DIST_MEAN)
 
         result = np.random.wald(mean, scale)
 
@@ -8354,7 +8704,7 @@ COMMENT
                     param_type_string = "MappingProjection's ParameterState"
                 except KeyError:
                     raise FunctionError("The MappingProjection specified for the {} arg of {} ({}) must have a {} "
-                                        "paramaterState that has been assigned a 2d array or matrix".
+                                        "ParameterState that has been assigned a 2d array or matrix".
                                         format(MATRIX, self.name, matrix.shape, MATRIX))
 
             elif isinstance(matrix, ParameterState):
@@ -8391,7 +8741,6 @@ COMMENT
                 raise FunctionError("The value of the {} specified for the {} arg of {} ({}) "
                                     "must be a square matrix".
                                     format(param_type_string, MATRIX, self.name, matrix))
-
 
     def _instantiate_attributes_before_function(self, context=None):
         """Instantiate matrix
@@ -8436,7 +8785,6 @@ COMMENT
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """Calculate the stability of `variable <Stability.variable>`.
 
@@ -8599,7 +8947,6 @@ class Distance(ObjectiveFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """Calculate the distance between the two vectors in `variable <Stability.variable>`.
 
@@ -8736,9 +9083,7 @@ class LearningFunction(Function_Base):
         learning_rate = np.array(learning_rate).copy()
         learning_rate_dim = learning_rate.ndim
 
-        if not is_numeric(learning_rate):
-            raise FunctionError("{} arg for {} ({}) must be numeric".
-                                format(LEARNING_RATE, self.name, learning_rate))
+        self._validate_parameter_spec(learning_rate, LEARNING_RATE)
 
         if type is AUTOASSOCIATIVE:
 
@@ -8851,7 +9196,8 @@ class Hebbian(LearningFunction):  # --------------------------------------------
     def __init__(self,
                  default_variable=ClassDefaults.variable,
                  activation_function: tc.any(Linear, tc.enum(Linear)) = Linear,  # Allow class or instance
-                 learning_rate: tc.optional(parameter_spec) = None,
+                 # learning_rate: tc.optional(parameter_spec) = None,
+                 learning_rate=None,
                  params=None,
                  owner=None,
                  prefs: is_pref_set = None,
@@ -8897,7 +9243,6 @@ class Hebbian(LearningFunction):  # --------------------------------------------
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """Calculate a matrix of weight changes from a 1d array of activity values
 
@@ -8961,8 +9306,7 @@ class Hebbian(LearningFunction):  # --------------------------------------------
         return weight_change_matrix
 
 
-class Reinforcement(
-    LearningFunction):  # -------------------------------------------------------------------------------
+class Reinforcement(LearningFunction):  # -------------------------------------------------------------------------------
     """
     Reinforcement(                                       \
         default_variable=ClassDefaults.variable,         \
@@ -9050,7 +9394,7 @@ class Reinforcement(
 
     activation_function : Function or function : SoftMax
         the function of the Mechanism that generates `activation_output <Reinforcement.activation_output>`; must
-        return and array with a single non-zero value.
+        return an array with a single non-zero value.
 
     learning_rate : float
         the learning rate used by the function.  If specified, it supersedes any learning_rate specified for the
@@ -9085,7 +9429,8 @@ class Reinforcement(
     def __init__(self,
                  default_variable=ClassDefaults.variable,
                  activation_function: tc.any(SoftMax, tc.enum(SoftMax)) = SoftMax,  # Allow class or instance
-                 learning_rate: tc.optional(parameter_spec) = None,
+                 # learning_rate: tc.optional(parameter_spec) = None,
+                 learning_rate=None,
                  params=None,
                  owner=None,
                  prefs: is_pref_set = None,
@@ -9126,17 +9471,23 @@ class Reinforcement(
         # Allow initializion with zero but not during a run (i.e., when called from check_args())
         if not INITIALIZING in context:
             if np.count_nonzero(self.activation_output) != 1:
-                raise ComponentError("First item ({}) of variable for {} must be an array with a single non-zero value "
+                raise ComponentError("Second item ({}) of variable for {} must be an array with a single non-zero value "
                                      "(if output Mechanism being trained uses softmax,"
                                      " its \'output\' arg may need to be set to to PROB)".
                                      format(variable[LEARNING_ACTIVATION_OUTPUT], self.componentName))
 
         return variable
 
+    def _validate_params(self, request_set, target_set=None, context=None):
+        """Validate learning_rate
+        """
+        super()._validate_params(request_set=request_set, target_set=target_set, context=context)
+        if LEARNING_RATE in target_set and target_set[LEARNING_RATE] is not None:
+            self._validate_learning_rate(target_set[LEARNING_RATE], AUTOASSOCIATIVE)
+
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """Calculate a matrix of weight changes from a single (scalar) error term
 
@@ -9169,32 +9520,31 @@ class Reinforcement(
 
         Returns
         -------
-        error signal : 1d np.array
-            same as value received in `error_signal <Reinforcement.error_signal>` argument.
-
         diagonal weight change matrix : 2d np.array
             has a single non-zero entry in the same row and column as the one in
             `activation_output <Reinforcement.activation_output>` and `error_signal <Reinforcement.error_signal>`.
+
+        error signal : 1d np.array
+            COMMENT:
+            same as value received in `error_signal <Reinforcement.error_signal>` argument.
+            COMMENT
+            1d array of error terms (the diagonal elements of the weight change matrix)
+
         """
 
         self._check_args(variable=variable, params=params, context=context)
 
         output = self.activation_output
         error = self.error_signal
-
+        learning_rate = self.get_current_function_param(LEARNING_RATE)
         # IMPLEMENTATION NOTE: have to do this here, rather than in validate_params for the following reasons:
         #                      1) if no learning_rate is specified for the Mechanism, need to assign None
         #                          so that the process or system can see it is free to be assigned
         #                      2) if neither the system nor the process assigns a value to the learning_rate,
         #                          then need to assign it to the default value
         # If learning_rate was not specified for instance or composition, use default value
-        if self.learning_rate is None:
+        if learning_rate is None:
             learning_rate = self.default_learning_rate
-        else:
-            learning_rate = self.learning_rate
-        # # MODIFIED 3/22/17 NEWER:
-        # learning_rate = self.learning_rate
-        # MODIFIED 3/22/17 END
 
         # Assign error term to chosen item of output array
         error_array = (np.where(output, learning_rate * error, 0))
@@ -9202,13 +9552,11 @@ class Reinforcement(
         # Construct weight change matrix with error term in proper element
         weight_change_matrix = np.diag(error_array)
 
-        # self.return_val.error_signal = error_array
-        # self.return_val.learning_signal = weight_change_matrix
-        #
-        # # return:
-        # # - weight_change_matrix and error_array
-        # return list(self.return_val)
-        return [weight_change_matrix, error_array]
+        # # MODIFIED 2/2/18 OLD:
+        # return [weight_change_matrix, error_array]
+        # MODIFIED 2/2/18 NEW:
+        return [error_array, error_array]
+        # MODIFIED 2/2/18 END
 
 
 # Argument names:
@@ -9293,16 +9641,16 @@ class BackPropagation(LearningFunction):
        `error_signal <BackPropagation.error_signal>`.
 
     activation_input : 1d np.array
-        the input to the matrix being modified; same as 1st item of `variable <BackPropagation.variable>.
+        the input to the matrix being modified; same as 1st item of `variable <BackPropagation.variable>`.
 
     activation_output : 1d np.array
         the output of the function for which the matrix being modified provides the input;
-        same as 2nd item of `variable <BackPropagation.variable>.
+        same as 2nd item of `variable <BackPropagation.variable>`.
 
     error_signal : 1d np.array
         the error signal for the next matrix (layer above) in the learning sequence, or the error computed from the
         target (training signal) and the output of the last Mechanism in the sequence;
-        same as 3rd item of `variable <BackPropagation.variable>.
+        same as 3rd item of `variable <BackPropagation.variable>`.
 
     error_matrix : 2d np.array or ParameterState
         matrix, the output of which is used to calculate the `error_signal <BackPropagation.error_signal>`;
@@ -9348,7 +9696,8 @@ class BackPropagation(LearningFunction):
                  activation_derivative_fct: tc.optional(tc.any(function_type, method_type)) = Logistic().derivative,
                  error_derivative_fct: tc.optional(tc.any(function_type, method_type)) = Logistic().derivative,
                  error_matrix=None,
-                 learning_rate: tc.optional(parameter_spec) = None,
+                 # learning_rate: tc.optional(parameter_spec) = None,
+                 learning_rate=None,
                  params=None,
                  owner=None,
                  prefs: is_pref_set = None,
@@ -9415,6 +9764,9 @@ class BackPropagation(LearningFunction):
 
         super()._validate_params(request_set=request_set, target_set=target_set, context=context)
 
+        if LEARNING_RATE in target_set and target_set[LEARNING_RATE] is not None:
+            self._validate_learning_rate(target_set[LEARNING_RATE], AUTOASSOCIATIVE)
+
         # Validate error_matrix specification
         if ERROR_MATRIX in target_set:
 
@@ -9476,7 +9828,6 @@ class BackPropagation(LearningFunction):
     def function(self,
                  variable=None,
                  params=None,
-                 time_scale=TimeScale.TRIAL,
                  context=None):
         """Calculate and return a matrix of weight changes from arrays of inputs, outputs and error terms
 
@@ -9548,7 +9899,7 @@ class BackPropagation(LearningFunction):
         #           "-error_signal (dE_DA): {}\n    "
         #           "-derivative (dA_dW): {}\n    "
         #           "-error_derivative (dE_dW): {}\n".
-        #           format(self.owner.name, self.activation_input, dE_dA, dA_dW ,dE_dW))
+        #           format(self.owner_name, self.activation_input, dE_dA, dA_dW ,dE_dW))
 
         # self.return_val.error_signal = dE_dW
         # self.return_val.learning_signal = weight_change_matrix
@@ -9557,7 +9908,70 @@ class BackPropagation(LearningFunction):
 
         return [weight_change_matrix, dE_dW]
 
-# region *****************************************   OBJECTIVE FUNCTIONS ***********************************************
+
+class TDLearning(Reinforcement):
+    """
+    This class is used to implement temporal difference learning via the
+    `Reinforcement` function. See `Reinforcement` for class details.
+    """
+    componentName = TDLEARNING_FUNCTION
+
+    class ClassDefaults(Reinforcement.ClassDefaults):
+        variable = [[0], [0]]
+
+    def __init__(self,
+                 default_variable=Reinforcement.ClassDefaults.variable,
+                 activation_function: tc.any(SoftMax, tc.enum(SoftMax))=SoftMax,
+                 learning_rate=Reinforcement.default_learning_rate,
+                 params=None,
+                 owner=None,
+                 prefs=None,
+                 context='TDLearning Function Init'):
+        """
+        Dummy function used to implement TD Learning via Reinforcement Learning
+
+        Parameters
+        ----------
+        default_variable
+        learning_rate: float: default 0.05
+        params
+        owner
+        prefs
+        context
+        """
+        # params = self._assign_args_to_param_dicts(learning_rate=learning_rate,
+                                                  # params=params)
+        super().__init__(default_variable=default_variable,
+                         activation_function=activation_function,
+                         learning_rate=learning_rate,
+                         params=params,
+                         context=context,
+                         owner=owner,
+                         prefs=prefs)
+
+    def _validate_variable(self, variable, context=None):
+        variable = self._update_variable(super(Reinforcement, self)._validate_variable(variable, context))
+
+        if len(variable) != 3:
+            raise ComponentError("Variable for {} ({}) must have three items (input"
+                                ", output, and error arrays".format(self.name, variable))
+
+        self.activation_input = variable[LEARNING_ACTIVATION_INPUT]
+        self.activation_output = variable[LEARNING_ACTIVATION_OUTPUT]
+        self.error_signal = variable[LEARNING_ERROR_OUTPUT]
+
+        if len(self.error_signal) != len(self.activation_output):
+            raise ComponentError("Error term does not match the length of the"
+                                 "sample sequence")
+
+        return variable
+
+    def function(self, variable=None, params=None, context=None):
+        return super().function(variable=variable, params=params, context=context)
+
+
+# region *****************************************   OBJECTIVE FUNCTIONS
+# ***********************************************
 # endregion
 # TBI
 

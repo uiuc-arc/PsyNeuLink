@@ -22,7 +22,7 @@ coeruleus-norepinephrine (LC-NE) system.
 .. _AGTControlMechanism_Creation:
 
 Creating an AGTControlMechanism
------------------------
+-------------------------------
 
 An AGTControlMechanism can be created in any of the ways used to `create a ControlMechanism <ControlMechanism_Creation>`.
 
@@ -353,13 +353,11 @@ class AGTControlMechanism(ControlMechanism):
     def _execute(self,
                     variable=None,
                     runtime_params=None,
-                    time_scale=TimeScale.TRIAL,
                     context=None):
         """Updates AGTControlMechanism's ControlSignal based on input and mode parameter value
         """
         return self.function(variable=variable,
                              params=runtime_params,
-                             time_scale=time_scale,
                              context=context)
 
     @property

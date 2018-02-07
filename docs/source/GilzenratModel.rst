@@ -1,5 +1,5 @@
-GilzenratModel
-==============
+FitzHugh Nagumo Model of Locus Coeruleus (Gilzenrat et al., 2002)
+=================================================================
 
 This implements a model of Locus Coeruleus / Norepinephrine (LC/NE) function described in `Gilzenrat et al. (2002)
 <http://www.sciencedirect.com/science/article/pii/S0893608002000552?via%3Dihub>`_, used to simulate behavioral
@@ -22,6 +22,7 @@ values produced by the LC in each figure, all *without noise*.
    :figwidth: 45 %
    :align: left
    :alt: Gilzenrat et al. 2002 plot produced by MATLAB
+
 
 Similar plots *with noise* were included in the original
 `Gilzenrat et al. (2002) <http://www.sciencedirect.com/science/article/pii/S0893608002000552?via%3Dihub>`_ paper in
