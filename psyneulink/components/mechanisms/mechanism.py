@@ -785,10 +785,10 @@ from psyneulink.components.states.inputstate import InputState
 from psyneulink.components.states.modulatorysignals.modulatorysignal import _is_modulatory_spec
 from psyneulink.components.states.outputstate import OutputState
 from psyneulink.components.states.parameterstate import ParameterState
-from psyneulink.components.states.state import ADD_STATES, _parse_state_spec
+from psyneulink.components.states.state import ADD_STATES, REMOVE_STATES, _parse_state_spec
 from psyneulink.globals.keywords import CHANGED, COMMAND_LINE, EVC_SIMULATION, EXECUTING, FUNCTION_PARAMS, INITIALIZING, INIT_FUNCTION_METHOD_ONLY, INIT__EXECUTE__METHOD_ONLY, INPUT_STATES, INPUT_STATE_PARAMS, LEARNING, MONITOR_FOR_CONTROL, MONITOR_FOR_LEARNING, NO_CONTEXT, OUTPUT_STATES, OUTPUT_STATE_PARAMS, PARAMETER_STATES, PARAMETER_STATE_PARAMS, PROCESS_INIT, REFERENCE_VALUE, SEPARATOR_BAR, SET_ATTRIBUTE, SYSTEM_INIT, UNCHANGED, VALIDATE, VALUE, VARIABLE, kwMechanismComponentCategory, kwMechanismExecuteFunction
 from psyneulink.globals.preferences.preferenceset import PreferenceLevel
-from psyneulink.globals.registry import register_category
+from psyneulink.globals.registry import register_category, remove_instance_from_registry
 from psyneulink.globals.utilities import ContentAddressableList, append_type_to_name, convert_to_np_array, iscompatible, kwCompatibilityNumeric
 
 __all__ = [
@@ -1793,6 +1793,65 @@ class Mechanism_Base(Mechanism):
         from psyneulink.components.projections.projection import _add_projection_from
         _add_projection_from(sender=self, state=state, projection_spec=projection, receiver=receiver, context=context)
 
+    def reinitialize(self, *args):
+        """
+            If the mechanism's `function <Mechanism.function>` is an `Integrator`, or if the mechanism has and
+            `integrator_function <TransferMechanism.integrator_function>` (see `TransferMechanism`), this method
+            effectively begins the function's accumulation over again at the specified value, and updates related
+            attributes on the mechanism.
+
+            If the mechanism's `function <Mechanism_Base.function>` is an `Integrator`:
+
+                `reinitialize <Mechanism_Base.reinitialize>` first calls the function's own `reinitialize <Integrator.reinitialize>` method, which
+                typically sets:
+
+                - `previous_value <Integrator.previous_value>`
+                - `initializer <Integrator.initial_value>`
+                - `value <Integrator.value>`
+
+                to the quantity specified. For specific types of Integrator functions, additional values, such as
+                initial time, must be specified, and additional attributes are reset. See individual functions for
+                details.
+
+                Then, the mechanism sets its `value <Mechanism_Base.value>` to the quantity specified, and updates its
+                `output states <Mechanism_Base.output_state>`.
+
+            If the mechanism has an `integrator_function <TransferMechanism.integrator_function>`:
+
+                `reinitialize <Mechanism_Base.reinitialize>` first calls the `integrator_function's <TransferMechanism.integrator_function>` own
+                `reinitialize <Integrator.reinitialize>` method, which typically sets:
+
+                - `previous_value <Integrator.previous_value>`
+                - `initializer <Integrator.initial_value>`
+                - `value <Integrator.value>`
+
+                to the quantity specified. For specific types of Integrator functions, additional values, such as
+                initial time, must be specified, and additional attributes are reset. See individual functions for
+                details.
+
+                Then, the mechanism executes its `function <Mechanism_Base.function>` using the quantity specified as the
+                function's variable. The mechanism's `value <Mechanism_Base.value>` is set to the output of its function.
+                Finally, the mechanism updates its `output states <Mechanism_Base.output_state>`.
+        """
+        from psyneulink.components.functions.function import Integrator
+
+        # If the primary function of the mechanism is an integrator:
+        # (1) reinitialize it, (2) update value, (3) update output states
+        if isinstance(self.function_object, Integrator):
+            new_value = self.function_object.reinitialize(*args)
+            self.value = np.atleast_2d(new_value)
+            self._update_output_states(context="REINITIALIZING")
+
+        # If the mechanism has an auxiliary integrator function:
+        # (1) reinitialize it, (2) run the primary function with the new "previous_value" as input
+        # (3) update value, (4) update output states
+        elif hasattr(self, "integrator_function"):
+            new_input = self.integrator_function.reinitialize(*args)
+            if hasattr(self, "initial_value"):
+                self.initial_value = np.atleast_1d(*args)[0]
+            self.value = self.function(new_input, context="REINITIALIZING")
+            self._update_output_states(context="REINITIALIZING")
+
     def get_current_mechanism_param(self, param_name):
         try:
             return self._parameter_states[param_name].value
@@ -2151,11 +2210,6 @@ class Mechanism_Base(Mechanism):
         """Assign an initial value to the Mechanism's `value <Mechanism_Base.value>` attribute and update its
         `OutputStates <Mechanism_OutputStates>`.
 
-        COMMENT:
-            Takes a number or 1d array and assigns it to the first item of the Mechanism's
-            `value <Mechanism_Base.value>` attribute.
-        COMMENT
-
         Arguments
         ---------
 
@@ -2167,8 +2221,8 @@ class Mechanism_Base(Mechanism):
             if not iscompatible(value, self.value):
                 raise MechanismError("Initialization value ({}) is not compatiable with value of {}".
                                      format(value, append_type_to_name(self)))
-        self.value[0] = value
-        self._update_output_states()
+        self.value = np.atleast_1d(value)
+        self._update_output_states(context="INITIAL_VALUE")
 
     def _execute(self,
                  variable=None,
@@ -2320,7 +2374,6 @@ class Mechanism_Base(Mechanism):
         from psyneulink.components.states.state import _parse_state_type
         from psyneulink.components.states.inputstate import InputState, _instantiate_input_states
         from psyneulink.components.states.outputstate import OutputState, _instantiate_output_states
-
         # Put in list to standardize treatment below
         if not isinstance(states, list):
             states = [states]
@@ -2340,7 +2393,6 @@ class Mechanism_Base(Mechanism):
                     (inspect.isclass(state_type) and issubclass(state_type, OutputState))):
                 output_states.append(state)
 
-        # _instantiate_state_list(self, input_states, InputState)
         if input_states:
             # FIX: 11/9/17
             added_variable, added_input_state = self._parse_arg_input_states(input_states)
@@ -2361,6 +2413,65 @@ class Mechanism_Base(Mechanism):
 
         return {INPUT_STATES: instantiated_input_states,
                 OUTPUT_STATES: instantiated_output_states}
+
+    @tc.typecheck
+    def remove_states(self, states, context=REMOVE_STATES):
+        """
+        remove_states(states)
+
+        Remove one or more `States <State>` from the Mechanism.  Only `InputStates <InputState> and `OutputStates
+        <OutputState>` can be removed; `ParameterStates <ParameterState>` cannot be removed from a Mechanism.
+
+        Each Specified state must be owned by the Mechanism, otherwise the request is ignored.
+
+        .. note::
+            Removing InputStates from a Mechanism changes the size of its `variable <Mechanism_Base.variable>`
+            attribute, which may produce an incompatibility with its `function <Mechanism_Base.function>` (see
+            `Mechanism InputStates <Mechanism_InputStates>` for more detailed information).
+
+        Arguments
+        ---------
+
+        states : State or List[State]
+            one more `InputStates <InputState>` or `OutputStates <OutputState>` to be removed from the Mechanism.
+            State specification(s) can be an InputState or OutputState object or the name of one.
+
+        """
+        from psyneulink.components.states.inputstate import InputState, _instantiate_input_states, INPUT_STATE
+        from psyneulink.components.states.outputstate import OutputState, _instantiate_output_states, OUTPUT_STATE
+
+        # Put in list to standardize treatment below
+        if not isinstance(states, list):
+            states = [states]
+
+        input_states = []
+        output_states = []
+
+        for state in states:
+
+            if state in self.input_states:
+                if isinstance(state, str):
+                    state = self.input_states[state]
+                index = self.input_states.index(state)
+                del self.input_states[index]
+                remove_instance_from_registry(registry=self._stateRegistry,
+                                              category=INPUT_STATE,
+                                              component=state)
+                old_variable = self.instance_defaults.variable
+                old_variable = np.delete(old_variable,index,0)
+                self.instance_defaults.variable = old_variable
+                self._update_variable(self.instance_defaults.variable)
+
+            elif state in self.output_states:
+                if isinstance(state, OutputState):
+                    index = self.output_states.index(state)
+                else:
+                    index = self.output_states.index(self.output_states[state])
+                del self.output_states[state]
+                del self.output_values[index]
+                remove_instance_from_registry(registry=self._stateRegistry,
+                                              category=OUTPUT_STATE,
+                                              component=state)
 
     def _get_mechanism_param_values(self):
         """Return dict with current value of each ParameterState in paramsCurrent
