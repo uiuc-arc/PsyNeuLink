@@ -947,6 +947,7 @@ class ControlSignal(ModulatorySignal):
         self._compute_costs()
 
     def _execute(self, function_params, context):
+        K = super()._execute(function_params=function_params, context=context)
         return float(super()._execute(function_params=function_params, context=context))
 
     def _compute_costs(self):
