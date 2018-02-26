@@ -1,59 +1,11 @@
 import numpy as np
+import pymc as pm
+import warnings
+from psyneulink.library.subsystems.param_estimator.system_likelihood import SystemLikelihoodEstimator
 from hddm.models import HDDM, AccumulatorModel
 from hddm import wfpt, likelihoods
 from kabuki.utils import stochastic_from_dist
 
-
-def create_psyneulink_wfpt_like_function(wp):
-    """
-    A simple function that returns another function object that calls the HDDM Navarro and Fuss
-    Cython implementation from HDDM usings a specified set of wiener parameters.
-    :param wp: The wiener parameters to provide the the likelihood function. See HDDM documentation.
-    :return: A function implementing the likelihood.
-    """
-    def wfpt_like(x, v, sv, a, z, sz, t, st, p_outlier=0):
-        print("PsyNeuLink WFPT Like Called")
-        if np.all(~np.isnan(x['rt'])):
-            return wfpt.wiener_like(x['rt'].values, v, sv, a, z, sz, t, st,
-                                         p_outlier=p_outlier, **wp)
-        else:  # for missing RTs. Currently undocumented.
-            noresponse = np.isnan(x['rt'])
-            ## get sum of log p for trials with RTs as usual ##
-            LLH_resp = wfpt.wiener_like(x.loc[-noresponse, 'rt'].values,
-                                             v, sv, a, z, sz, t, st, p_outlier=p_outlier, **wp)
-
-            ## get sum of log p for no-response trials from p(upper_boundary|parameters) ##
-            # this function assumes following format for the RTs:
-            # - accuracy coding such that correct responses have a 1 and incorrect responses a 0
-            # - usage of HDDMStimCoding for z
-            # - missing RTs are coded as 999/-999
-            # - note that hddm will flip RTs, such that error trials have negative RTs
-            # so that the miss-trial in the go condition and comission error
-            # in the no-go condition will have negative RTs
-
-            # get number of no-response trials
-            n_noresponse = sum(noresponse)
-
-            # percentage correct according to probability to get to upper boundary
-            if v == 0:
-                p_correct = z
-            else:
-                p_correct = (np.exp(-2 * a * z * v) - 1) / (np.exp(-2 * a * v) - 1)
-
-            # calculate percent no-response trials from % correct
-            if sum(x.loc[noresponse, 'rt']) > 0:
-                p_noresponse = p_correct  # when no-response trials have a positive RT
-                # we are looking at nogo Trials
-            else:
-                p_noresponse = 1 - p_correct  # when no-response trials have a
-                # negative RT we are looking at go Trials
-
-            # likelihood for no-response trials
-            LLH_noresp = np.log(p_noresponse) * n_noresponse
-
-            return LLH_resp + LLH_noresp
-
-    return wfpt_like
 
 class HDDMPsyNeuLink(HDDM):
     """Create hierarchical drift-diffusion model whose likelihood function is computed
@@ -131,8 +83,12 @@ class HDDMPsyNeuLink(HDDM):
         >>> mcmc.sample(5000, burn=20) # Sample from posterior
     """
 
-    def __init__(self, data, bias=False, include=(),
+    def __init__(self, data, system, bias=False, include=(),
                  wiener_params=None, p_outlier=0., **kwargs):
+
+        # Make a note that the class is initializing. We will insert a check in the likelhihood function of the system
+        # that checks to see whether the class is still initializing and this means we
+        self.is_initializing = True
 
         # HACK!!!: To implement extensions to HDDM for PsyNeuLink models that compute the WFPT likelihood I decided
         # to extend the library without modifiying its code. To do this we create a new HDDM class that inherits from
@@ -191,11 +147,17 @@ class HDDMPsyNeuLink(HDDM):
         # Now, setup the WFPT class for the HDDM object in such a way that it calls back into PsyNeuLink for computing
         # the WFPT likelihood.
 
+        # We need to take the system that is passed to us and create a likelihood estimator from it. This will handle
+        # the creation of a function that allows us to callback into PsyNeuLink and run the system to estimate the
+        # likelihood.
+        self.system = system
+        self.pnl_likelihood_estimator = SystemLikelihoodEstimator(self.system)
+
         # Generate the WFPT class the same way HDDM does it.
         hddm_wfpt_class = likelihoods.generate_wfpt_stochastic_class(wp, cdf_range=self.cdf_range)
 
         # Generate our own using the PsyNeuLink likelihood
-        wfpt_class = stochastic_from_dist('wfpt', create_psyneulink_wfpt_like_function(wp))
+        wfpt_class = stochastic_from_dist('wfpt', self.pnl_likelihood_estimator.get_likelihood_function(**wp))
 
         # Do some surgery on the object where we copy the other auxillary HDDM functions needed to make it a fully
         # functioning stochastic object. This will probably need to be changed in the future to have PsyNeuLink
@@ -214,3 +176,30 @@ class HDDMPsyNeuLink(HDDM):
         # setup above. Instead, lets go two levels down and call the AccumulatorModel constructor that they inherit from
         # to setup the rest of the model based on our likelihood.
         AccumulatorModel.__init__(self, data, **kwargs)
+
+    def sample(self, *args, **kwargs):
+        """Sample from posterior.
+        :Note:
+            Forwards arguments to pymc.MCMC.sample().
+        """
+
+        # Fetch out arguments for db backend
+        db = kwargs.pop('db', 'ram')
+        dbname = kwargs.pop('dbname', None)
+
+        # init mc if needed
+        if self.mc == None:
+            self.mcmc(db=db, dbname=dbname)
+
+        # suppress annoying warnings
+        if ('hdf5' in dir(pm.database)) and \
+                isinstance(self.mc.db, pm.database.hdf5.Database):
+            warnings.simplefilter('ignore', pm.database.hdf5.tables.NaturalNameWarning)
+
+        # sample
+        self.mc.sample(*args, **kwargs)
+
+        self.sampled = True
+
+        return self.mc
+

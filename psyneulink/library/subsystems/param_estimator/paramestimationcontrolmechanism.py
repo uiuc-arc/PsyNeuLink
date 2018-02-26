@@ -46,7 +46,8 @@ from psyneulink.components.functions.function import LinearCombination
 from psyneulink.globals.keywords import CONTROL, COST_FUNCTION, FUNCTION, INITIALIZING, \
     INIT_FUNCTION_METHOD_ONLY, PARAMETER_STATES, PREDICTION_MECHANISM, PREDICTION_MECHANISM_PARAMS, \
     PREDICTION_MECHANISM_TYPE, SUM, PARAM_EST_MECHANISM, COMBINE_OUTCOME_AND_COST_FUNCTION, COST_FUNCTION, \
-    EXECUTING, FUNCTION_OUTPUT_TYPE_CONVERSION, INITIALIZING, PARAMETER_STATE_PARAMS, kwPreferenceSetName, kwProgressBarChar
+    EXECUTING, FUNCTION_OUTPUT_TYPE_CONVERSION, INITIALIZING, PARAMETER_STATE_PARAMS, kwPreferenceSetName, \
+    kwProgressBarChar, COMMAND_LINE
 from psyneulink.components.shellclasses import Function, System_Base
 from psyneulink.components.mechanisms.adaptive.control.controlmechanism import ControlMechanism
 from psyneulink.components.mechanisms.mechanism import MechanismList
@@ -123,11 +124,11 @@ class MCMCParamSampler(Function_Base):
             return defaultControlAllocation
 
         # Run the MCMC sampling
-        self.owner.hddm_model.sample(22, burn=20, progress_bar=False)
+        self.owner.hddm_model.sample(1, burn=0, progress_bar=False)
 
         # Get a sample from the trace for each parameter we are estimating.
-        drift_rate = self.owner.hddm_model.mc.trace('v')[1]
-        threshold = self.owner.hddm_model.mc.trace('a')[1]
+        drift_rate = self.owner.hddm_model.mc.trace('v')[0]
+        threshold = self.owner.hddm_model.mc.trace('a')[0]
 
         #print("MCMCParamSampler: drift_rate={}, threshold={}".format(drift_rate, threshold))
 
@@ -169,9 +170,7 @@ class ParamEstimationControlMechanism(ControlMechanism):
                                                   params=params)
 
         # Create a statistical model using HDDM.
-        data = hddm.load_csv(data_in_file)
-
-        self.hddm_model = HDDMPsyNeuLink(data)
+        self.data = hddm.load_csv(data_in_file)
 
         super(ParamEstimationControlMechanism, self).__init__(
             system=system,
@@ -182,6 +181,11 @@ class ParamEstimationControlMechanism(ControlMechanism):
             name=name,
             prefs=prefs,
             context=self)
+
+    @tc.typecheck
+    def assign_as_controller(self, system: System_Base, context=COMMAND_LINE):
+        super().assign_as_controller(system=system, context=context)
+        self.hddm_model = HDDMPsyNeuLink(data=self.data, system=system)
 
     def _execute(self,
                     variable=None,
@@ -205,3 +209,53 @@ class ParamEstimationControlMechanism(ControlMechanism):
         # self.system._restore_system_state()
 
         return allocation_policy
+
+    def run_simulation(self,
+                       inputs,
+                       allocation_vector,
+                       runtime_params=None,
+                       context=None):
+        """
+        Run simulation of `System` for which the EVCControlMechanism is the `controller <System.controller>`.
+
+        Arguments
+        ----------
+
+        inputs : List[input] or ndarray(input) : default default_variable
+            the inputs used for each in a sequence of executions of the Mechanism in the `System`.  This should be the
+            `value <Mechanism_Base.value> for each `prediction Mechanism <EVCControlMechanism_Prediction_Mechanisms>` listed
+            in the `prediction_mechanisms` attribute.  The inputs are available from the `predicted_input` attribute.
+
+        allocation_vector : (1D np.array)
+            the allocation policy to use in running the simulation, with one allocation value for each of the
+            EVCControlMechanism's ControlSignals (listed in `control_signals`).
+
+        runtime_params : Optional[Dict[str, Dict[str, Dict[str, value]]]]
+            a dictionary that can include any of the parameters used as arguments to instantiate the mechanisms,
+            their functions, or Projection(s) to any of their states.  See `Mechanism_Runtime_Parameters` for a full
+            description.
+
+        """
+
+        if self.value is None:
+            # Initialize value if it is None
+            self.value = self.allocation_policy
+
+        # Implement the current allocation_policy over ControlSignals (outputStates),
+        #    by assigning allocation values to EVCControlMechanism.value, and then calling _update_output_states
+        for i in range(len(self.control_signals)):
+            # self.control_signals[list(self.control_signals.values())[i]].value = np.atleast_1d(allocation_vector[i])
+            self.value[i] = np.atleast_1d(allocation_vector[i])
+        self._update_output_states(runtime_params=runtime_params, context=context)
+
+        self.system.run(inputs=inputs, context=context)
+
+        # Get outcomes for current allocation_policy
+        #    = the values of the monitored output states (self.input_states)
+        # self.objective_mechanism.execute(context=CONTROL_SIMULATION)
+        monitored_states = self._update_input_states(runtime_params=runtime_params, context=context)
+
+        for i in range(len(self.control_signals)):
+            self.control_signal_costs[i] = self.control_signals[i].cost
+
+        return monitored_states

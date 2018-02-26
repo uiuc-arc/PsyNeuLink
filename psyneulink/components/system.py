@@ -452,7 +452,7 @@ from psyneulink.components.shellclasses import Mechanism, Process_Base, System_B
 from psyneulink.components.states.inputstate import InputState
 from psyneulink.components.states.state import _parse_state_spec
 from psyneulink.globals.keywords import \
-    ALL, COMPONENT_INIT, CONROLLER_PHASE_SPEC, CONTROL, CONTROLLER, CYCLE, EVC_SIMULATION, EXECUTING, EXPONENT, \
+    ALL, COMPONENT_INIT, CONROLLER_PHASE_SPEC, CONTROL, CONTROLLER, CYCLE, CONTROL_SIMULATION, EXECUTING, EXPONENT, \
     FUNCTION, IDENTITY_MATRIX, INITIALIZED, INITIALIZE_CYCLE, INITIALIZING, INITIAL_VALUES, INTERNAL, \
     LEARNING, LEARNING_SIGNAL, MATRIX, MONITOR_FOR_CONTROL, ORIGIN, PARAMS, PROJECTIONS, SAMPLE, SEPARATOR_BAR, \
     SINGLETON, SYSTEM, SYSTEM_INIT, TARGET, TERMINAL, WEIGHT, kwSeparator, kwSystemComponentCategory
@@ -825,6 +825,9 @@ class System(System_Base):
                  prefs:is_pref_set=None,
                  context=None):
 
+        # A flag to indicate when the entire constructor has been run for the System
+        self.is_controller_initialized = False
+
         # Required to defer assignment of self.controller by setter
         #     until the rest of the System has been instantiated
         self.status = INITIALIZING
@@ -872,6 +875,10 @@ class System(System_Base):
 
         # Assign controller
         self._instantiate_controller(control_mech_spec=controller, context=context)
+
+        # Not sure whye self.status = INITIALIZED is set before the controller is instantiated. Lets have a separate
+        # flag to indicate when the controller is initialized.
+        self.is_controller_initialized = True
 
         # IMPLEMENT CORRECT REPORTING HERE
         # if self.prefs.reportOutputPref:
@@ -2551,7 +2558,7 @@ class System(System_Base):
         # region EXECUTE LEARNING FOR EACH PROCESS
 
         # Don't execute learning for simulation runs
-        if not EVC_SIMULATION in context and self.learning:
+        if not CONTROL_SIMULATION in context and self.learning:
             self._execute_learning(context=context.replace(EXECUTING, LEARNING + ' '))
         # endregion
 
@@ -2561,7 +2568,7 @@ class System(System_Base):
 # FIX: 2) REASSIGN INPUT TO SYSTEM FROM ONE DESIGNATED FOR EVC SIMULUS (E.G., StimulusPrediction)
 
         # Only call controller if this is not a controller simulation run (to avoid infinite recursion)
-        if not EVC_SIMULATION in context and self.enable_controller:
+        if not CONTROL_SIMULATION in context and self.enable_controller:
             try:
                 self.controller.execute(
                     runtime_params=None,

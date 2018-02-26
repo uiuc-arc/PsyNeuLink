@@ -423,7 +423,7 @@ import typecheck as tc
 from psyneulink.components.component import ExecutionStatus, function_type
 from psyneulink.components.process import ProcessInputState
 from psyneulink.components.shellclasses import Mechanism, Process_Base, System_Base
-from psyneulink.globals.keywords import EVC_SIMULATION, MECHANISM, PROCESS, PROCESSES_DIM, RUN, SAMPLE, SYSTEM, TARGET
+from psyneulink.globals.keywords import CONTROL_SIMULATION, MECHANISM, PROCESS, PROCESSES_DIM, RUN, SAMPLE, SYSTEM, TARGET
 from psyneulink.globals.utilities import append_type_to_name, iscompatible
 from psyneulink.scheduling.time import TimeScale
 
@@ -658,7 +658,7 @@ def run(object,
                 elif object_type == SYSTEM:
                     object.current_targets = targets[input_num]
             # MODIFIED 3/16/17 END
-            if RUN in context and not EVC_SIMULATION in context:
+            if RUN in context and not CONTROL_SIMULATION in context:
                 context = RUN + ": EXECUTING " + object_type.upper() + " " + object.name
                 object.execution_status = ExecutionStatus.EXECUTING
             result = object.execute(

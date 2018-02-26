@@ -12,14 +12,10 @@ from psyneulink.library.subsystems.param_estimator.paramestimationcontrolmechani
     ParamEstimationControlMechanism
 
 
-def test_param_estimation_mech():
+def test_pecm():
     # Mechanisms
     Input = TransferMechanism(
         name='Input',
-    )
-    Reward = TransferMechanism(
-        output_states=[RESULT, MEAN, VARIANCE],
-        name='Reward'
     )
     Decision = DDM(
         function=BogaczEtAl(
@@ -61,20 +57,12 @@ def test_param_estimation_mech():
         name='TaskExecutionProcess',
     )
 
-    RewardProcess = Process(
-        # default_variable=[0],
-        size=1,
-        pathway=[(Reward)],
-        name='RewardProcess',
-    )
-
     # System:
     mySystem = System(
-        processes=[TaskExecutionProcess, RewardProcess],
+        processes=[TaskExecutionProcess],
         controller=ParamEstimationControlMechanism(data_in_file='tests/control/hddm_test_data.csv'),
         enable_controller=True,
         monitor_for_control=[
-            Reward,
             Decision.PROBABILITY_UPPER_THRESHOLD,
             (Decision.RESPONSE_TIME, -1, 1)],
         name='Param Estimation Test System',
@@ -86,10 +74,7 @@ def test_param_estimation_mech():
 
     # Stimuli
     stim_list_dict = {
-        Input: [0.5, 0.123],
-        Reward: [20, 20]
+        Input: [1]
     }
 
-    mySystem.run(
-        inputs=stim_list_dict,
-    )
+    mySystem.run(inputs=stim_list_dict)
