@@ -1123,3 +1123,7 @@ class ControlMechanism(AdaptiveMechanism_Base):
     @property
     def allocation_policy(self):
         return self.value
+
+    @allocation_policy.setter
+    def allocation_policy(self, value):
+        self.value = value
