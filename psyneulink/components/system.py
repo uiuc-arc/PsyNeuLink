@@ -310,16 +310,13 @@ A System executes learning if it is specified for one or more `Processes <Proces
 The System's `learning <System.learning>` attribute indicates whether learning is enabled for the System. Learning
 is executed for any Components (individual Projections or Processes) for which it is `specified
 <Process_Learning_Sequence>` after the  `processing <System_Execution_Processing>` of each `TRIAL` has completed, but
-before the `controller <System.controller> is executed <System_Execution_Control>`.  The learning Components of a
-System can be displayed using the System's `show_graph <System.show_graph>` method with its **show_learning**
-argument assigned `True` or *ALL*. The stimuli used for learning (both inputs and targets) can be specified in either
-of two formats, Sequence or Mechanism, that are described in the `Run` module; see `Run_Inputs` and `Run_Targets`).
-Both formats require that an input be provided for each `ORIGIN` Mechanism of the System (listed in its
-`origin_mechanisms <System.origin_mechanisms>` attribute).  If the targets are specified in `Sequence
-<Run_Targets_Sequence_Format>` or `Mechanism <Run_Targets_Mechanism_Format>` format, one target must be provided for
-each `TARGET` Mechanism (listed in its `target_mechanisms <System.target_mechanisms>` attribute).  Targets can also
-be specified in a `function format <Run_Targets_Function_Format>`, which generates a target for each execution of a
-`TARGET` Mechanism.
+before the `controller <System.controller> is executed <System_Execution_Control>`.
+
+The learning Components of a System can be displayed using the System's `show_graph <System.show_graph>` method with its
+**show_learning** argument assigned `True` or *ALL*. The target values used for learning can be specified in either of
+two formats: dictionary or function, which are described in the `Run` module (see `Run_Targets`). Both formats require
+that a target value be provided for each `TARGET` Mechanism of the System (listed in its `target_mechanisms
+<System.target_mechanisms>` attribute).
 
 .. note::
    A `TARGET` Mechanism of a Process is not necessarily one of the `TARGET` Mechanisms of the System to which it belongs
@@ -441,28 +438,30 @@ import typecheck as tc
 from toposort import toposort, toposort_flatten
 
 from psyneulink.components.component import Component, ExecutionStatus, InitStatus, function_type
-from psyneulink.components.mechanisms.mechanism import MechanismList
-from psyneulink.components.mechanisms.processing.objectivemechanism import \
-    DEFAULT_MONITORED_STATE_EXPONENT, DEFAULT_MONITORED_STATE_MATRIX, DEFAULT_MONITORED_STATE_WEIGHT, ObjectiveMechanism
 from psyneulink.components.mechanisms.adaptive.control.controlmechanism import ControlMechanism, OBJECTIVE_MECHANISM
-from psyneulink.components.mechanisms.adaptive.learning.learningauxilliary \
-    import _get_learning_mechanisms, _assign_error_signal_projections
+from psyneulink.components.mechanisms.adaptive.learning.learningauxilliary import _assign_error_signal_projections, _get_learning_mechanisms
+from psyneulink.components.mechanisms.mechanism import MechanismList
+from psyneulink.components.mechanisms.processing.objectivemechanism import DEFAULT_MONITORED_STATE_EXPONENT, DEFAULT_MONITORED_STATE_MATRIX, DEFAULT_MONITORED_STATE_WEIGHT, ObjectiveMechanism
 from psyneulink.components.process import Process, ProcessList, ProcessTuple
 from psyneulink.components.shellclasses import Mechanism, Process_Base, System_Base
 from psyneulink.components.states.inputstate import InputState
 from psyneulink.components.states.state import _parse_state_spec
-from psyneulink.globals.keywords import \
-    ALL, COMPONENT_INIT, CONROLLER_PHASE_SPEC, CONTROL, CONTROLLER, CYCLE, CONTROL_SIMULATION, EXECUTING, EXPONENT, \
-    FUNCTION, IDENTITY_MATRIX, INITIALIZED, INITIALIZE_CYCLE, INITIALIZING, INITIAL_VALUES, INTERNAL, \
-    LEARNING, LEARNING_SIGNAL, MATRIX, MONITOR_FOR_CONTROL, ORIGIN, PARAMS, PROJECTIONS, SAMPLE, SEPARATOR_BAR, \
-    SINGLETON, SYSTEM, SYSTEM_INIT, TARGET, TERMINAL, WEIGHT, kwSeparator, kwSystemComponentCategory
+from psyneulink.globals.keywords import ALL, COMPONENT_INIT, CONROLLER_PHASE_SPEC, CONTROL, CONTROLLER, CYCLE, \
+    CONTROL_SIMULATION, EXECUTING, EXPONENT, FUNCTION, IDENTITY_MATRIX, INITIALIZED, INITIALIZE_CYCLE, INITIALIZING, \
+    INITIAL_VALUES, INTERNAL, LEARNING, LEARNING_SIGNAL, MATRIX, MONITOR_FOR_CONTROL, ORIGIN, PARAMS, PROJECTIONS, \
+    SAMPLE, SEPARATOR_BAR, SINGLETON, SYSTEM, SYSTEM_INIT, TARGET, TERMINAL, WEIGHT, kwSeparator, \
+    kwSystemComponentCategory
 from psyneulink.globals.log import Log
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set
 from psyneulink.globals.preferences.preferenceset import PreferenceLevel
 from psyneulink.globals.registry import register_category
-from psyneulink.globals.utilities import \
-    AutoNumber, ContentAddressableList, append_type_to_name, convert_to_np_array, iscompatible, insert_list
+from psyneulink.globals.utilities import AutoNumber, ContentAddressableList, append_type_to_name, convert_to_np_array, insert_list, iscompatible
 from psyneulink.scheduling.scheduler import Scheduler
+from psyneulink.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
+from psyneulink.components.mechanisms.adaptive.learning.learningmechanism import LearningMechanism
+from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
+from psyneulink.components.projections.projection import Projection
+
 from psyneulink.scheduling.time import TimeScale
 
 __all__ = [
@@ -887,7 +886,7 @@ class System(System_Base):
         #           format(self.name, self.names.__str__().strip("[]")))
 
     def _validate_variable(self, variable, context=None):
-        """Convert self.ClassDefaults.variable, self.instance_defaults.variable, and variable to 2D np.array: \
+        """Convert variable to 2D np.array: \
         one 1D value for each input state
         """
         super(System, self)._validate_variable(variable, context)
@@ -895,10 +894,8 @@ class System(System_Base):
         # Force System variable specification to be a 2D array (to accommodate multiple input states of 1st mech(s)):
         if variable is None:
             return
-        self.ClassDefaults.variable = convert_to_np_array(self.ClassDefaults.variable, 2)
-        self.instance_defaults.variable = convert_to_np_array(self.instance_defaults.variable, 2)
 
-        return convert_to_np_array(variable, 2)
+        return variable
 
     def _validate_params(self, request_set, target_set=None, context=None):
         """Validate controller, processes and initial_values
@@ -1625,25 +1622,28 @@ class System(System_Base):
 
             # If sender_mech is an ObjectiveMechanism, and:
             #    - none of the Mechanisms that project to it are are a TERMINAL Mechanism for the current Process, or
-            #    - all of the Mechanisms that project to it already have an ObjectiveMechanism, then:
-            #        - do not include the ObjectiveMechanism in the graph;
-            #        - be sure that its outputState projects to the ERROR_SIGNAL inputState of a LearningMechanism
-            #            (labelled "learning_mech" here -- raise an exception if it does not;
-            #        - determine whether learning_mech's ERROR_SIGNAL inputState receives any other projections
-            #            from another ObjectiveMechanism or LearningMechanism (labelled "error_signal_projection" here)
-            #            -- if it does, be sure that it is from the same system and if so return;
-            #               (note:  this shouldn't be true, but the test is here for completeness and sanity-checking)
-            #        - if learning_mech's ERROR_SIGNAL inputState does not receive any projections from
-            #            another objectiveMechanism and/or LearningMechanism in the system, then:
-            #            - find the sender to the ObjectiveMechanism (labelled "error_source" here)
-            #            - find the 1st projection from error_source that projects to the ACTIVATION_INPUT inputState of
-            #                a LearningMechanism (labelled "error_signal" here)
-            #            - instantiate a MappingProjection from error_signal to learning_mech
-            #                projected
+            #    - all of the Mechanisms that project to it already have an ObjectiveMechanism,
+            # Then:
+            #    - do not include the ObjectiveMechanism in the graph;
+            #    - be sure that its outputState projects to the ERROR_SIGNAL inputState of a LearningMechanism
+            #        (labelled "learning_mech" here -- raise an exception if it does not;
+            #    - determine whether learning_mech's ERROR_SIGNAL inputState receives any other projections
+            #        from another ObjectiveMechanism or LearningMechanism (labelled "error_signal_projection" here)
+            #        -- if it does, be sure that it is from the same system and if so return;
+            #           (note:  this shouldn't be true, but the test is here for completeness and sanity-checking)
+            #    - if learning_mech's ERROR_SIGNAL inputState does not receive any projections from
+            #        another objectiveMechanism and/or LearningMechanism in the system, then:
+            #        - find the sender to the ObjectiveMechanism (labelled "error_source" here)
+            #        - find the 1st projection from error_source that projects to the ACTIVATION_INPUT inputState of
+            #            a LearningMechanism (labelled "error_signal" here)
+            #        - instantiate a MappingProjection from error_signal to learning_mech
+            #            projected
             # IMPLEMENTATION NOTE: Composition should allow 1st condition if user indicates internal TARGET is desired;
-            #                      for now, however, assume this is not desired (i.e., only TERMINAL mechanisms
-            #                      should project to ObjectiveMechanisms) and always replace internal
-            #                      ObjectiveMechanism with projection from a LearningMechanism (if it is available)
+            #                  for now, however, assume this is not desired (i.e., only TERMINAL mechanisms
+            #                  should project to ObjectiveMechanisms) and always replace internal
+            #                  ObjectiveMechanism with projection from a LearningMechanism (if it is available)
+            # Otherwise:
+            #     - include it in the graph
 
             obj_mech_replaced = False
 
@@ -1665,13 +1665,21 @@ class System(System_Base):
                 if sample_mech != learning_mech.output_source:
                     assert False
 
-                # Its the 1st item in the learning_execution_graph, so could be for a TERMINAL Mechanism of the System
+                # ObjectiveMechanism the 1st item in the learning_execution_graph, so could be for:
+                #    - the last Mechanism in a learning sequence, or
+                #    - a TERMINAL Mechanism of the System
                 if len(self.learning_execution_graph) == 0:
-
-                    # If sample_mech is NOT for a TERMINAL Mechanism of the current System,
-                    #  - obj_mech should NOT be included in the learning_execution_graph and
-                    #  - should be replaced with appropriate projections to sample_mechs's afferent LearningMechanisms
-                    if not sample_mech.systems[self] is TERMINAL:
+                    # If is the last item in a learning sequence,
+                    #    doesn't matter if it is a TERMINAL Mechanism;  needs to remain as a Target for the System
+                    if not any(proj.has_learning_projection and self in proj.receiver.owner.systems
+                               for proj in sample_mech.output_state.efferents):
+                        pass
+                    # If sample_mech is:
+                    #    - NOT for a TERMINAL Mechanism of the current System
+                    # Then:
+                    #    - obj_mech should NOT be included in the learning_execution_graph and
+                    #    - should be replaced with appropriate projections to sample_mechs's afferent LearningMechanisms
+                    elif not sample_mech.systems[self] is TERMINAL:
                         _assign_error_signal_projections(sample_mech, self, obj_mech)
                         # Don't process ObjectiveMechanism any further (since its been replaced)
                         return
@@ -1702,9 +1710,13 @@ class System(System_Base):
 
                     # INTERNAL CONVERGENCE
                     # None of the mechanisms that project to it are a TERMINAL mechanism
-                    elif not all(all(projection.sender.owner.processes[proc] is TERMINAL
+                    elif (not all(all(projection.sender.owner.processes[proc] is TERMINAL
                                      for proc in projection.sender.owner.processes)
-                                 for projection in obj_mech.input_states[SAMPLE].path_afferents):
+                                 for projection in obj_mech.input_states[SAMPLE].path_afferents)
+                          # and it is not for the last Mechanism in a learning sequence
+                          and any(proj.has_learning_projection and self in proj.receiver.owner.systems
+                                  for proj in sample_mech.output_state.efferents)
+                    ):
 
                         _assign_error_signal_projections(sample_mech, self, obj_mech)
                         obj_mech_replaced = True
@@ -1861,42 +1873,92 @@ class System(System_Base):
                 warnings.warn("Learning has been specified for {} but its \'targets\' argument was not specified;"
                               "default will be used ({})".format(self.name, self.targets))
             # MODIFIED 6/25/17 END
-
-        else:
-            self.targets = np.atleast_2d(self.targets)
-
         # Create SystemInputState for each TARGET mechanism in target_mechanisms and
-        #    assign MappingProjection from the SystemInputState
-        #    to the TARGET mechanism's TARGET inputSate
-        #    (i.e., from the SystemInputState to the ComparatorMechanism)
-        for i, target_mech in zip(range(len(self.target_mechanisms)), self.target_mechanisms):
+        #    assign MappingProjection from the SystemInputState to the ORIGIN mechanism
 
-            # Create ProcessInputState for each target and assign to targetMechanism's target inputState
-            target_mech_TARGET_input_state = target_mech.input_states[TARGET]
 
-            # Check, for each TARGET mechanism, that the length of the corresponding item of targets matches the length
-            #    of the TARGET (ComparatorMechanism) target inputState's instance_defaults.variable attribute
-            if len(self.targets[i]) != len(target_mech_TARGET_input_state.instance_defaults.variable):
-                raise SystemError("Length of target ({}: {}) does not match the length ({}) of the target "
-                                  "expected for its TARGET Mechanism {}".
-                                   format(len(self.targets[i]),
-                                          self.targets[i],
-                                          len(target_mech_TARGET_input_state.instance_defaults.variable),
-                                          target_mech.name))
+        if isinstance(self.targets, dict):
+            for target_mech in self.target_mechanisms:
 
-            system_target_input_state = SystemInputState(
-                                                   owner=self,
-                                                   variable=target_mech_TARGET_input_state.instance_defaults.variable,
-                                                   prefs=self.prefs,
-                                                   name="System Target {}".format(i),
-                                                   context=context)
-            self.target_input_states.append(system_target_input_state)
+                # Skip if TARGET input state already has a projection from a SystemInputState in current system
+                if any(self is projection.sender.owner for projection in target_mech.input_states[TARGET].path_afferents):
+                    continue
 
-            # Add MappingProjection from system_target_input_state to TARGET mechanism's target inputState
-            from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
-            MappingProjection(sender=system_target_input_state,
-                    receiver=target_mech_TARGET_input_state,
-                    name=self.name+' Input Projection to '+target_mech_TARGET_input_state.name)
+                sample_mechanism = target_mech.input_states[SAMPLE].path_afferents[0].sender.owner
+                TARGET_input_state = target_mech.input_states[TARGET]
+
+                if len(self.targets[sample_mechanism]) != len(TARGET_input_state.instance_defaults.variable):
+                            raise SystemError("Length {} of target ({}, {}) does not match the length ({}) of the target "
+                                              "expected for its TARGET Mechanism {}".
+                                               format(len(self.targets[sample_mechanism]),
+                                                      sample_mechanism.name,
+                                                      self.targets[sample_mechanism],
+                                                      len(TARGET_input_state.instance_defaults.variable),
+                                                      target_mech.name))
+
+                system_target_input_state = SystemInputState(owner=self,
+                                                        variable=TARGET_input_state.instance_defaults.variable,
+                                                        prefs=self.prefs,
+                                                        name="System Target for {}".format(target_mech.name),
+                                                        context=context)
+                self.target_input_states.append(system_target_input_state)
+
+                # Add MappingProjection from system_target_input_state to TARGET mechanism's target inputState
+                from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
+                MappingProjection(sender=system_target_input_state,
+                        receiver=TARGET_input_state,
+                        name=self.name+' Input Projection to '+TARGET_input_state.name)
+
+        elif isinstance(self.targets, list):
+
+            # more than one target
+            if len(self.target_mechanisms) > 1:
+                if len(self.targets) != len(self.target_mechanisms):
+                    raise SystemError("Number of target specifications provided ({}) does not match number of target "
+                                      "mechanisms ({}) in {}".format(len(self.targets),
+                                                                     len(self.target_mechanisms),
+                                                                     self.name))
+
+            # only one target, verify that it is wrapped in an outer list
+            elif len(self.target_mechanisms) == 1:
+                if len(np.shape(self.targets)) < 2:
+                    self.targets = [self.targets]
+
+
+
+
+            # Create SystemInputState for each TARGET mechanism in target_mechanisms and
+            #    assign MappingProjection from the SystemInputState
+            #    to the TARGET mechanism's TARGET inputSate
+            #    (i.e., from the SystemInputState to the ComparatorMechanism)
+            for i, target_mech in zip(range(len(self.target_mechanisms)), self.target_mechanisms):
+
+                # Create ProcessInputState for each target and assign to targetMechanism's target inputState
+                target_mech_TARGET_input_state = target_mech.input_states[TARGET]
+
+                # Check, for each TARGET mechanism, that the length of the corresponding item of targets matches the length
+                #    of the TARGET (ComparatorMechanism) target inputState's instance_defaults.variable attribute
+                if len(self.targets[i]) != len(target_mech_TARGET_input_state.instance_defaults.variable):
+                    raise SystemError("Length of target ({}: {}) does not match the length ({}) of the target "
+                                      "expected for its TARGET Mechanism {}".
+                                      format(len(self.targets[i]),
+                                             self.targets[i],
+                                             len(target_mech_TARGET_input_state.instance_defaults.variable),
+                                             target_mech.name))
+
+                system_target_input_state = SystemInputState(
+                    owner=self,
+                    variable=target_mech_TARGET_input_state.instance_defaults.variable,
+                    prefs=self.prefs,
+                    name="System Target {}".format(i),
+                    context=context)
+                self.target_input_states.append(system_target_input_state)
+
+                # Add MappingProjection from system_target_input_state to TARGET mechanism's target inputState
+                from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
+                MappingProjection(sender=system_target_input_state,
+                                  receiver=target_mech_TARGET_input_state,
+                                  name=self.name + ' Input Projection to ' + target_mech_TARGET_input_state.name)
 
     def _assign_output_states(self):
         """Assign OutputStates for System (the values of which will comprise System.value)
@@ -2580,7 +2642,7 @@ class System(System_Base):
             except AttributeError as error_msg:
                 if not 'INIT' in context:
                     raise SystemError("PROGRAM ERROR: Problem executing controller for {}: {}".
-                                      format(self.name, error_msg))
+                                      format(self.name, error_msg.args[0]))
         #endregion
 
         # Report completion of system execution and value of designated outputs
@@ -2657,20 +2719,24 @@ class System(System_Base):
         #        (e.g., for rewards in reinforcement learning)
         from psyneulink.components.mechanisms.adaptive.learning.learningmechanism import LearningMechanism
 
-        if isinstance(self.targets, function_type):
-            self.current_targets = self.targets()
+        # if isinstance(self.targets, function_type):
+        #     self.current_targets = self.targets()
+        #     for i in range(len(self.target_mechanisms)):
+        #         self.target_input_states[i].value = self.current_targets[i]
+        if isinstance(self.targets, dict):
+            for i in range(len(self.target_mechanisms)):
 
-        # MODIFIED CW 1/29/18: removed this because some learning (e.g. Hebbian) doesn't need targets
-        # if self.current_targets is None:
-            # if self.verbosePref:
-                # warnings.warn("No targets were specified in the call to execute {} with learning. This is okay if "
-                #               "your learning (e.g. Hebbian learning) does not need a target.".format(self.name))
+                terminal_mechanism = self.target_mechanisms[i].input_states[SAMPLE].path_afferents[0].sender.owner
+                target_value = self.current_targets[terminal_mechanism]
 
-        for i in range(len(self.target_mechanisms)):
-        # Assign each item of targets to the value of the targetInputState for the TARGET mechanism
-        #    and zero the value of all ProcessInputStates that project to the TARGET mechanism
-            self.target_input_states[i].value = self.current_targets[i]
+                if callable(target_value):
+                    self.target_input_states[i].value = target_value()
+                else:
+                    self.target_input_states[i].value = target_value
 
+        elif isinstance(self.targets, (list, np.ndarray)):
+            for i in range(len(self.target_mechanisms)):
+                self.target_input_states[i].value = self.current_targets[i]
         # NEXT, execute all components involved in learning
         if self.scheduler_learning is None:
             raise SystemError('System.py:_execute_learning - {0}\'s scheduler is None, '
@@ -3172,6 +3238,44 @@ class System(System_Base):
         else:
             return self.controller.control_signals
 
+    def _get_label(self, item, show_dimensions):
+
+        # For Mechanisms, show length of each InputState and OutputState
+        if isinstance(item, Mechanism):
+            if show_dimensions in {ALL, MECHANISMS}:
+                input_str = "in ({})".format(",".join(str(len(input_state.variable))
+                                                      for input_state in item.input_states))
+                output_str = "out ({})".format(",".join(str(len(np.atleast_1d(output_state.value)))
+                                                        for output_state in item.output_states))
+                return "{}\n{}\n{}".format(output_str, item.name, input_str)
+            else:
+                return item.name
+
+        # For Projection, show dimensions of matrix
+        elif isinstance(item, Projection):
+            if show_dimensions in {ALL, PROJECTIONS}:
+                # MappingProjections use matrix
+                if isinstance(item, MappingProjection):
+                    value = np.array(item.matrix)
+                    dim_string = "({})".format("x".join([str(i) for i in value.shape]))
+                    return "{}\n{}".format(item.name, dim_string)
+                # ModulatoryProjections use value
+                else:
+                    value = np.array(item.value)
+                    dim_string = "({})".format(len(value))
+                    return "{}\n{}".format(item.name, dim_string)
+            else:
+                return item.name
+
+        elif isinstance(item, System):
+            if "SYSTEM" in item.name.upper():
+                return item.name
+            else:
+                return "{}\nSystem".format(item.name)
+
+        else:
+            raise SystemError("Unrecognized node type ({}) in graph for {}".format(item, self.name))
+
     def show_graph(self,
                    direction = 'BT',
                    show_learning = False,
@@ -3284,11 +3388,6 @@ class System(System_Base):
 
         """
 
-        from psyneulink.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
-        from psyneulink.components.mechanisms.adaptive.learning.learningmechanism import LearningMechanism
-        from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
-        from psyneulink.components.projections.projection import Projection
-
         import graphviz as gv
 
         system_graph = self.graph
@@ -3301,47 +3400,6 @@ class System(System_Base):
         projection_shape = 'diamond'
         # projection_shape = 'Mdiamond'
         # projection_shape = 'hexagon'
-
-        def _get_label(item):
-
-
-            # For Mechanisms, show length of each InputState and OutputState
-            if isinstance(item, Mechanism):
-                if show_dimensions in {ALL, MECHANISMS}:
-                    input_str = "in ({})".format(",".join(str(len(input_state.variable))
-                                                       for input_state in item.input_states))
-                    output_str = "out ({})".format(",".join(str(len(output_state.value))
-                                                        for output_state in item.output_states))
-                    return "{}\n{}\n{}".format(output_str, item.name, input_str)
-                else:
-                    return item.name
-
-            # For Projection, show dimensions of matrix
-            elif isinstance(item, Projection):
-                if show_dimensions in {ALL, PROJECTIONS}:
-                    # MappingProjections use matrix
-                    if isinstance(item, MappingProjection):
-                        value = np.array(item.matrix)
-                        dim_string = "({})".format("x".join([str(i) for i in value.shape]))
-                        return "{}\n{}".format(item.name, dim_string)
-                    # ModulatoryProjections use value
-                    else:
-                        value = np.array(item.value)
-                        dim_string = "({})".format(len(value))
-                        return "{}\n{}".format(item.name, dim_string)
-                else:
-                    return item.name
-
-            elif isinstance(item, System):
-                if "SYSTEM" in item.name.upper():
-                    return item.name
-                else:
-                    return "{}\nSystem".format(item.name)
-
-            else:
-                raise SystemError("Unrecognized node type ({}) in graph for {}".format(item, self.name))
-
-
 
         # build graph and configure visualisation settings
         G = gv.Digraph(engine = "dot",
@@ -3365,7 +3423,7 @@ class System(System_Base):
         rcvrs = list(system_graph.keys())
         # loop through receivers
         for rcvr in rcvrs:
-            rcvr_name = _get_label(rcvr)
+            rcvr_name = self._get_label(rcvr, show_dimensions)
             # rcvr_shape = rcvr.instance_defaults.variable.shape[1]
             rcvr_label = rcvr_name
             G.node(rcvr_label, shape=mechanism_shape)
@@ -3375,7 +3433,7 @@ class System(System_Base):
                 for proj in input_state.path_afferents:
                     if proj.sender.owner is not rcvr:
                         continue
-                    edge_label = _get_label(proj)
+                    edge_label = self._get_label(proj, show_dimensions)
                     try:
                         has_learning = proj.has_learning_projection
                     except AttributeError:
@@ -3391,7 +3449,7 @@ class System(System_Base):
             # loop through senders
             sndrs = system_graph[rcvr]
             for sndr in sndrs:
-                sndr_name = _get_label(sndr)
+                sndr_name = self._get_label(sndr, show_dimensions)
                 # sndr_shape = sndr.instance_defaults.variable.shape[1]
                 sndr_label = sndr_name
 
@@ -3400,7 +3458,7 @@ class System(System_Base):
                     projs = output_state.efferents
                     for proj in projs:
                         if proj.receiver.owner == rcvr:
-                            edge_name = _get_label(proj)
+                            edge_name = self._get_label(proj, show_dimensions)
                             # edge_shape = proj.matrix.shape
                             try:
                                 has_learning = proj.has_learning_projection
@@ -3444,7 +3502,7 @@ class System(System_Base):
                     sndrs = learning_graph[rcvr]
                     for sndr in sndrs:
                         edge_label = rcvr._parameter_states['matrix'].mod_afferents[0].name
-                        G.edge(_get_label(sndr), _get_label(rcvr), color=learning_color, label = edge_label)
+                        G.edge(self._get_label(sndr, show_dimensions), self._get_label(rcvr, show_dimensions), color=learning_color, label = edge_label)
                 else:
                     # Implement edges for Projections to each LearningMechanism from other LearningMechanisms
                     # and from ProcessingMechanisms if 'ALL' is set
@@ -3453,19 +3511,19 @@ class System(System_Base):
                     for input_state in rcvr.input_states:
                         for proj in input_state.path_afferents:
                             sndr = proj.sender.owner
-                            G.node(_get_label(rcvr), color=learning_color)
+                            G.node(self._get_label(rcvr, show_dimensions), color=learning_color)
                             # If Projection is not from another learning component
                             #    only show if ALL is set, and don't color
                             if (isinstance(sndr, LearningMechanism) or
                                 (isinstance(sndr, ObjectiveMechanism)
                                  and sndr._role is LEARNING
                                  and self in sndr.systems)):
-                                G.node(_get_label(sndr), color=learning_color)
+                                G.node(self._get_label(sndr, show_dimensions), color=learning_color)
                             else:
                                 if show_learning is True:
                                     continue
                             if self in sndr.systems:
-                                G.edge(_get_label(sndr), _get_label(rcvr), color=learning_color, label=proj.name)
+                                G.edge(self._get_label(sndr, show_dimensions), self._get_label(rcvr, show_dimensions), color=learning_color, label=proj.name)
 
                             # Get Projections to ComparatorMechanism as well
                             if (isinstance(sndr, ObjectiveMechanism)
@@ -3479,9 +3537,9 @@ class System(System_Base):
                                         if isinstance(output_mech, Process):
                                             continue
                                         elif isinstance(output_mech, System):
-                                            G.node(_get_label(output_mech), color=system_color, penwidth='3')
-                                        G.edge(_get_label(output_mech),
-                                               _get_label(sndr),
+                                            G.node(self._get_label(output_mech), color=system_color, penwidth='3')
+                                        G.edge(self._get_label(output_mech, show_dimensions),
+                                               self._get_label(sndr, show_dimensions),
                                                color=learning_color,
                                                label=proj.name)
                                         assert True
@@ -3500,9 +3558,9 @@ class System(System_Base):
             objmech = connector.sender.owner
 
             # main edge
-            G.node(_get_label(controller), color=control_color)
-            G.node(_get_label(objmech), color=control_color)
-            G.edge(_get_label(objmech), _get_label(controller), label=connector.name, color=control_color)
+            G.node(self._get_label(controller, show_dimensions), color=control_color)
+            G.node(self._get_label(objmech, show_dimensions), color=control_color)
+            G.edge(self._get_label(objmech, show_dimensions), self._get_label(controller, show_dimensions), label=connector.name, color=control_color)
 
             # outgoing edges
             for output_state in controller.control_signals:
@@ -3510,24 +3568,24 @@ class System(System_Base):
                     # MODIFIED 7/21/17 CW: this edge_name statement below didn't do anything and caused errors, so
                     # I commented it out.
                     # edge_name
-                    rcvr_name = _get_label(projection.receiver.owner)
-                    G.edge(_get_label(controller), rcvr_name, label=projection.name, color=control_color)
+                    rcvr_name = self._get_label(projection.receiver.owner, show_dimensions)
+                    G.edge(self._get_label(controller, show_dimensions), rcvr_name, label=projection.name, color=control_color)
 
             # incoming edges
             for istate in objmech.input_states:
                 for proj in istate.path_afferents:
-                    sndr_name = _get_label(proj.sender.owner)
-                    G.edge(sndr_name, _get_label(objmech), label=proj.name, color=control_color)
+                    sndr_name = self._get_label(proj.sender.owner, show_dimensions)
+                    G.edge(sndr_name, self._get_label(objmech, show_dimensions), label=proj.name, color=control_color)
 
             # prediction mechanisms
             for object_item in self.execution_list:
                 mech = object_item
                 if mech._role is CONTROL and hasattr(mech, 'origin_mech'):
-                    G.node(_get_label(mech),
+                    G.node(self._get_label(mech, show_dimensions),
                            color=prediction_mechanism_color)
                     recvr = mech.origin_mech
-                    G.edge(_get_label(mech),
-                           _get_label(recvr),
+                    G.edge(self._get_label(mech, show_dimensions),
+                           self._get_label(recvr, show_dimensions),
                            label=' prediction assignment',
                            color=prediction_mechanism_color)
                     pass

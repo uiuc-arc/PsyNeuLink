@@ -195,7 +195,7 @@ from psyneulink.globals.keywords import ACCUMULATOR_INTEGRATOR_FUNCTION, ADAPTIV
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref, kpRuntimeParamStickyAssignmentPref
 from psyneulink.globals.preferences.preferenceset import PreferenceEntry, PreferenceLevel
 from psyneulink.globals.registry import register_category
-from psyneulink.globals.utilities import AutoNumber, is_distance_metric, is_matrix, is_numeric, iscompatible, np_array_less_than_2d, parameter_spec
+from psyneulink.globals.utilities import AutoNumber, is_distance_metric, is_iterable, is_matrix, is_numeric, iscompatible, np_array_less_than_2d, parameter_spec
 from psyneulink.scheduling.time import TimeScale
 
 __all__ = [
@@ -590,6 +590,9 @@ class Function_Base(Function):
 
     variableClassDefault_locked = False
 
+    class ClassDefaults(Function.ClassDefaults):
+        variable = np.array([0])
+
     # Note: the following enforce encoding as 1D np.ndarrays (one array per variable)
     variableEncodingDim = 1
 
@@ -636,6 +639,12 @@ class Function_Base(Function):
                          prefs=prefs,
                          context=context)
 
+    def _parse_arg_generic(self, arg_val):
+        if isinstance(arg_val, list):
+            return np.asarray(arg_val)
+        else:
+            return arg_val
+
     def _validate_parameter_spec(self, param, param_name, numeric_only=True):
         """Validates function param
         Replace direct call to parameter_spec in tc, which seems to not get called by Function __init__()'s"""
@@ -643,9 +652,6 @@ class Function_Base(Function):
             owner_name = 'of ' + self.owner_name if self.owner else ""
             raise FunctionError("{} is not a valid specification for the {} argument of {}{}".
                                 format(param, param_name, self.__class__.__name__, owner_name))
-
-    def execute(self, variable=None, params=None, context=None):
-        return self.function(variable=variable, params=params, context=context)
 
     def get_current_function_param(self, param_name):
         try:
@@ -784,9 +790,6 @@ class ArgumentTherapy(Function_Base):
     componentName = ARGUMENT_THERAPY_FUNCTION
     componentType = EXAMPLE_FUNCTION_TYPE
 
-    class ClassDefaults(Function_Base.ClassDefaults):
-        variable = 0
-
     classPreferences = {
         kwPreferenceSetName: 'ExampleClassPreferences',
         kpReportOutputPref: PreferenceEntry(False, PreferenceLevel.INSTANCE),
@@ -814,7 +817,7 @@ class ArgumentTherapy(Function_Base):
                                })
 
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  propensity=10.0,
                  pertincacity=Manner.CONTRARIAN,
                  params=None,
@@ -1000,7 +1003,7 @@ class UserDefinedFunction(Function_Base):
 
     .. note::
         Be sure to match the **default_variable** argument of the `UserDefinedFunction` with the **default_variable**
-        of the mechanism. (In this example, for `myMech`, `size = 3` is equivalent to `default_variable = [[0, 0, 0]]`.)
+        of the Mechanism. (In this example, for `myMech`, `size = 3` is equivalent to `default_variable = [[0, 0, 0]]`.)
 
     Custom functions can be as elaborate as desired, and can even include PsyNeuLink functions indirectly, such as::
 
@@ -1096,9 +1099,6 @@ class UserDefinedFunction(Function_Base):
     componentName = USER_DEFINED_FUNCTION
     componentType = USER_DEFINED_FUNCTION_TYPE
 
-    class ClassDefaults(Function_Base.ClassDefaults):
-        variable = [0]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     paramClassDefaults.update({
         FUNCTION_OUTPUT_TYPE_CONVERSION: False,
@@ -1128,9 +1128,13 @@ class UserDefinedFunction(Function_Base):
 
         # IMPLEMENT: PARSE ARGUMENTS FOR custom_function AND ASSIGN TO user_params
 
-    def function(self,
-                 **kwargs):
-        return self.custom_function(**kwargs)
+    def function(self, **kwargs):
+        try:
+            return self.custom_function(**kwargs)
+        except TypeError:
+            return self.custom_function(kwargs[VARIABLE])
+
+
 
 
 # region **********************************  COMBINATION FUNCTIONS  ****************************************************
@@ -1147,6 +1151,9 @@ class CombinationFunction(Function_Base):
 
     """
     componentType = COMBINATION_FUNCTION_TYPE
+
+    class ClassDefaults(Function_Base.ClassDefaults):
+        variable = np.array([0, 0])
 
     # IMPLEMENTATION NOTE: THESE SHOULD SHOULD BE REPLACED WITH ABC WHEN IMPLEMENTED
     def __init__(self, default_variable,
@@ -1191,20 +1198,23 @@ class Reduce(CombinationFunction):  # ------------------------------------------
     # FIX  CONFIRM THAT LINEAR TRANSFORMATION (OFFSET, SCALE) APPLY TO THE RESULTING ARRAY
     # FIX: CONFIRM RETURNS LIST IF GIVEN LIST, AND SIMLARLY FOR NP.ARRAY
     """
-    Reduce(                                     \
+    Reduce(                                       \
          default_variable=ClassDefaults.variable, \
-         operation=SUM,                         \
-         scale=1.0,                             \
-         offset=0.0,                            \
-         params=None,                           \
-         owner=None,                            \
-         prefs=None,                            \
+         weights=None,                            \
+         exponents=None,                          \
+         operation=SUM,                           \
+         scale=1.0,                               \
+         offset=0.0,                              \
+         params=None,                             \
+         owner=None,                              \
+         prefs=None,                              \
     )
 
     .. _Reduce:
 
-    Combine values in each of one or more arrays into a single value for each array.
-    Use optional SCALE and OFFSET parameters to linearly transform the resulting value for each array.
+    Combine values in each of one or more arrays into a single value for each array, with optional weighting and/or
+    exponentiation of each item within an array prior to combining, and scaling and/or offset of result.
+
     Returns a scalar value for each array of the input.
 
     COMMENT:
@@ -1216,6 +1226,20 @@ class Reduce(CombinationFunction):  # ------------------------------------------
 
     default_variable : list or np.array : default ClassDefaults.variable
         specifies a template for the value to be transformed and its default value;  all entries must be numeric.
+
+    weights : 1d or 2d np.array : default None
+        specifies values used to multiply the elements of each array in `variable  <LinearCombination.variable>`.
+        If it is 1d, its length must equal the number of items in `variable <LinearCombination.variable>`;
+        if it is 2d, the length of each item must be the same as those in `variable <LinearCombination.variable>`,
+        and there must be the same number of items as there are in `variable <LinearCombination.variable>`
+        (see `weights <LinearCombination.weights>` for details)
+
+    exponents : 1d or 2d np.array : default None
+        specifies values used to exponentiate the elements of each array in `variable  <LinearCombination.variable>`.
+        If it is 1d, its length must equal the number of items in `variable <LinearCombination.variable>`;
+        if it is 2d, the length of each item must be the same as those in `variable <LinearCombination.variable>`,
+        and there must be the same number of items as there are in `variable <LinearCombination.variable>`
+        (see `exponents <LinearCombination.exponents>` for details)
 
     operation : SUM or PRODUCT : default SUM
         specifies whether to sum or multiply the elements in `variable <Reduce.function.variable>` of
@@ -1279,15 +1303,15 @@ class Reduce(CombinationFunction):  # ------------------------------------------
     multiplicative_param = SCALE
     additive_param = OFFSET
 
-    class ClassDefaults(CombinationFunction.ClassDefaults):
-        variable = [0, 0]
-    # variableClassDefault_locked = True
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 # weights: tc.optional(parameter_spec)=None,
+                 # exponents: tc.optional(parameter_spec)=None,
+                 weights=None,
+                 exponents=None,
+                 default_variable=None,
                  operation: tc.enum(SUM, PRODUCT) = SUM,
                  scale: parameter_spec = 1.0,
                  offset: parameter_spec = 0.0,
@@ -1297,7 +1321,9 @@ class Reduce(CombinationFunction):  # ------------------------------------------
                  context=componentName + INITIALIZING):
 
         # Assign args to params and functionParams dicts (kwConstants must == arg names)
-        params = self._assign_args_to_param_dicts(operation=operation,
+        params = self._assign_args_to_param_dicts(weights=weights,
+                                                  exponents=exponents,
+                                                  operation=operation,
                                                   scale=scale,
                                                   offset=offset,
                                                   params=params)
@@ -1320,6 +1346,49 @@ class Reduce(CombinationFunction):  # ------------------------------------------
             raise FunctionError("All elements of {} must be scalar values".
                                 format(self.__class__.__name__))
         return variable
+
+    def _validate_params(self, request_set, target_set=None, context=None):
+        """Validate weghts, exponents, scale and offset parameters
+
+        Check that WEIGHTS and EXPONENTS are lists or np.arrays of numbers with length equal to variable.
+        Check that SCALE and OFFSET are scalars.
+
+        Note: the checks of compatibility with variable are only performed for validation calls during execution
+              (i.e., from check_args(), since during initialization or COMMAND_LINE assignment,
+              a parameter may be re-assigned before variable assigned during is known
+        """
+
+        # FIX: MAKE SURE THAT IF OPERATION IS SUBTRACT OR DIVIDE, THERE ARE ONLY TWO VECTORS
+
+        super()._validate_params(request_set=request_set,
+                                 target_set=target_set,
+                                 context=context)
+
+        if WEIGHTS in target_set and target_set[WEIGHTS] is not None:
+            self._validate_parameter_spec(target_set[WEIGHTS], WEIGHTS, numeric_only=True)
+            target_set[WEIGHTS] = np.atleast_1d(target_set[WEIGHTS])
+            if any(c in context for c in {EXECUTING, LEARNING}):
+                if len(target_set[WEIGHTS]) != len(self.instance_defaults.variable):
+                    raise FunctionError("Number of weights ({0}) is not equal to number of elements in variable ({1})".
+                                        format(len(target_set[WEIGHTS]), len(self.instance_defaults.variable)))
+
+        if EXPONENTS in target_set and target_set[EXPONENTS] is not None:
+            self._validate_parameter_spec(target_set[EXPONENTS], EXPONENTS, numeric_only=True)
+            target_set[EXPONENTS] = np.atleast_1d(target_set[EXPONENTS])
+            if any(c in context for c in {EXECUTING, LEARNING}):
+                if len(target_set[EXPONENTS]) != len(self.instance_defaults.variable):
+                    raise FunctionError("Number of exponents ({0}) does not equal number of elements in variable ({1})".
+                                        format(len(target_set[EXPONENTS]), len(self.instance_defaults.variable)))
+
+        if SCALE in target_set and target_set[SCALE] is not None:
+            scale = target_set[SCALE]
+            if not isinstance(scale, numbers.Number):
+                raise FunctionError("{} param of {} ({}) must be a scalar".format(SCALE, self.name, scale))
+
+        if OFFSET in target_set and target_set[OFFSET] is not None:
+            offset = target_set[OFFSET]
+            if not isinstance(offset, numbers.Number):
+                raise FunctionError("{} param of {} ({}) must be a scalar".format(OFFSET, self.name, offset))
 
     def function(self,
                  variable=None,
@@ -1351,14 +1420,39 @@ class Reduce(CombinationFunction):  # ------------------------------------------
         """
 
         # Validate variable and assign to variable, and validate params
-        variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
+        variable = self._update_variable(self._check_args(variable=variable,
+                                                                     params=params,
+                                                                     context=context))
 
+        weights = self.get_current_function_param(WEIGHTS)
+        exponents = self.get_current_function_param(EXPONENTS)
         operation = self.get_current_function_param(OPERATION)
         scale = self.get_current_function_param(SCALE)
         offset = self.get_current_function_param(OFFSET)
 
+
+        # FIX FOR EFFICIENCY: CHANGE THIS AND WEIGHTS TO TRY/EXCEPT // OR IS IT EVEN NECESSARY, GIVEN VALIDATION ABOVE??
+        # Apply exponents if they were specified
+        if exponents is not None:
+            # Avoid divide by zero warning:
+            #    make sure there are no zeros for an element that is assigned a negative exponent
+            # Allow during initialization because 0s are common in default_variable argument
+            if context is not None and INITIALIZING in context:
+                try:
+                    variable = self._update_variable(variable ** exponents)
+                except ZeroDivisionError:
+                    variable = self._update_variable(np.ones_like(variable))
+            else:
+                # if this fails with ZeroDivisionError it should not be caught outside of initialization
+                variable = self._update_variable(variable ** exponents)
+
+        # Apply weights if they were specified
+        if weights is not None:
+            variable = self._update_variable(variable * weights)
+
         # Calculate using relevant aggregation operation and return
         if operation is SUM:
+            # result = np.sum(np.atleast_2d(variable), axis=0) * scale + offset
             result = np.sum(np.atleast_2d(variable), axis=1) * scale + offset
         elif operation is PRODUCT:
             result = np.product(np.atleast_2d(variable), axis=1) * scale + offset
@@ -1552,15 +1646,11 @@ class LinearCombination(CombinationFunction):  # -------------------------------
     multiplicative_param = SCALE
     additive_param = OFFSET
 
-    class ClassDefaults(CombinationFunction.ClassDefaults):
-        variable = [2, 2]
-    # variableClassDefault_locked = True
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  # weights: tc.optional(parameter_spec)=None,
                  # exponents: tc.optional(parameter_spec)=None,
                  weights=None,
@@ -2025,15 +2115,11 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
     multiplicative_param = SCALE
     additive_param = OFFSET
 
-    class ClassDefaults(CombinationFunction.ClassDefaults):
-        variable = [2, 2]
-    # variableClassDefault_locked = True
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  # weights:tc.optional(parameter_spec)=None,
                  # exponents:tc.optional(parameter_spec)=None,
                  weights=None,
@@ -2274,7 +2360,7 @@ class PredictionErrorDeltaFunction(CombinationFunction):
     }
 
     class ClassDefaults(CombinationFunction.ClassDefaults):
-        variable = [[1], [1]]
+        variable = np.array([[1], [1]])
 
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     multiplicative_param = None
@@ -2282,7 +2368,7 @@ class PredictionErrorDeltaFunction(CombinationFunction):
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  gamma: tc.optional(float) = 1.0,
                  params=None,
                  owner=None,
@@ -2554,7 +2640,7 @@ class SoftMax(NormalizingFunction):
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  gain: parameter_spec = 1.0,
                  output: tc.enum(ALL, MAX_VAL, MAX_INDICATOR, PROB) = ALL,
                  params: tc.optional(dict) = None,
@@ -2692,7 +2778,7 @@ class SoftMax(NormalizingFunction):
                 derivative[i] = sm[i] * (d - max_val)
 
         else:
-            raise FunctionError("Can't calculate derivative for SoftMax function{} since OUTPUT_TYPE is PROB "
+            raise FunctionError("Can't assign derivative for SoftMax function{} since OUTPUT_TYPE is PROB "
                                 "(and therefore the relevant element is ambiguous)".format(self.owner_name))
 
         return derivative
@@ -2846,9 +2932,6 @@ class Linear(TransferFunction):  # ---------------------------------------------
         kpRuntimeParamStickyAssignmentPref: PreferenceEntry(False, PreferenceLevel.INSTANCE)
     }
 
-    class ClassDefaults(TransferFunction.ClassDefaults):
-        variable = [0]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     paramClassDefaults.update({
         FUNCTION_OUTPUT_TYPE_CONVERSION: True,
@@ -2857,7 +2940,7 @@ class Linear(TransferFunction):  # ---------------------------------------------
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  slope: parameter_spec = 1.0,
                  intercept: parameter_spec = 0.0,
                  params=None,
@@ -3062,15 +3145,11 @@ class Exponential(TransferFunction):  # ----------------------------------------
     multiplicative_param = RATE
     additive_param = SCALE
 
-
-    class ClassDefaults(TransferFunction.ClassDefaults):
-        variable = 0
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  rate: parameter_spec = 1.0,
                  scale: parameter_spec = 1.0,
                  params=None,
@@ -3221,14 +3300,11 @@ class Logistic(TransferFunction):  # -------------------------------------------
     multiplicative_param = GAIN
     additive_param = BIAS
 
-    class ClassDefaults(TransferFunction.ClassDefaults):
-        variable = 0
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  gain: parameter_spec = 1.0,
                  bias: parameter_spec = 0.0,
                  offset: parameter_spec = 0.0,
@@ -3421,9 +3497,6 @@ class LinearMatrix(TransferFunction):  # ---------------------------------------
     additive_param = None
 
     DEFAULT_FILLER_VALUE = 0
-
-    class ClassDefaults(TransferFunction.ClassDefaults):
-        variable = [0]  # Sender vector
 
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
@@ -4117,8 +4190,6 @@ class Integrator(IntegratorFunction):  # ---------------------------------------
     """
 
     componentName = INTEGRATOR_FUNCTION
-    class ClassDefaults(IntegratorFunction.ClassDefaults):
-        variable = [[0]]
 
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     # paramClassDefaults.update({INITIALIZER: ClassDefaults.variable})
@@ -4132,11 +4203,20 @@ class Integrator(IntegratorFunction):  # ---------------------------------------
                  default_variable=None,
                  rate: parameter_spec = 1.0,
                  noise=0.0,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  params: tc.optional(dict) = None,
                  owner=None,
                  prefs: is_pref_set = None,
                  context="Integrator Init"):
+
+        if initializer is None:
+            if params is not None and INITIALIZER in params and params[INITIALIZER] is not None:
+                # This is only needed as long as a new copy of a function is created
+                # whenever assigning the function to a mechanism.
+                # The old values are compiled and passed in through params argument.
+                initializer = params[INITIALIZER]
+            else:
+                initializer = self.ClassDefaults.variable
 
         # Assign args to params and functionParams dicts (kwConstants must == arg names)
         params = self._assign_args_to_param_dicts(rate=rate,
@@ -4146,7 +4226,9 @@ class Integrator(IntegratorFunction):  # ---------------------------------------
 
 
         # Assign here as default, for use in initialization of function
-        self.previous_value = self.paramClassDefaults[INITIALIZER]
+        self.previous_value = initializer
+        # does not actually get set in _assign_args_to_param_dicts but we need it as an instance_default
+        params[INITIALIZER] = initializer
 
         super().__init__(default_variable=default_variable,
                          params=params,
@@ -4154,8 +4236,10 @@ class Integrator(IntegratorFunction):  # ---------------------------------------
                          prefs=prefs,
                          context=context)
 
+        self.initializer = initializer
+
         # Reassign to kWInitializer in case default value was overridden
-        # self.previous_value = self.initializer
+        self.previous_value = self.initializer
 
         self.auto_dependent = True
 
@@ -4432,9 +4516,6 @@ class SimpleIntegrator(
 
     componentName = SIMPLE_INTEGRATOR_FUNCTION
 
-    class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     # paramClassDefaults.update({INITIALIZER: ClassDefaults.variable})
     paramClassDefaults.update({
@@ -4451,7 +4532,7 @@ class SimpleIntegrator(
                  rate: parameter_spec=1.0,
                  noise=0.0,
                  offset=None,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  params: tc.optional(dict)=None,
                  owner=None,
                  prefs: is_pref_set = None,
@@ -4464,13 +4545,15 @@ class SimpleIntegrator(
                                                   offset=offset,
                                                   params=params)
 
-        super().__init__(default_variable=default_variable,
-                         params=params,
-                         owner=owner,
-                         prefs=prefs,
-                         context=context)
+        super().__init__(
+            default_variable=default_variable,
+            params=params,
+            owner=owner,
+            prefs=prefs,
+            context=context,
+            initializer=initializer,
+        )
 
-        self.previous_value = self.initializer
         self.auto_dependent = True
 
     def function(self,
@@ -4639,9 +4722,6 @@ class LCAIntegrator(
 
     componentName = SIMPLE_INTEGRATOR_FUNCTION
 
-    class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     # paramClassDefaults.update({INITIALIZER: ClassDefaults.variable})
     paramClassDefaults.update({
@@ -4658,7 +4738,7 @@ class LCAIntegrator(
                  rate: parameter_spec=1.0,
                  noise=0.0,
                  offset=None,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  time_step_size=0.1,
                  params: tc.optional(dict)=None,
                  owner=None,
@@ -4673,13 +4753,15 @@ class LCAIntegrator(
                                                   offset=offset,
                                                   params=params)
 
-        super().__init__(default_variable=default_variable,
-                         params=params,
-                         owner=owner,
-                         prefs=prefs,
-                         context=context)
+        super().__init__(
+            default_variable=default_variable,
+            params=params,
+            owner=owner,
+            prefs=prefs,
+            context=context,
+            initializer=initializer,
+        )
 
-        self.previous_value = self.initializer
         self.auto_dependent = True
 
     def function(self,
@@ -4850,9 +4932,6 @@ class ConstantIntegrator(Integrator):  # ---------------------------------------
 
     componentName = CONSTANT_INTEGRATOR_FUNCTION
 
-    class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     # paramClassDefaults.update({INITIALIZER: ClassDefaults.variable})
     paramClassDefaults.update({
@@ -4873,7 +4952,7 @@ class ConstantIntegrator(Integrator):  # ---------------------------------------
                  noise=0.0,
                  offset=0.0,
                  scale = 1.0,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  params: tc.optional(dict) = None,
                  owner=None,
                  prefs: is_pref_set = None,
@@ -4888,16 +4967,18 @@ class ConstantIntegrator(Integrator):  # ---------------------------------------
                                                   params=params)
 
         # Assign here as default, for use in initialization of function
-        self.previous_value = self.paramClassDefaults[INITIALIZER]
+        self.previous_value = initializer
 
-        super().__init__(default_variable=default_variable,
-                         params=params,
-                         owner=owner,
-                         prefs=prefs,
-                         context=context)
+        super().__init__(
+            default_variable=default_variable,
+            params=params,
+            owner=owner,
+            prefs=prefs,
+            context=context,
+            initializer=initializer,
+        )
 
         # Reassign to initializer in case default value was overridden
-        self.previous_value = self.initializer
 
         self.auto_dependent = True
 
@@ -5057,9 +5138,6 @@ class AdaptiveIntegrator(
 
     componentName = ADAPTIVE_INTEGRATOR_FUNCTION
 
-    class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
-
     multiplicative_param = RATE
     additive_param = OFFSET
 
@@ -5077,7 +5155,7 @@ class AdaptiveIntegrator(
                  noise=0.0,
                  offset= 0.0,
                  time_step_size=0.02,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  params: tc.optional(dict) = None,
                  owner=None,
                  prefs: is_pref_set = None,
@@ -5091,13 +5169,15 @@ class AdaptiveIntegrator(
                                                   time_step_size=time_step_size,
                                                   params=params)
 
-        super().__init__(default_variable=default_variable,
-                         params=params,
-                         owner=owner,
-                         prefs=prefs,
-                         context=context)
+        super().__init__(
+            default_variable=default_variable,
+            params=params,
+            owner=owner,
+            prefs=prefs,
+            context=context,
+            initializer=initializer,
+        )
 
-        self.previous_value = self.initializer
 
         self.auto_dependent = True
 
@@ -5357,9 +5437,6 @@ class DriftDiffusionIntegrator(
 
     componentName = DRIFT_DIFFUSION_INTEGRATOR_FUNCTION
 
-    class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
-
     multiplicative_param = RATE
     additive_param = OFFSET
 
@@ -5378,7 +5455,7 @@ class DriftDiffusionIntegrator(
                  offset: parameter_spec = 0.0,
                  time_step_size=1.0,
                  t0=0.0,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  threshold=100.0,
                  params: tc.optional(dict) = None,
                  owner=None,
@@ -5396,15 +5473,16 @@ class DriftDiffusionIntegrator(
                                                   params=params)
 
         # Assign here as default, for use in initialization of function
-        self.previous_value = self.paramClassDefaults[INITIALIZER]
-        super().__init__(default_variable=default_variable,
-                         params=params,
-                         owner=owner,
-                         prefs=prefs,
-                         context=context)
+        self.previous_value = initializer
+        super().__init__(
+            default_variable=default_variable,
+            params=params,
+            owner=owner,
+            prefs=prefs,
+            context=context,
+            initializer=initializer,
+        )
 
-        # Reassign to kWInitializer in case default value was overridden
-        self.previous_value = self.initializer
         self.previous_time = self.t0
         self.auto_dependent = True
 
@@ -5615,9 +5693,6 @@ class OrnsteinUhlenbeckIntegrator(
 
     componentName = ORNSTEIN_UHLENBECK_INTEGRATOR_FUNCTION
 
-    class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
-
     multiplicative_param = RATE
     additive_param = OFFSET
 
@@ -5637,7 +5712,7 @@ class OrnsteinUhlenbeckIntegrator(
                  time_step_size=1.0,
                  t0=0.0,
                  decay=1.0,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  params: tc.optional(dict) = None,
                  owner=None,
                  prefs: is_pref_set = None,
@@ -5654,18 +5729,18 @@ class OrnsteinUhlenbeckIntegrator(
                                                   params=params)
 
         # Assign here as default, for use in initialization of function
-        self.previous_value = self.paramClassDefaults[INITIALIZER]
+        self.previous_value = initializer
 
-        super().__init__(default_variable=default_variable,
-                         params=params,
-                         owner=owner,
-                         prefs=prefs,
-                         context=context)
+        super().__init__(
+            default_variable=default_variable,
+            params=params,
+            owner=owner,
+            prefs=prefs,
+            context=context,
+            initializer=initializer,
+        )
 
-        # Reassign to kWInitializer in case default value was overridden
-        self.previous_value = self.initializer
         self.previous_time = self.t0
-
         self.auto_dependent = True
 
     def _validate_noise(self, noise, var):
@@ -6132,7 +6207,8 @@ class FHNIntegrator(Integrator):  # --------------------------------------------
     componentName = FHN_INTEGRATOR_FUNCTION
 
     class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
+        variable = np.array([1.0])
+        initializer = np.array([1.0])
 
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     paramClassDefaults.update({INITIALIZER: ClassDefaults.variable})
@@ -6148,7 +6224,7 @@ class FHNIntegrator(Integrator):  # --------------------------------------------
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=1.0,
+                 default_variable=None,
                  offset=0.0,
                  scale=1.0,
                  initial_w=0.0,
@@ -6198,7 +6274,8 @@ class FHNIntegrator(Integrator):  # --------------------------------------------
                                                   uncorrelated_activity=uncorrelated_activity,
                                                   integration_method=integration_method,
                                                   time_constant_w=time_constant_w,
-                                                  params=params)
+                                                  params=params,
+                                                  )
 
         self.previous_v = self.initial_v
         self.previous_w = self.initial_w
@@ -6660,9 +6737,6 @@ class AccumulatorIntegrator(Integrator):  # ------------------------------------
 
     componentName = ACCUMULATOR_INTEGRATOR_FUNCTION
 
-    class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     # paramClassDefaults.update({INITIALIZER: ClassDefaults.variable})
     paramClassDefaults.update({
@@ -6682,7 +6756,7 @@ class AccumulatorIntegrator(Integrator):  # ------------------------------------
                  rate=None,
                  noise=0.0,
                  increment=None,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  params: tc.optional(dict) = None,
                  owner=None,
                  prefs: is_pref_set = None,
@@ -6700,10 +6774,10 @@ class AccumulatorIntegrator(Integrator):  # ------------------------------------
             params=params,
             owner=owner,
             prefs=prefs,
-            context=context)
+            context=context,
+            initializer=initializer,
+        )
 
-        self.previous_value = self.initializer
-        self.instance_defaults.variable = self.initializer
 
         self.auto_dependent = True
 
@@ -6986,9 +7060,6 @@ class AGTUtilityIntegrator(Integrator):  # -------------------------------------
 
     componentName = UTILITY_INTEGRATOR_FUNCTION
 
-    class ClassDefaults(Integrator.ClassDefaults):
-        variable = [[0]]
-
     multiplicative_param = RATE
     additive_param = OFFSET
 
@@ -7005,7 +7076,7 @@ class AGTUtilityIntegrator(Integrator):  # -------------------------------------
                  rate: parameter_spec = 1.0,
                  noise=0.0,
                  offset=0.0,
-                 initializer=ClassDefaults.variable,
+                 initializer=None,
                  initial_short_term_utility=0.0,
                  initial_long_term_utility=0.0,
                  short_term_gain=1.0,
@@ -7039,11 +7110,14 @@ class AGTUtilityIntegrator(Integrator):  # -------------------------------------
         self.previous_long_term_utility = self.initial_long_term_utility
         self.previous_short_term_utility = self.initial_short_term_utility
 
-        super().__init__(default_variable=default_variable,
-                         params=params,
-                         owner=owner,
-                         prefs=prefs,
-                         context=context)
+        super().__init__(
+            default_variable=default_variable,
+            params=params,
+            owner=owner,
+            prefs=prefs,
+            context=context,
+            initializer=initializer,
+        )
 
         self.auto_dependent = True
 
@@ -7269,7 +7343,7 @@ class BogaczEtAl(
     IntegratorFunction):  # --------------------------------------------------------------------------------
     """
     BogaczEtAl(                                 \
-        default_variable=ClassDefaults.variable,  \
+        default_variable=None,  \
         drift_rate=1.0,                         \
         threshold=1.0,                          \
         starting_point=0.0,                     \
@@ -7372,14 +7446,11 @@ class BogaczEtAl(
 
     componentName = kwBogaczEtAl
 
-    class ClassDefaults(IntegratorFunction.ClassDefaults):
-        variable = [[0]]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  drift_rate:parameter_spec = 1.0,
                  starting_point: parameter_spec = 0.0,
                  threshold: parameter_spec = 1.0,
@@ -7568,7 +7639,7 @@ class NF_Results(IntEnum):
 class NavarroAndFuss(IntegratorFunction):
     """
     NavarroAndFuss(                             \
-        default_variable=ClassDefaults.variable,  \
+        default_variable=None,                  \
         drift_rate=1.0,                         \
         threshold=1.0,                          \
         starting_point=0.0,                     \
@@ -7675,14 +7746,11 @@ class NavarroAndFuss(IntegratorFunction):
 
     componentName = kwNavarrosAndFuss
 
-    class ClassDefaults(IntegratorFunction.ClassDefaults):
-        variable = [[0]]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  drift_rate: parameter_spec = 1.0,
                  starting_point: parameter_spec = 0.0,
                  threshold: parameter_spec = 1.0,
@@ -7843,14 +7911,11 @@ class NormalDist(DistributionFunction):
 
     componentName = NORMAL_DIST_FUNCTION
 
-    class ClassDefaults(DistributionFunction.ClassDefaults):
-        variable = [0]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  mean=0.0,
                  standard_dev=1.0,
                  params=None,
@@ -7978,7 +8043,7 @@ class UniformToNormalDist(DistributionFunction):
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  mean=0.0,
                  standard_dev=1.0,
                  params=None,
@@ -8073,14 +8138,11 @@ class ExponentialDist(DistributionFunction):
     """
     componentName = EXPONENTIAL_DIST_FUNCTION
 
-    class ClassDefaults(DistributionFunction.ClassDefaults):
-        variable = [0]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  beta=1.0,
                  params=None,
                  owner=None,
@@ -8174,14 +8236,11 @@ class UniformDist(DistributionFunction):
     """
     componentName = UNIFORM_DIST_FUNCTION
 
-    class ClassDefaults(DistributionFunction.ClassDefaults):
-        variable = [0]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  low=0.0,
                  high=1.0,
                  params=None,
@@ -8279,14 +8338,11 @@ class GammaDist(DistributionFunction):
 
     componentName = GAMMA_DIST_FUNCTION
 
-    class ClassDefaults(DistributionFunction.ClassDefaults):
-        variable = [0]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  scale=1.0,
                  dist_shape=1.0,
                  params=None,
@@ -8383,14 +8439,11 @@ class WaldDist(DistributionFunction):
 
     componentName = WALD_DIST_FUNCTION
 
-    class ClassDefaults(DistributionFunction.ClassDefaults):
-        variable = [0]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  scale=1.0,
                  mean=1.0,
                  params=None,
@@ -8439,7 +8492,7 @@ class ObjectiveFunction(Function_Base):
 class Stability(ObjectiveFunction):
     """
     Stability(                                  \
-        default_variable=ClassDefaults.variable,  \
+        default_variable=None,                  \
         matrix=HOLLOW_MATRIX,                   \
         metric=ENERGY                           \
         transfer_fct=None                       \
@@ -8555,14 +8608,11 @@ COMMENT
 
     componentName = STABILITY_FUNCTION
 
-    class ClassDefaults(ObjectiveFunction.ClassDefaults):
-        variable = [0]
-
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  matrix=HOLLOW_MATRIX,
                  # metric:is_distance_metric=ENERGY,
                  metric:tc.any(tc.enum(ENERGY, ENTROPY), is_distance_metric)=ENERGY,
@@ -8587,6 +8637,13 @@ COMMENT
 
         self.functionOutputType = None
 
+    def _validate_variable(self, variable, context=None):
+        """Validates that variable is 1d array
+        """
+        if len(np.atleast_2d(variable)) != 1:
+            raise FunctionError("Variable for {} must contain a single array or list of numbers".format(self.name))
+        return variable
+
     def _validate_params(self, request_set, target_set=None, context=None):
         """Validate matrix param
 
@@ -8602,7 +8659,7 @@ COMMENT
 
         super()._validate_params(request_set=request_set, target_set=target_set, context=context)
 
-        # Validate error_matrix specification
+        # Validate matrix specification
         if MATRIX in target_set:
 
             from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
@@ -8751,7 +8808,7 @@ COMMENT
 class Distance(ObjectiveFunction):
     """
     Distance(                                    \
-       default_variable=ClassDefaults.variable,  \
+       default_variable=None,                    \
        metric=EUCLIDEAN                          \
        normalize=False,                          \
        params=None,                              \
@@ -8820,13 +8877,13 @@ class Distance(ObjectiveFunction):
     componentName = DISTANCE_FUNCTION
 
     class ClassDefaults(ObjectiveFunction.ClassDefaults):
-        variable = [[0],[0]]
+        variable = np.array([[0], [0]])
 
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  metric:DistanceMetrics._is_metric=DIFFERENCE,
                  normalize:bool=False,
                  params=None,
@@ -8852,12 +8909,32 @@ class Distance(ObjectiveFunction):
         """
         super()._validate_params(request_set=request_set, target_set=target_set, context=context)
 
-        if len(variable) != 2:
-            raise FunctionError("variable for {} ({}) must have two items".format(self.name, variable))
+        err_two_items = FunctionError("variable for {} ({}) must have two items".format(self.name, variable))
 
-        if len(variable[0]) != len(variable[1]):
-            raise FunctionError("The lengths of the items in the variable for {} ({},{}) must be equal".
-                format(self.name, len(variable[0]), len(variable[1])))
+        try:
+            if len(variable) != 2:
+                raise err_two_items
+        except TypeError:
+            raise err_two_items
+
+        try:
+            if len(variable[0]) != len(variable[1]):
+                raise FunctionError(
+                    "The lengths of the items in the variable for {0} ({1},{2}) must be equal".format(
+                        self.name,
+                        variable[0],
+                        variable[1]
+                    )
+                )
+        except TypeError:
+            if is_iterable(variable[0]) ^ is_iterable(variable[1]):
+                raise FunctionError(
+                    "The lengths of the items in the variable for {0} ({1},{2}) must be equal".format(
+                        self.name,
+                        variable[0],
+                        variable[1]
+                    )
+                )
 
     def function(self,
                  variable=None,
@@ -8905,7 +8982,7 @@ class Distance(ObjectiveFunction):
         # Cross-entropy of v1 and v2
         elif self.metric is CROSS_ENTROPY:
             # FIX: VALIDATE THAT ALL ELEMENTS OF V1 AND V2 ARE 0 TO 1
-            if context is not None and INITIALIZING in context:
+            if context is None or INITIALIZING in context:
                 v1 = np.where(v1==0, EPSILON, v1)
                 v2 = np.where(v2==0, EPSILON, v2)
             result = -np.sum(v1*np.log(v2))
@@ -8987,6 +9064,9 @@ class LearningFunction(Function_Base):
 
     componentType = LEARNING_FUNCTION_TYPE
 
+    class ClassDefaults(Function_Base.ClassDefaults):
+        variable = np.array([0, 0, 0])
+
     # def __init__(self, default_variable, params, owner, prefs, context):
     #     super().__init__(default_variable=default_variable,
     #                      params=params,
@@ -9033,7 +9113,7 @@ class LearningFunction(Function_Base):
 class Hebbian(LearningFunction):  # -------------------------------------------------------------------------------
     """
     Hebbian(                                             \
-        default_variable=ClassDefaults.variable,         \
+        default_variable=None,                           \
         activation_function=Linear,                      \
         learning_rate=None,                              \
         params=None,                                     \
@@ -9110,14 +9190,14 @@ class Hebbian(LearningFunction):  # --------------------------------------------
     componentName = HEBBIAN_FUNCTION
 
     class ClassDefaults(LearningFunction.ClassDefaults):
-        variable = [0,0]
+        variable = np.array([0, 0])
 
     default_learning_rate = 0.05
 
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  activation_function: tc.any(Linear, tc.enum(Linear)) = Linear,  # Allow class or instance
                  # learning_rate: tc.optional(parameter_spec) = None,
                  learning_rate=None,
@@ -9244,7 +9324,7 @@ class Hebbian(LearningFunction):  # --------------------------------------------
 class Reinforcement(LearningFunction):  # -------------------------------------------------------------------------------
     """
     Reinforcement(                                       \
-        default_variable=ClassDefaults.variable,         \
+        default_variable=None,                           \
         activation_function=SoftMax,                     \
         learning_rate=None,                              \
         params=None,                                     \
@@ -9355,14 +9435,14 @@ class Reinforcement(LearningFunction):  # --------------------------------------
     componentName = RL_FUNCTION
 
     class ClassDefaults(LearningFunction.ClassDefaults):
-        variable = [[0], [0], [0]]
+        variable = np.array([[0], [0], [0]])
 
     default_learning_rate = 0.05
 
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
 
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  activation_function: tc.any(SoftMax, tc.enum(SoftMax)) = SoftMax,  # Allow class or instance
                  # learning_rate: tc.optional(parameter_spec) = None,
                  learning_rate=None,
@@ -9500,7 +9580,7 @@ WT_MATRIX_RECEIVERS_DIM = 1
 class BackPropagation(LearningFunction):
     """
     BackPropagation(                                     \
-        default_variable=ClassDefaults.variable,         \
+        default_variable=None,                           \
         activation_derivative_fct=Logistic().derivative, \
         learning_rate=None,                              \
         params=None,                                     \
@@ -9648,7 +9728,7 @@ class BackPropagation(LearningFunction):
     componentName = BACKPROPAGATION_FUNCTION
 
     class ClassDefaults(LearningFunction.ClassDefaults):
-        variable = [[0], [0], [0]]
+        variable = np.array([[0], [0], [0]])
 
     default_learning_rate = 1.0
 
@@ -9656,7 +9736,7 @@ class BackPropagation(LearningFunction):
 
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=None,
                  # default_variable:tc.any(list, np.ndarray),
                  activation_derivative_fct: tc.optional(tc.any(function_type, method_type)) = Logistic().derivative,
                  # learning_rate: tc.optional(parameter_spec) = None,
@@ -9833,6 +9913,8 @@ class BackPropagation(LearningFunction):
 
         """
 
+        self._check_args(variable=variable, params=params, context=context)
+
         # Manage error_matrix param
         # During init, function is called directly from Component (i.e., not from LearningMechanism execute() method),
         #     so need "placemarker" error_matrix for validation
@@ -9855,7 +9937,7 @@ class BackPropagation(LearningFunction):
             raise FunctionError("Call to {} function{} must include \'ERROR_MATRIX\' in params arg".
                                 format(self.__class__.__name__, owner_string))
 
-        self._check_args(variable=variable, params=params, context=context)
+        # self._check_args(variable=variable, params=params, context=context)
 
         # Manage learning_rate
         # IMPLEMENTATION NOTE: have to do this here, rather than in validate_params for the following reasons:
@@ -9931,8 +10013,9 @@ class TDLearning(Reinforcement):
         variable = self._update_variable(super(Reinforcement, self)._validate_variable(variable, context))
 
         if len(variable) != 3:
-            raise ComponentError("Variable for {} ({}) must have three items (input"
-                                ", output, and error arrays".format(self.name, variable))
+            raise ComponentError("Variable for {} ({}) must have three items "
+                                 "(input, output, and error arrays)".format(self.name,
+                                                                            variable))
 
         self.activation_input = variable[LEARNING_ACTIVATION_INPUT]
         self.activation_output = variable[LEARNING_ACTIVATION_OUTPUT]

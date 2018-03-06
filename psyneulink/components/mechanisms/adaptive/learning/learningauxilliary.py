@@ -386,6 +386,7 @@ def _instantiate_learning_components(learning_projection, context=None):
     # FIXME: learning_function is deprecated
     learning_function = learning_projection.learning_function
     learning_rate = learning_projection.learning_rate
+    error_function = learning_projection.error_function
 
     # HEBBIAN LEARNING FUNCTION
     if learning_function.componentName is HEBBIAN_FUNCTION:
@@ -543,6 +544,7 @@ def _instantiate_learning_components(learning_projection, context=None):
                                                                   WEIGHT: -1},
                                                           target={NAME: TARGET,
                                                                   VARIABLE: target_input},
+                                                          function=error_function,
                                                           name="{} {}".format(lc.activation_mech.name,
                                                                               COMPARATOR_MECHANISM),
                                                           context=context)
@@ -557,7 +559,7 @@ def _instantiate_learning_components(learning_projection, context=None):
             #                                          function=LinearCombination(weights=[[-1], [1]]),
             #                                          output_states=[ERROR_SIGNAL,
             #                                                         {NAME:MSE,
-            #                                                          CALCULATE:lambda x: np.sum(x*x)/len(x)}],
+            #                                                          ASSIGN:lambda x: np.sum(x*x)/len(x)}],
             #                                          name="\'{}\' {}".format(lc.activation_mech.name,
             #                                                                  COMPARATOR_MECHANISM),
             #                                          context=context)
@@ -603,7 +605,7 @@ def _instantiate_learning_components(learning_projection, context=None):
 
     error_source = lc.error_signal_mech
 
-    learning_mechanism = LearningMechanism(variable=[activation_input,
+    learning_mechanism = LearningMechanism(default_variable=[activation_input,
                                                      activation_output,
                                                      error_signal],
                                            error_sources=error_source,
