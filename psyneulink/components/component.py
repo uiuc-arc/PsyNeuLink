@@ -2825,7 +2825,9 @@ class Component(object):
     @value.setter
     def value(self, assignment):
         self._value = assignment
-        self.log._log_value(assignment)
+
+        # Commenting logging out for now since it is very slow for me (on windows)
+        #self.log._log_value(assignment)
 
     @property
     def verbosePref(self):

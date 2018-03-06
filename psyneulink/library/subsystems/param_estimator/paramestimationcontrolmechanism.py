@@ -47,7 +47,7 @@ from psyneulink.globals.keywords import CONTROL, COST_FUNCTION, FUNCTION, INITIA
     INIT_FUNCTION_METHOD_ONLY, PARAMETER_STATES, PREDICTION_MECHANISM, PREDICTION_MECHANISM_PARAMS, \
     PREDICTION_MECHANISM_TYPE, SUM, PARAM_EST_MECHANISM, COMBINE_OUTCOME_AND_COST_FUNCTION, COST_FUNCTION, \
     EXECUTING, FUNCTION_OUTPUT_TYPE_CONVERSION, INITIALIZING, PARAMETER_STATE_PARAMS, kwPreferenceSetName, \
-    kwProgressBarChar, COMMAND_LINE
+    kwProgressBarChar, COMMAND_LINE, CONTROL_SIMULATION
 from psyneulink.components.shellclasses import Function, System_Base
 from psyneulink.components.mechanisms.adaptive.control.controlmechanism import ControlMechanism
 from psyneulink.components.mechanisms.mechanism import MechanismList
@@ -213,10 +213,10 @@ class ParamEstimationControlMechanism(ControlMechanism):
     def run_simulation(self,
                        inputs,
                        allocation_vector,
-                       runtime_params=None,
-                       context=None):
+                       termination_processing=None,
+                       runtime_params=None):
         """
-        Run simulation of `System` for which the EVCControlMechanism is the `controller <System.controller>`.
+        Run simulation of `System` for which the ParamEstimationControlMechanism is the `controller <System.controller>`.
 
         Arguments
         ----------
@@ -236,6 +236,7 @@ class ParamEstimationControlMechanism(ControlMechanism):
             description.
 
         """
+        context = CONTROL_SIMULATION
 
         if self.value is None:
             # Initialize value if it is None
@@ -248,7 +249,7 @@ class ParamEstimationControlMechanism(ControlMechanism):
             self.value[i] = np.atleast_1d(allocation_vector[i])
         self._update_output_states(runtime_params=runtime_params, context=context)
 
-        self.system.run(inputs=inputs, context=context)
+        self.system.run(inputs=inputs, context=context, termination_processing=termination_processing)
 
         # Get outcomes for current allocation_policy
         #    = the values of the monitored output states (self.input_states)

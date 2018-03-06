@@ -11,12 +11,8 @@ from psyneulink.library.mechanisms.processing.integrator.ddm import DDM, DECISIO
 from psyneulink.library.subsystems.param_estimator.paramestimationcontrolmechanism import \
     ParamEstimationControlMechanism
 
-
 def test_pecm():
-    # Mechanisms
-    Input = TransferMechanism(
-        name='Input',
-    )
+
     Decision = DDM(
         function=BogaczEtAl(
             drift_rate=(
@@ -51,9 +47,7 @@ def test_pecm():
 
     # Processes:
     TaskExecutionProcess = Process(
-        # default_variable=[0],
-        size=1,
-        pathway=[(Input), IDENTITY_MATRIX, (Decision)],
+        pathway=[Decision],
         name='TaskExecutionProcess',
     )
 
@@ -74,7 +68,7 @@ def test_pecm():
 
     # Stimuli
     stim_list_dict = {
-        Input: [1]
+        Decision: [1,1,1,1,1,1,1,1,1,1,1,1,1]
     }
 
     mySystem.run(inputs=stim_list_dict)

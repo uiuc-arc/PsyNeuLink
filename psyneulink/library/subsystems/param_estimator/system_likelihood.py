@@ -26,10 +26,11 @@ class SystemLikelihoodEstimator:
             if self.system.is_controller_initialized:
                 # Run simulations of the PsyNeuLink system, we will use the outputs of these simulations to estimate the
                 # conditional log probability
+                print("Running simulation of PsyNeuLink System for likelihood.")
                 input = {self.system.origin_mechanisms[0] : [1]}
                 allocation_values = np.array([v, a])
                 context = CONTROL_SIMULATION
-                self.system.controller.run_simulation(inputs=input, allocation_vector=allocation_values, context=context)
+                self.system.controller.run_simulation(inputs=input, allocation_vector=allocation_values)
 
             if np.all(~np.isnan(x['rt'])):
                 return wfpt.wiener_like(x['rt'].values, v, sv, a, z, sz, t, st,
