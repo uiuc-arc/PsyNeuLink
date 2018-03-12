@@ -2,14 +2,16 @@ import functools
 import numpy as np
 import pytest
 
-from psyneulink.components.functions.function import PROB
-from psyneulink.components.functions.function import Reinforcement, SoftMax
-from psyneulink.components.mechanisms.processing.transfermechanism import \
-    TransferMechanism
-from psyneulink.components.process import Process
 from psyneulink.components.projections.modulatory.learningprojection import \
     LearningProjection
+from psyneulink.components.functions.function import PROB, BogaczEtAl, Reinforcement, SoftMax, Linear, THRESHOLD
+from psyneulink.components.mechanisms.processing.transfermechanism import TransferMechanism
+from psyneulink.components.process import Process
+from psyneulink.components.projections.modulatory.controlprojection import ControlProjection
 from psyneulink.components.system import System
+from psyneulink.globals.keywords import ALLOCATION_SAMPLES, IDENTITY_MATRIX, MEAN, RESULT, VARIANCE, SLOPE, CONTROL
+from psyneulink.library.mechanisms.processing.integrator.ddm import DDM, DECISION_VARIABLE, PROBABILITY_UPPER_THRESHOLD, RESPONSE_TIME
+from psyneulink.library.subsystems.evc.evccontrolmechanism import EVCControlMechanism
 
 
 def test_reinforcement():
@@ -118,3 +120,73 @@ def test_reinforcement():
         # if you do not specify, assert_allclose will use a relative tolerance of 1e-07,
         # which WILL FAIL unless you gather higher precision values to use as reference
         np.testing.assert_allclose(val, expected, atol=1e-08, err_msg='Failed on expected_output[{0}]'.format(i))
+
+def test_learn_over_prediction_process():
+
+    # Mechanisms
+    Input = TransferMechanism(name='Input')
+
+    Reward = TransferMechanism(output_states=[RESULT, MEAN, VARIANCE],
+                               name='Reward')
+
+    Decision = DDM(
+        function=BogaczEtAl(
+            drift_rate=(
+                1.0,
+                ControlProjection(
+                    function=Linear,
+                    control_signal_params={
+                        ALLOCATION_SAMPLES: np.arange(0.1, 1.01, 0.3)
+                    },
+                ),
+            ),
+            threshold=(
+                1.0,
+                ControlProjection(
+                    function=Linear,
+                    control_signal_params={
+                        ALLOCATION_SAMPLES: np.arange(0.1, 1.01, 0.3)
+                    },
+                ),
+            ),
+            noise=(0.5),
+            starting_point=(0),
+            t0=0.45
+        ),
+        output_states=[
+            DECISION_VARIABLE,
+            RESPONSE_TIME,
+            PROBABILITY_UPPER_THRESHOLD
+        ],
+        name='Decision',
+    )
+
+    # Processes:
+    TaskExecutionProcess = Process(pathway=[Input, IDENTITY_MATRIX, Decision],
+                                   name='TaskExecutionProcess')
+
+    RewardProcess = Process(pathway=[Reward],
+                            name='RewardProcess')
+
+    # System:
+    mySystem = System(
+        processes=[TaskExecutionProcess, RewardProcess],
+        controller=EVCControlMechanism,
+        enable_controller=True,
+        monitor_for_control=[
+            Reward,
+            Decision.PROBABILITY_UPPER_THRESHOLD,
+            (Decision.RESPONSE_TIME, -1, 1)
+        ],
+        name='EVC Test System',
+    )
+
+    mySystem.show_graph(show_control=True)
+
+    # Stimuli
+    stim_list_dict = {
+        Input: [0.5, 0.123],
+        Reward: [20, 20]
+    }
+    mySystem.add_prediction_learning([Input, Reward])
+    mySystem.run(inputs=stim_list_dict)
