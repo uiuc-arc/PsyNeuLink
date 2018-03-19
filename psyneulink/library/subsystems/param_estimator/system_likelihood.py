@@ -26,7 +26,6 @@ class SystemLikelihoodEstimator:
             if self.system.is_controller_initialized:
                 # Run simulations of the PsyNeuLink system, we will use the outputs of these simulations to estimate the
                 # conditional log probability
-                print("Running simulation of PsyNeuLink System for likelihood.")
                 input = {self.system.origin_mechanisms[0] : [1]}
                 allocation_values = np.array([v, a])
                 context = CONTROL_SIMULATION

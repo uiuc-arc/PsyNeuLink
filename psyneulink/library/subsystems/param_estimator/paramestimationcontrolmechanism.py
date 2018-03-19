@@ -127,8 +127,12 @@ class MCMCParamSampler(Function_Base):
         self.owner.hddm_model.sample(1, burn=0, progress_bar=False)
 
         # Get a sample from the trace for each parameter we are estimating.
-        drift_rate = self.owner.hddm_model.mc.trace('v')[0]
-        threshold = self.owner.hddm_model.mc.trace('a')[0]
+        threshold_node, drift_rate_node = self.owner.hddm_model.nodes_db.node[['a', 'v']]
+        threshold = threshold_node.trace()[0]
+        drift_rate = drift_rate_node.trace()[0]
+
+        #drift_rate = self.owner.hddm_model.mc.trace('v')[0]
+        #threshold = self.owner.hddm_model.mc.trace('a')[0]
 
         #print("MCMCParamSampler: drift_rate={}, threshold={}".format(drift_rate, threshold))
 
