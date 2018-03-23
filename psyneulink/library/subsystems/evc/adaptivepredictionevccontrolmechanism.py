@@ -860,7 +860,7 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
     #         # self.predicted_input[origin_mech] = self.origin_prediction_mechanisms[origin_mech].output_state.value
     #
 
-    # Need to removed "inputs" arg, but will wait until ready to refactor EVC 
+    # Need to removed "inputs" arg, but will wait until ready to refactor EVC
     def run_simulation(self,
                        inputs,
                        allocation_vector,
