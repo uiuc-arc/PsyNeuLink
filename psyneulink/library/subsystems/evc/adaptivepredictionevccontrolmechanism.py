@@ -733,100 +733,100 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
                                            prefs=prefs,
                                            context=self)
 
-    # def _instantiate_prediction_mechanisms(self, system:System_Base, context=None):
-    #     """Add prediction Mechanism and associated process for each `ORIGIN` (input) Mechanism in system
-    #
-    #     Instantiate prediction_mechanisms for `ORIGIN` Mechanisms in system; these will now be `TERMINAL`
-    #     Mechanisms:
-    #         - if their associated input mechanisms were TERMINAL MECHANISMS, they will no longer be so;  therefore...
-    #         - if an associated input Mechanism must be monitored by the AdaptivePredictionEVCControlMechanism, it must be specified
-    #             explicitly in an OutputState, Mechanism, controller or system OBJECTIVE_MECHANISM param (see below)
-    #
-    #     For each `ORIGIN` Mechanism in system:
-    #         - instantiate a corresponding predictionMechanism
-    #         - instantiate a Process, with a pathway that projects from the ORIGIN to the prediction Mechanism
-    #         - add the Process to system.processes
-    #
-    #     Instantiate self.predicted_input dict:
-    #         - key for each entry is an `ORIGIN` Mechanism of system
-    #         - value of each entry is the value of the corresponding predictionMechanism:
-    #             each value is a 2d array, each item of which is the value of an InputState of the predictionMechanism
-    #
-    #     Args:
-    #         context:
-    #     """
-    #
-    #     # FIX: 1/16/18 - Should should check for any new origin_mechs? What if origin_mech deleted?
-    #     # If system's controller already has prediction_mechanisms, use those
-    #     if hasattr(system, CONTROLLER) and hasattr(system.controller, PREDICTION_MECHANISMS):
-    #         self.prediction_mechanisms = system.controller.prediction_mechanisms
-    #         self.origin_prediction_mechanisms = system.controller.origin_prediction_mechanisms
-    #         self.predicted_input = system.controller.predicted_input
-    #         return
-    #
-    #     # Dictionary of prediction_mechanisms, keyed by the ORIGIN Mechanism to which they correspond
-    #     self.origin_prediction_mechanisms = {}
-    #
-    #     # List of prediction Mechanism tuples (used by system to execute them)
-    #     self.prediction_mechs = []
-    #
-    #     # Get any params specified for predictionMechanism(s) by AdaptivePredictionEVCControlMechanism
-    #     try:
-    #         prediction_mechanism_params = self.paramsCurrent[PREDICTION_MECHANISM_PARAMS]
-    #     except KeyError:
-    #         prediction_mechanism_params = {}
-    #
-    #     for origin_mech in system.origin_mechanisms.mechanisms:
-    #         state_names = []
-    #         variable = []
-    #         for state_name in origin_mech.input_states.names:
-    #             state_names.append(state_name)
-    #             variable.append(origin_mech.input_states[state_name].instance_defaults.variable)
-    #
-    #         # Instantiate PredictionMechanism
-    #         prediction_mechanism = self.paramsCurrent[PREDICTION_MECHANISM_TYPE](
-    #                 name=origin_mech.name + " " + PREDICTION_MECHANISM,
-    #                 default_variable=variable,
-    #                 input_states=state_names,
-    #                 params = prediction_mechanism_params,
-    #                 context=context,
-    #         )
-    #         prediction_mechanism._role = CONTROL
-    #         prediction_mechanism.origin_mech = origin_mech
-    #
-    #         # Assign projections to prediction_mechanism that duplicate those received by origin_mech
-    #         #    (this includes those from ProcessInputState, SystemInputState and/or recurrent ones
-    #         for orig_input_state, prediction_input_state in zip(origin_mech.input_states,
-    #                                                         prediction_mechanism.input_states):
-    #             for projection in orig_input_state.path_afferents:
-    #                 MappingProjection(sender=projection.sender,
-    #                                   receiver=prediction_input_state,
-    #                                   matrix=projection.matrix)
-    #
-    #         # Assign list of processes for which prediction_mechanism will provide input during the simulation
-    #         # - used in _get_simulation_system_inputs()
-    #         # - assign copy,
-    #         #       since don't want to include the prediction process itself assigned to origin_mech.processes below
-    #         prediction_mechanism.use_for_processes = list(origin_mech.processes.copy())
-    #
-    #         # # FIX: REPLACE REFERENCE TO THIS ELSEWHERE WITH REFERENCE TO MECH_TUPLES BELOW
-    #         self.origin_prediction_mechanisms[origin_mech] = prediction_mechanism
-    #
-    #         # Add to list of AdaptivePredictionEVCControlMechanism's prediction_object_items
-    #         # prediction_object_item = prediction_mechanism
-    #         self.prediction_mechs.append(prediction_mechanism)
-    #
-    #         # Add to system execution_graph and execution_list
-    #         system.execution_graph[prediction_mechanism] = set()
-    #         system.execution_list.append(prediction_mechanism)
-    #
-    #     self.prediction_mechanisms = MechanismList(self, self.prediction_mechs)
-    #
-    #     # Assign list of destinations for predicted_inputs:
-    #     #    the variable of the ORIGIN Mechanism for each Process in the system
-    #     self.predicted_input = {}
-    #     for i, origin_mech in zip(range(len(system.origin_mechanisms)), system.origin_mechanisms):
-    #         self.predicted_input[origin_mech] = system.processes[i].origin_mechanisms[0].instance_defaults.variable
+    def _instantiate_prediction_mechanisms(self, system:System_Base, context=None):
+        """Add prediction Mechanism and associated process for each `ORIGIN` (input) Mechanism in system
+
+        Instantiate prediction_mechanisms for `ORIGIN` Mechanisms in system;
+
+        For each `ORIGIN` Mechanism in system:
+            - instantiate a corresponding predictionMechanism
+            - instantiate a Process, with a pathway that projects from the ORIGIN to the prediction Mechanism
+            - add the Process to system.processes
+
+        Instantiate self.predicted_input dict:
+            - key for each entry is an `ORIGIN` Mechanism of system
+            - value of each entry is the value of the corresponding predictionMechanism:
+                each value is a 2d array, each item of which is the value of an InputState of the predictionMechanism
+
+        Args:
+            context:
+        """
+
+        if hasattr(system, CONTROLLER) and hasattr(system.controller, PREDICTION_MECHANISMS):
+            # If system's controller already has prediction_mechanisms, and origin mechanisms have not changed
+            if set(self.origin_prediction_mechanisms.keys()) is set(system.origin_mechanisms.mechanisms):
+                self.prediction_mechanisms = system.controller.prediction_mechanisms
+                self.origin_prediction_mechanisms = system.controller.origin_prediction_mechanisms
+                self.predicted_input = system.controller.predicted_input
+            return
+
+        # Dictionary of prediction_mechanisms, keyed by the ORIGIN Mechanism to which they correspond
+        self.origin_prediction_mechanisms = {}
+
+        # List of prediction Mechanism tuples (used by system to execute them)
+        self.prediction_mechs = []
+
+        # Get any params specified for predictionMechanism(s) by AdaptivePredictionEVCControlMechanism
+        try:
+            prediction_mechanism_params = self.paramsCurrent[PREDICTION_MECHANISM_PARAMS]
+        except KeyError:
+            prediction_mechanism_params = {}
+
+        for origin_mech in system.origin_mechanisms.mechanisms:
+            state_names = []
+            variable = []
+            for state_name in origin_mech.input_states.names:
+                state_names.append(state_name)
+                variable.append(origin_mech.input_states[state_name].instance_defaults.variable)
+
+            # Instantiate PredictionMechanism
+            prediction_mechanism = self.paramsCurrent[PREDICTION_MECHANISM_TYPE](
+                    name=origin_mech.name + " " + PREDICTION_MECHANISM,
+                    default_variable=variable,
+                    input_states=state_names,
+                    params = prediction_mechanism_params,
+                    context=context,
+            )
+            prediction_mechanism._role = CONTROL
+            prediction_mechanism.origin_mech = origin_mech
+
+            # Assign projections TO prediction_mechanism that duplicate those received by origin_mech
+            #    (this includes those from ProcessInputState, SystemInputState and/or recurrent ones
+            # Should only be executed during processing!
+            for orig_input_state in origin_mech.input_states:
+
+                for projection in orig_input_state.path_afferents:
+                    MappingProjection(sender=projection.sender,
+                                      receiver=prediction_mechanism,
+                                      matrix=projection.matrix)
+
+
+                    # Assign projections FROM prediction_mechanism that duplicate those from SystemInputState to origin mech
+                    # Should only be executed during simulations!
+                    # Currently causes test to run forever
+                    # MappingProjection(sender=prediction_mechanism,
+                    #                   receiver=projection.receiver,
+                    #                   matrix=projection.matrix)
+
+
+            # # FIX: REPLACE REFERENCE TO THIS ELSEWHERE WITH REFERENCE TO MECH_TUPLES BELOW
+            self.origin_prediction_mechanisms[origin_mech] = prediction_mechanism
+
+            # Add to list of AdaptivePredictionEVCControlMechanism's prediction_object_items
+            # prediction_object_item = prediction_mechanism
+            self.prediction_mechs.append(prediction_mechanism)
+
+            # Add to system execution_graph and execution_list
+            system.execution_graph[prediction_mechanism] = set()
+            system.execution_list.append(prediction_mechanism)
+
+        self.prediction_mechanisms = MechanismList(self, self.prediction_mechs)
+
+        # Assign list of destinations for predicted_inputs:
+        #    the variable of the ORIGIN Mechanism for each Process in the system
+        self.predicted_input = {}
+        for i, origin_mech in zip(range(len(system.origin_mechanisms)), system.origin_mechanisms):
+            self.predicted_input[origin_mech] = system.processes[i].origin_mechanisms[0].instance_defaults.variable
     #
     # def _execute(self,
     #                 variable=None,
@@ -859,53 +859,52 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
     #         self.predicted_input[origin_mech] = self.origin_prediction_mechanisms[origin_mech].value
     #         # self.predicted_input[origin_mech] = self.origin_prediction_mechanisms[origin_mech].output_state.value
     #
-    # def run_simulation(self,
-    #                    inputs,
-    #                    allocation_vector,
-    #                    runtime_params=None,
-    #                    context=None):
-    #     """
-    #     Run simulation of `System` for which the AdaptivePredictionEVCControlMechanism is the `controller <System.controller>`.
-    #
-    #     Arguments
-    #     ----------
-    #
-    #     inputs : List[input] or ndarray(input) : default default_variable
-    #         the inputs used for each in a sequence of executions of the Mechanism in the `System`.  This should be the
-    #         `value <Mechanism_Base.value> for each `prediction Mechanism <AdaptivePredictionEVCControlMechanism_Prediction_Mechanisms>` listed
-    #         in the `prediction_mechanisms` attribute.  The inputs are available from the `predicted_input` attribute.
-    #
-    #     allocation_vector : (1D np.array)
-    #         the allocation policy to use in running the simulation, with one allocation value for each of the
-    #         AdaptivePredictionEVCControlMechanism's ControlSignals (listed in `control_signals`).
-    #
-    #     runtime_params : Optional[Dict[str, Dict[str, Dict[str, value]]]]
-    #         a dictionary that can include any of the parameters used as arguments to instantiate the mechanisms,
-    #         their functions, or Projection(s) to any of their states.  See `Mechanism_Runtime_Parameters` for a full
-    #         description.
-    #
-    #     """
-    #
-    #     if self.value is None:
-    #         # Initialize value if it is None
-    #         self.value = np.empty(len(self.control_signals))
-    #
-    #     # Implement the current allocation_policy over ControlSignals (outputStates),
-    #     #    by assigning allocation values to AdaptivePredictionEVCControlMechanism.value, and then calling _update_output_states
-    #     for i in range(len(self.control_signals)):
-    #         # self.control_signals[list(self.control_signals.values())[i]].value = np.atleast_1d(allocation_vector[i])
-    #         self.value[i] = np.atleast_1d(allocation_vector[i])
-    #     self._update_output_states(runtime_params=runtime_params, context=context)
-    #
-    #     self.system.run(inputs=inputs, context=context)
-    #
-    #     # Get outcomes for current allocation_policy
-    #     #    = the values of the monitored output states (self.input_states)
-    #     # self.objective_mechanism.execute(context=EVC_SIMULATION)
-    #     monitored_states = self._update_input_states(runtime_params=runtime_params, context=context)
-    #
-    #     for i in range(len(self.control_signals)):
-    #         self.control_signal_costs[i] = self.control_signals[i].cost
-    #
-    #     return monitored_states
+
+    # Need to removed "inputs" arg, but will wait until ready to refactor EVC 
+    def run_simulation(self,
+                       inputs,
+                       allocation_vector,
+                       runtime_params=None,
+                       context=None):
+        """
+        Run simulation of `System` for which the AdaptivePredictionEVCControlMechanism is the `controller <System.controller>`.
+
+        Arguments
+        ----------
+
+        allocation_vector : (1D np.array)
+            the allocation policy to use in running the simulation, with one allocation value for each of the
+            AdaptivePredictionEVCControlMechanism's ControlSignals (listed in `control_signals`).
+
+        runtime_params : Optional[Dict[str, Dict[str, Dict[str, value]]]]
+            a dictionary that can include any of the parameters used as arguments to instantiate the mechanisms,
+            their functions, or Projection(s) to any of their states.  See `Mechanism_Runtime_Parameters` for a full
+            description.
+
+        """
+
+        if self.value is None:
+            # Initialize value if it is None
+            self.value = np.empty(len(self.control_signals))
+
+        # Implement the current allocation_policy over ControlSignals (outputStates),
+        #    by assigning allocation values to AdaptivePredictionEVCControlMechanism.value, and then calling _update_output_states
+        for i in range(len(self.control_signals)):
+            # self.control_signals[list(self.control_signals.values())[i]].value = np.atleast_1d(allocation_vector[i])
+            self.value[i] = np.atleast_1d(allocation_vector[i])
+        self._update_output_states(runtime_params=runtime_params, context=context)
+
+        #  ----
+        # TBI -- modified version of system.run which executes all mechanisms but NOT system input states
+        #  ----
+
+        # Get outcomes for current allocation_policy
+        #    = the values of the monitored output states (self.input_states)
+        # self.objective_mechanism.execute(context=EVC_SIMULATION)
+        monitored_states = self._update_input_states(runtime_params=runtime_params, context=context)
+
+        for i in range(len(self.control_signals)):
+            self.control_signal_costs[i] = self.control_signals[i].cost
+
+        return monitored_states
 
