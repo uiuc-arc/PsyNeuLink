@@ -2148,8 +2148,10 @@ class Mechanism_Base(Mechanism):
         #endregion
 
         #endregion
-
+        if self.context.status & ~(ContextStatus.VALIDATION | ContextStatus.INITIALIZATION):
+            self._increment_execution_count()
         self.current_execution_time = self._get_current_execution_time(context=context) # cxt-pass
+
         return self.value
 
     def run(
@@ -2565,7 +2567,7 @@ class Mechanism_Base(Mechanism):
         """
         add_states(states)
 
-        Add one or more `States <State>` to the Mechanism.  Only `InputStates <InputState> and `OutputStates
+        Add one or more `States <State>` to the Mechanism.  Only `InputStates <InputState>` and `OutputStates
         <OutputState>` can be added; `ParameterStates <ParameterState>` cannot be added to a Mechanism after it has
         been constructed.
 
@@ -2705,6 +2707,7 @@ class Mechanism_Base(Mechanism):
         from psyneulink.components.states.parameterstate import ParameterState
         return dict((param, value.value) for param, value in self.paramsCurrent.items()
                     if isinstance(value, ParameterState) )
+
     @property
     def is_finished(self):
         return self._is_finished
@@ -2836,6 +2839,7 @@ class Mechanism_Base(Mechanism):
         params_dict = MechParamsDict(
                 OWNER_VARIABLE = self.variable,
                 OWNER_VALUE = self.value,
+                EXECUTION_COUNT = self.execution_count,
                 INPUT_STATE_VARIABLES = [input_state.variable for input_state in self.input_states]
         )
         params_dict.update(self.user_params)
