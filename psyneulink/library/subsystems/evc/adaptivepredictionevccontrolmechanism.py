@@ -334,6 +334,7 @@ from psyneulink.components.mechanisms.mechanism import MechanismList
 from psyneulink.components.mechanisms.processing.transfermechanism import TransferMechanism
 from psyneulink.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
 from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
+from psyneulink.library.projections.pathway.predictionprojection import PredictionProjection
 from psyneulink.components.shellclasses import Function, System_Base
 from psyneulink.globals.keywords import COMMAND_LINE, CONTROL, CONTROLLER, COST_FUNCTION, EVC_MECHANISM, FUNCTION, \
     INITIALIZING, INIT_FUNCTION_METHOD_ONLY, PARAMETER_STATES, PREDICTION_MECHANISM, PREDICTION_MECHANISMS, \
@@ -794,8 +795,10 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
             #    (this includes those from ProcessInputState, SystemInputState and/or recurrent ones
             # Should only be executed during processing!
             for orig_input_state in origin_mech.input_states:
+                # must copy path afferents in order to not create an infinite loop when we add prediction projections!
+                original_path_afferents = orig_input_state.path_afferents.copy()
 
-                for projection in orig_input_state.path_afferents:
+                for projection in original_path_afferents:
                     MappingProjection(sender=projection.sender,
                                       receiver=prediction_mechanism,
                                       matrix=projection.matrix)
@@ -804,10 +807,9 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
                     # Assign projections FROM prediction_mechanism that duplicate those from SystemInputState to origin mech
                     # Should only be executed during simulations!
                     # Currently causes test to run forever
-                    # MappingProjection(sender=prediction_mechanism,
-                    #                   receiver=projection.receiver,
-                    #                   matrix=projection.matrix)
-
+                    PredictionProjection(sender=prediction_mechanism,
+                                         receiver=projection.receiver,
+                                         matrix=projection.matrix)
 
             # # FIX: REPLACE REFERENCE TO THIS ELSEWHERE WITH REFERENCE TO MECH_TUPLES BELOW
             self.origin_prediction_mechanisms[origin_mech] = prediction_mechanism
@@ -827,38 +829,59 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
         self.predicted_input = {}
         for i, origin_mech in zip(range(len(system.origin_mechanisms)), system.origin_mechanisms):
             self.predicted_input[origin_mech] = system.processes[i].origin_mechanisms[0].instance_defaults.variable
-    #
-    # def _execute(self,
-    #                 variable=None,
-    #                 runtime_params=None,
-    #                 context=None):
-    #
-    #
-    #     return
-    #
-    # def _update_predicted_input(self):
-    #     """Assign values of prediction mechanisms to predicted_input
-    #
-    #     Assign value of each predictionMechanism.value to corresponding item of self.predictedIinput
-    #     Note: must be assigned in order of self.system.processes
-    #
-    #     """
-    #
-    #     # Assign predicted_input for each process in system.processes
-    #
-    #     # The number of ORIGIN mechanisms requiring input should = the number of prediction mechanisms
-    #     num_origin_mechs = len(self.system.origin_mechanisms)
-    #     num_prediction_mechs = len(self.origin_prediction_mechanisms)
-    #     if num_origin_mechs != num_prediction_mechs:
-    #         raise EVCError("PROGRAM ERROR:  The number of ORIGIN mechanisms ({}) does not equal"
-    #                        "the number of prediction_predictions mechanisms ({}) for {}".
-    #                        format(num_origin_mechs, num_prediction_mechs, self.system.name))
-    #     for origin_mech in self.system.origin_mechanisms:
-    #         # Get origin Mechanism for each process
-    #         # Assign value of predictionMechanism to the entry of predicted_input for the corresponding ORIGIN Mechanism
-    #         self.predicted_input[origin_mech] = self.origin_prediction_mechanisms[origin_mech].value
-    #         # self.predicted_input[origin_mech] = self.origin_prediction_mechanisms[origin_mech].output_state.value
-    #
+
+    def _execute(self,
+                    variable=None,
+                    runtime_params=None,
+                    context=None):
+        if not 'System.controller setter' in context: # cxt-test
+            self._update_predicted_input()
+        # self.system._cache_state()
+
+        # CONSTRUCT SEARCH SPACE
+
+        control_signal_sample_lists = []
+        control_signals = self.control_signals
+
+        # Get allocation_samples for all ControlSignals
+        num_control_signals = len(control_signals)
+
+        for control_signal in self.control_signals:
+            control_signal_sample_lists.append(control_signal.allocation_samples)
+
+        # Construct control_signal_search_space:  set of all permutations of ControlProjection allocations
+        #                                     (one sample from the allocationSample of each ControlProjection)
+        # Reference for implementation below:
+        # http://stackoverflow.com/questions/1208118/using-numpy-to-build-an-array-of-all-combinations-of-two-arrays
+        self.control_signal_search_space = \
+            np.array(np.meshgrid(*control_signal_sample_lists)).T.reshape(-1, num_control_signals)
+
+        # EXECUTE SEARCH
+
+        # IMPLEMENTATION NOTE:
+        # self.system._store_system_state()
+
+        allocation_policy = self.function(controller=self,
+                                          variable=variable,
+                                          runtime_params=runtime_params,
+                                          context=context)
+        # IMPLEMENTATION NOTE:
+        # self.system._restore_system_state()
+
+        return allocation_policy
+
+    def _update_predicted_input(self):
+        """Assign values of prediction mechanisms to predicted_input
+
+        Assign value of each predictionMechanism.value to corresponding item of self.predictedIinput
+        Note: must be assigned in order of self.system.processes
+
+        """
+
+        placeholder_inputs = {}
+        for origin_mech in self.system.origin_mechanisms:
+            placeholder_inputs[origin_mech] = 0.0*origin_mech.instance_defaults.variable
+        self.predicted_input = placeholder_inputs
 
     # Need to removed "inputs" arg, but will wait until ready to refactor EVC
     def run_simulation(self,
@@ -883,6 +906,9 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
 
         """
 
+        # for prediction_mechanism in self.prediction_mechanisms:
+        #     prediction_mechanism.integrator_mode = False
+
         if self.value is None:
             # Initialize value if it is None
             self.value = np.empty(len(self.control_signals))
@@ -894,9 +920,7 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
             self.value[i] = np.atleast_1d(allocation_vector[i])
         self._update_output_states(runtime_params=runtime_params, context=context)
 
-        #  ----
-        # TBI -- modified version of system.run which executes all mechanisms but NOT system input states
-        #  ----
+        self.system.run(inputs=inputs, context=context)
 
         # Get outcomes for current allocation_policy
         #    = the values of the monitored output states (self.input_states)
@@ -905,6 +929,9 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
 
         for i in range(len(self.control_signals)):
             self.control_signal_costs[i] = self.control_signals[i].cost
+
+        # for prediction_mechanism in self.prediction_mechanisms:
+        #     prediction_mechanism.integrator_mode = True
 
         return monitored_states
 
