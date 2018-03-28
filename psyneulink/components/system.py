@@ -462,6 +462,7 @@ from psyneulink.scheduling.scheduler import Scheduler
 from psyneulink.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
 from psyneulink.components.mechanisms.adaptive.learning.learningmechanism import LearningMechanism
 from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
+from psyneulink.library.projections.pathway.predictionprojection import PredictionProjection
 from psyneulink.components.projections.projection import Projection
 
 from psyneulink.scheduling.time import TimeScale
@@ -1297,84 +1298,85 @@ class System(System_Base):
             for output_state in sender_mech.output_states:
 
                 for projection in output_state.efferents:
-                    receiver = projection.receiver.owner
-                    # receiver_tuple = self._all_mechanisms._get_tuple_for_mech(receiver)
+                    if not isinstance(projection, PredictionProjection):
+                        receiver = projection.receiver.owner
+                        # receiver_tuple = self._all_mechanisms._get_tuple_for_mech(receiver)
 
-                    # If receiver is not in system's list of mechanisms, must belong to a process that has
-                    #    not been included in the system, so ignore it
-                    # MODIFIED 7/28/17 CW: added a check for auto-recurrent projections (i.e. receiver is sender_mech)
-                    if not receiver or (receiver is sender_mech):
-                        continue
-                    if is_monitoring_mech(receiver):
-                        # # MODIFIED 9/18/19 OLD:
-                        # continue
-                        # MODIFIED 9/18/19 NEW:
-                        # Don't include receiver if it is the controller for the System,
-                        if (receiver is self.controller
-                            or isinstance(receiver, LearningMechanism)
-                            or self.controller is not None and isinstance(receiver, self.controller.objective_mechanism)
-                            or (isinstance(receiver, ObjectiveMechanism) and receiver._role is LEARNING)):
+                        # If receiver is not in system's list of mechanisms, must belong to a process that has
+                        #    not been included in the system, so ignore it
+                        # MODIFIED 7/28/17 CW: added a check for auto-recurrent projections (i.e. receiver is sender_mech)
+                        if not receiver or (receiver is sender_mech):
                             continue
-                        # MODIFIED 9/18/19 END
-                    try:
-                        self.graph[receiver].add(sender_mech)
-                    except KeyError:
-                        self.graph[receiver] = {sender_mech}
-
-                    # Use toposort to test whether the added dependency produced a cycle (feedback loop)
-                    # Do not include dependency (or receiver on sender) in execution_graph for this projection
-                    #  and end this branch of the traversal if the receiver has already been encountered,
-                    #  but do mark for initialization
-                    # Notes:
-                    # * This is because it is a feedback connection, which introduces a cycle into the graph
-                    #     that precludes use of toposort to determine order of execution;
-                    #     however, the feedback projection will still be used during execution
-                    #     so the sending mechanism should be designated as INITIALIZE_CYCLE
-                    # * Check for receiver mechanism and not its tuple,
-                    #     since the same mechanism can appear in more than one tuple (e.g., with different phases)
-                    #     and would introduce a cycle irrespective of the tuple in which it appears in the graph
-                    # FIX: MODIFY THIS TO (GO BACK TO) USING if receiver_tuple in self.execution_graph
-                    # FIX  BUT CHECK THAT THEY ARE IN DIFFERENT PHASES
-                    if receiver in self.execution_graph:
-                        # Try assigning receiver as dependent of current mechanism and test toposort
+                        if is_monitoring_mech(receiver):
+                            # # MODIFIED 9/18/19 OLD:
+                            # continue
+                            # MODIFIED 9/18/19 NEW:
+                            # Don't include receiver if it is the controller for the System,
+                            if (receiver is self.controller
+                                or isinstance(receiver, LearningMechanism)
+                                or self.controller is not None and isinstance(receiver, self.controller.objective_mechanism)
+                                or (isinstance(receiver, ObjectiveMechanism) and receiver._role is LEARNING)):
+                                continue
+                            # MODIFIED 9/18/19 END
                         try:
-                            # If receiver_tuple already has dependencies in its set, add sender_mech to set
-                            if self.execution_graph[receiver]:
+                            self.graph[receiver].add(sender_mech)
+                        except KeyError:
+                            self.graph[receiver] = {sender_mech}
+
+                        # Use toposort to test whether the added dependency produced a cycle (feedback loop)
+                        # Do not include dependency (or receiver on sender) in execution_graph for this projection
+                        #  and end this branch of the traversal if the receiver has already been encountered,
+                        #  but do mark for initialization
+                        # Notes:
+                        # * This is because it is a feedback connection, which introduces a cycle into the graph
+                        #     that precludes use of toposort to determine order of execution;
+                        #     however, the feedback projection will still be used during execution
+                        #     so the sending mechanism should be designated as INITIALIZE_CYCLE
+                        # * Check for receiver mechanism and not its tuple,
+                        #     since the same mechanism can appear in more than one tuple (e.g., with different phases)
+                        #     and would introduce a cycle irrespective of the tuple in which it appears in the graph
+                        # FIX: MODIFY THIS TO (GO BACK TO) USING if receiver_tuple in self.execution_graph
+                        # FIX  BUT CHECK THAT THEY ARE IN DIFFERENT PHASES
+                        if receiver in self.execution_graph:
+                            # Try assigning receiver as dependent of current mechanism and test toposort
+                            try:
+                                # If receiver_tuple already has dependencies in its set, add sender_mech to set
+                                if self.execution_graph[receiver]:
+                                    self.execution_graph[receiver].\
+                                        add(sender_mech)
+                                # If receiver set is empty, assign sender_mech to set
+                                else:
+                                    self.execution_graph[receiver] = \
+                                        {sender_mech}
+                                # Use toposort to test whether the added dependency produced a cycle (feedback loop)
+                                list(toposort(self.execution_graph))
+                            # If making receiver dependent on sender produced a cycle (feedback loop), remove from graph
+                            except ValueError:
+                                self.execution_graph[receiver].\
+                                    remove(sender_mech)
+                                # Assign sender_mech INITIALIZE_CYCLE as system status if not ORIGIN or not yet assigned
+                                if not sender_mech.systems or not (sender_mech.systems[self] in {ORIGIN, SINGLETON}):
+                                    sender_mech.systems[self] = INITIALIZE_CYCLE
+                                if not (receiver.systems[self] in {ORIGIN, SINGLETON}):
+                                    receiver.systems[self] = CYCLE
+                                continue
+
+                        else:
+                            # Assign receiver as dependent on sender mechanism
+                            try:
+                                # FIX: THIS WILL ADD SENDER_MECH IF RECEIVER IS IN GRAPH BUT = set()
+                                # FIX: DOES THAT SCREW UP ORIGINS?
                                 self.execution_graph[receiver].\
                                     add(sender_mech)
-                            # If receiver set is empty, assign sender_mech to set
-                            else:
+                            except KeyError:
                                 self.execution_graph[receiver] = \
                                     {sender_mech}
-                            # Use toposort to test whether the added dependency produced a cycle (feedback loop)
-                            list(toposort(self.execution_graph))
-                        # If making receiver dependent on sender produced a cycle (feedback loop), remove from graph
-                        except ValueError:
-                            self.execution_graph[receiver].\
-                                remove(sender_mech)
-                            # Assign sender_mech INITIALIZE_CYCLE as system status if not ORIGIN or not yet assigned
-                            if not sender_mech.systems or not (sender_mech.systems[self] in {ORIGIN, SINGLETON}):
-                                sender_mech.systems[self] = INITIALIZE_CYCLE
-                            if not (receiver.systems[self] in {ORIGIN, SINGLETON}):
-                                receiver.systems[self] = CYCLE
-                            continue
 
-                    else:
-                        # Assign receiver as dependent on sender mechanism
-                        try:
-                            # FIX: THIS WILL ADD SENDER_MECH IF RECEIVER IS IN GRAPH BUT = set()
-                            # FIX: DOES THAT SCREW UP ORIGINS?
-                            self.execution_graph[receiver].\
-                                add(sender_mech)
-                        except KeyError:
-                            self.execution_graph[receiver] = \
-                                {sender_mech}
+                        if not sender_mech.systems:
+                            sender_mech.systems[self] = INTERNAL
 
-                    if not sender_mech.systems:
-                        sender_mech.systems[self] = INTERNAL
-
-                    # Traverse list of mechanisms in process recursively
-                    build_dependency_sets_by_traversing_projections(receiver)
+                        # Traverse list of mechanisms in process recursively
+                        build_dependency_sets_by_traversing_projections(receiver)
 
         self.graph = OrderedDict()
         self.execution_graph = OrderedDict()
@@ -1847,6 +1849,18 @@ class System(System_Base):
 
         # Instantiate TargetInputStates
         self._instantiate_target_inputs(context=context)
+    #
+    # def _instantiate_simulation_graph(self, context=None):
+    #     """Build modified execution graph to be used during control simulations
+    #     """
+    #
+    #     self.simulationGraph = OrderedDict()
+    #     self.simulation_execution_graph = OrderedDict()
+    #
+    # #     (1) Copy execution graph
+    # #     (2) Remove projections from SystemInputStates to origin mechanisms
+    # #             --> set SystemInputState values to zero to effectively cancel them??
+    # #     (3) Add projections from prediction mechanisms to origin mechanisms
 
     def _instantiate_target_inputs(self, context=None):
 
