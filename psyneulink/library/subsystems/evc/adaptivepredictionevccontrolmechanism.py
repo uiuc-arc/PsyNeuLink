@@ -785,9 +785,11 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
                     name=origin_mech.name + " " + PREDICTION_MECHANISM,
                     default_variable=variable,
                     input_states=state_names,
+                    integrator_mode=True,
                     params = prediction_mechanism_params,
                     context=context,
             )
+
             prediction_mechanism._role = CONTROL
             prediction_mechanism.origin_mech = origin_mech
 
@@ -883,7 +885,6 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
             placeholder_inputs[origin_mech] = 0.0*origin_mech.instance_defaults.variable
         self.predicted_input = placeholder_inputs
 
-    # Need to removed "inputs" arg, but will wait until ready to refactor EVC
     def run_simulation(self,
                        inputs,
                        allocation_vector,
@@ -906,8 +907,11 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
 
         """
 
-        # for prediction_mechanism in self.prediction_mechanisms:
-        #     prediction_mechanism.integrator_mode = False
+        original_smoothing_factors = {}
+        for prediction_mechanism in self.prediction_mechanisms:
+            original_smoothing_factors[prediction_mechanism] = prediction_mechanism.smoothing_factor
+            prediction_mechanism.smoothing_factor = 0.0
+
 
         if self.value is None:
             # Initialize value if it is None
@@ -930,8 +934,8 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
         for i in range(len(self.control_signals)):
             self.control_signal_costs[i] = self.control_signals[i].cost
 
-        # for prediction_mechanism in self.prediction_mechanisms:
-        #     prediction_mechanism.integrator_mode = True
+        for prediction_mechanism in self.prediction_mechanisms:
+            prediction_mechanism.smoothing_factor = original_smoothing_factors[prediction_mechanism]
 
         return monitored_states
 
