@@ -218,7 +218,7 @@ class PredictionProjection(MappingProjection):
                          context=context)
 
     def _execute(self, variable, runtime_params=None, context=None):
-        if EVC_SIMULATION not in context and variable is not None:
-            variable = variable*0.0
+        if EVC_SIMULATION not in context:
+            self.sender.value *= 0.0
 
         return super()._execute(variable, runtime_params=runtime_params, context=context)
