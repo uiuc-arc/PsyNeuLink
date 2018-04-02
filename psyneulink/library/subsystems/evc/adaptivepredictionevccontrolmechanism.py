@@ -806,12 +806,12 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
                                       matrix=projection.matrix)
 
 
-                    # Assign projections FROM prediction_mechanism that duplicate those from SystemInputState to origin mech
-                    # Should only be executed during simulations!
-                    # Currently causes test to run forever
-                    PredictionProjection(sender=prediction_mechanism,
-                                         receiver=projection.receiver,
-                                         matrix=projection.matrix)
+                # Assign projections FROM prediction_mechanism that duplicate those from SystemInputState to origin mech
+                # Should only be executed during simulations!
+                # Currently causes test to run forever
+                PredictionProjection(sender=prediction_mechanism,
+                                     receiver=orig_input_state,
+                                     matrix=projection.matrix)
 
             # # FIX: REPLACE REFERENCE TO THIS ELSEWHERE WITH REFERENCE TO MECH_TUPLES BELOW
             self.origin_prediction_mechanisms[origin_mech] = prediction_mechanism
