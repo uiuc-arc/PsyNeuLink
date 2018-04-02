@@ -338,7 +338,7 @@ from psyneulink.library.projections.pathway.predictionprojection import Predicti
 from psyneulink.components.shellclasses import Function, System_Base
 from psyneulink.globals.keywords import COMMAND_LINE, CONTROL, CONTROLLER, COST_FUNCTION, EVC_MECHANISM, FUNCTION, \
     INITIALIZING, INIT_FUNCTION_METHOD_ONLY, PARAMETER_STATES, PREDICTION_MECHANISM, PREDICTION_MECHANISMS, \
-    PREDICTION_MECHANISM_PARAMS, PREDICTION_MECHANISM_TYPE, SUM
+    PREDICTION_MECHANISM_PARAMS, PREDICTION_MECHANISM_TYPE, SUM, LEARNING
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set
 from psyneulink.globals.preferences.preferenceset import PreferenceLevel
 from psyneulink.globals.utilities import ContentAddressableList
@@ -807,11 +807,11 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
 
 
                 # Assign projections FROM prediction_mechanism that duplicate those from SystemInputState to origin mech
-                # Should only be executed during simulations!
-                # Currently causes test to run forever
-                PredictionProjection(sender=prediction_mechanism,
-                                     receiver=orig_input_state,
-                                     matrix=projection.matrix)
+
+                # PredictionProjection(sender=prediction_mechanism,
+                #                      receiver=orig_input_state,
+                #                      matrix=(projection.matrix, LEARNING),
+                #                      )
 
             # # FIX: REPLACE REFERENCE TO THIS ELSEWHERE WITH REFERENCE TO MECH_TUPLES BELOW
             self.origin_prediction_mechanisms[origin_mech] = prediction_mechanism
