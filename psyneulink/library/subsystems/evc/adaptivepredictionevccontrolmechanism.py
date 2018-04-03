@@ -808,14 +808,15 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
 
                 # Assign projections FROM prediction_mechanism that duplicate those from SystemInputState to origin mech
 
-                # PredictionProjection(sender=prediction_mechanism,
-                #                      receiver=orig_input_state,
-                #                      matrix=(projection.matrix, LEARNING),
-                #                      )
-                MappingProjection(sender=prediction_mechanism,
+                PredictionProjection(sender=prediction_mechanism,
                                      receiver=orig_input_state,
                                      matrix=(projection.matrix, LEARNING),
                                      )
+                
+                # MappingProjection(name="prediction_projection",
+                #                   sender=prediction_mechanism,
+                #                   receiver=orig_input_state,
+                #                   matrix=(projection.matrix, LEARNING))
 
             # # FIX: REPLACE REFERENCE TO THIS ELSEWHERE WITH REFERENCE TO MECH_TUPLES BELOW
             self.origin_prediction_mechanisms[origin_mech] = prediction_mechanism
