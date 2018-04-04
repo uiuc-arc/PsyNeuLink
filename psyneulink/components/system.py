@@ -3198,31 +3198,37 @@ class System(System_Base):
                     from psyneulink.components.functions.function import Reinforcement
                     from psyneulink.library.mechanisms.processing.objective.comparatormechanism import ComparatorMechanism
                     from psyneulink.components.projections.modulatory.learningprojection import LearningProjection
+                    from psyneulink.globals.keywords import NAME, VARIABLE
                     learning_function = Reinforcement(
                         # default_variable=[[0.], [0.], [0.]]
                                                         )
                     learning_projection = LearningProjection(receiver=learned_projection.parameter_states[MATRIX],
                                                              learning_function=learning_function,
                                                              name="learning_projection")
-                    # learning_projection.receiver = learned_projection.parameter_states[MATRIX]
-                    # error_source = ComparatorMechanism(
-                    #                                    name="comparator_mechanism")
-                    #
-                    # learning_mechanism = LearningMechanism(
-                    #                                        error_sources=[error_source],
-                    #                                        learning_signals=[learning_projection],
-                    #                                        function=learning_function,
-                    #                                        name="learning_mechanism_test",
-                    #                                        context="testing"
-                    #                                        )
-                    #
-                    # sample_projection = MappingProjection(sender=prediction_mechanism, receiver=error_source.input_states[SAMPLE])
-                    # activation_input_projection = MappingProjection(sender=prediction_mechanism,
-                    #                                                 receiver=learning_mechanism.input_states[0])
-                    # activation_output_projection = MappingProjection(sender=origin_mechanism,
-                    #                                                  receiver=learning_mechanism.input_states[1])
-                    # error_signal_projection = MappingProjection(sender=error_source,
-                    #                                             receiver=learning_mechanism.input_states[2])
+                    learning_projection.receiver = learned_projection.parameter_states[MATRIX]
+
+                    error_source = ComparatorMechanism(sample={NAME: SAMPLE,
+                                                               VARIABLE: prediction_mechanism.variable,
+                                                               PROJECTIONS: [prediction_mechanism.output_state]},
+                                                        target={NAME: TARGET,
+                                                                VARIABLE: prediction_mechanism.variable,
+                                                                PROJECTIONS: [origin_mechanism.output_state]},
+                                                        name="comparator_mechanism")
+
+                    learning_mechanism = LearningMechanism(
+                                                           error_sources=[error_source],
+                                                           learning_signals=[learning_projection],
+                                                           function=learning_function,
+                                                           name="learning_mechanism_test",
+                                                           context="testing"
+                                                           )
+
+                    activation_input_projection = MappingProjection(sender=prediction_mechanism,
+                                                                    receiver=learning_mechanism.input_states[0])
+                    activation_output_projection = MappingProjection(sender=origin_mechanism,
+                                                                     receiver=learning_mechanism.input_states[1])
+                    error_signal_projection = MappingProjection(sender=error_source,
+                                                                receiver=learning_mechanism.input_states[2])
 
 
         else:
