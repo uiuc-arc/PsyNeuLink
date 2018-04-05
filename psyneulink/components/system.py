@@ -3194,7 +3194,7 @@ class System(System_Base):
                                                       prediction_mechanism.efferents[0],
                                                       origin_mechanism],
                                              learning=ENABLED,
-                                             learning_rate=0.05,
+                                             learning_rate=0.3481,
                                              name="Prediction")
                 self.processes.append(prediction_process)
         self._instantiate_processes(context="ADDING PROCESS")
