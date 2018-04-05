@@ -810,9 +810,10 @@ class AdaptivePredictionEVCControlMechanism(EVCControlMechanism):
 
                 PredictionProjection(sender=prediction_mechanism,
                                      receiver=orig_input_state,
-                                     matrix=(projection.matrix, LEARNING),
-                                     )
-                
+                                     matrix=projection.matrix)
+
+                # tuple specfication of learning: matrix=(projection.matrix, LEARNING)
+
                 # MappingProjection(name="prediction_projection",
                 #                   sender=prediction_mechanism,
                 #                   receiver=orig_input_state,

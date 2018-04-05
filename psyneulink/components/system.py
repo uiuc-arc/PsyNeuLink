@@ -2636,7 +2636,6 @@ class System(System_Base):
             # self.context.status &= ~ContextFlags.PROCESSING
             self.context.execution_phase = ContextFlags.LEARNING
             self.context.string = self.context.string.replace(EXECUTING, LEARNING + ' ')
-
             self._execute_learning(context=context.replace(EXECUTING, LEARNING + ' '))
 
             self.context.execution_phase = ContextFlags.IDLE
@@ -3188,51 +3187,67 @@ class System(System_Base):
         return inspect_dict
 
     def add_prediction_learning(self, origin_mechanisms):
-        if isinstance(self.controller, ControlMechanism):
-            for mech in origin_mechanisms:
-                if mech in self.controller.origin_prediction_mechanisms:
-                    origin_mechanism = mech
-                    prediction_mechanism = self.controller.origin_prediction_mechanisms[mech]
-                    learned_projection = prediction_mechanism.efferents[0]
-
-                    from psyneulink.components.functions.function import Reinforcement
-                    from psyneulink.library.mechanisms.processing.objective.comparatormechanism import ComparatorMechanism
-                    from psyneulink.components.projections.modulatory.learningprojection import LearningProjection
-                    from psyneulink.globals.keywords import NAME, VARIABLE
-                    learning_function = Reinforcement(
-                        # default_variable=[[0.], [0.], [0.]]
-                                                        )
-                    learning_projection = LearningProjection(receiver=learned_projection.parameter_states[MATRIX],
-                                                             learning_function=learning_function,
-                                                             name="learning_projection")
-                    learning_projection.receiver = learned_projection.parameter_states[MATRIX]
-
-                    error_source = ComparatorMechanism(sample={NAME: SAMPLE,
-                                                               VARIABLE: prediction_mechanism.variable,
-                                                               PROJECTIONS: [prediction_mechanism.output_state]},
-                                                        target={NAME: TARGET,
-                                                                VARIABLE: prediction_mechanism.variable,
-                                                                PROJECTIONS: [origin_mechanism.output_state]},
-                                                        name="comparator_mechanism")
-
-                    learning_mechanism = LearningMechanism(
-                                                           error_sources=[error_source],
-                                                           learning_signals=[learning_projection],
-                                                           function=learning_function,
-                                                           name="learning_mechanism_test",
-                                                           context="testing"
-                                                           )
-
-                    activation_input_projection = MappingProjection(sender=prediction_mechanism,
-                                                                    receiver=learning_mechanism.input_states[0])
-                    activation_output_projection = MappingProjection(sender=origin_mechanism,
-                                                                     receiver=learning_mechanism.input_states[1])
-                    error_signal_projection = MappingProjection(sender=error_source,
-                                                                receiver=learning_mechanism.input_states[2])
+        from psyneulink.globals.keywords import ENABLED
+        for mech in origin_mechanisms:
+            if mech in self.controller.origin_prediction_mechanisms:
+                origin_mechanism = mech
+                prediction_mechanism = self.controller.origin_prediction_mechanisms[mech]
+                prediction_process = Process(pathway=[prediction_mechanism,
+                                                      prediction_mechanism.efferents[0],
+                                                      origin_mechanism],
+                                             learning=ENABLED,
+                                             learning_rate=0.05,
+                                             name="Prediction")
+                self.processes.append(prediction_process)
+        self._instantiate_processes(context="ADDING PROCESS")
+        self._instantiate_learning_graph(context="ADDING PROCESS")
 
 
-        else:
-            raise SystemError("{} does not have a valid controller.".format(self.name))
+        # if isinstance(self.controller, ControlMechanism):
+        #     for mech in origin_mechanisms:
+        #         if mech in self.controller.origin_prediction_mechanisms:
+        #             origin_mechanism = mech
+        #             prediction_mechanism = self.controller.origin_prediction_mechanisms[mech]
+        #             learned_projection = prediction_mechanism.efferents[0]
+        #
+        #             from psyneulink.components.functions.function import Reinforcement
+        #             from psyneulink.library.mechanisms.processing.objective.comparatormechanism import ComparatorMechanism
+        #             from psyneulink.components.projections.modulatory.learningprojection import LearningProjection
+        #             from psyneulink.globals.keywords import NAME, VARIABLE
+        #             learning_function = Reinforcement(
+        #                 # default_variable=[[0.], [0.], [0.]]
+        #                                                 )
+        #             learning_projection = LearningProjection(receiver=learned_projection.parameter_states[MATRIX],
+        #                                                      learning_function=learning_function,
+        #                                                      name="learning_projection")
+        #             learning_projection.receiver = learned_projection.parameter_states[MATRIX]
+        #
+        #             error_source = ComparatorMechanism(sample={NAME: SAMPLE,
+        #                                                        VARIABLE: prediction_mechanism.variable,
+        #                                                        PROJECTIONS: [prediction_mechanism.output_state]},
+        #                                                 target={NAME: TARGET,
+        #                                                         VARIABLE: prediction_mechanism.variable,
+        #                                                         PROJECTIONS: [origin_mechanism.output_state]},
+        #                                                 name="comparator_mechanism")
+        #
+        #             learning_mechanism = LearningMechanism(
+        #                                                    error_sources=[error_source],
+        #                                                    learning_signals=[learning_projection],
+        #                                                    function=learning_function,
+        #                                                    name="learning_mechanism_test",
+        #                                                    context="testing"
+        #                                                    )
+        #
+        #             activation_input_projection = MappingProjection(sender=prediction_mechanism,
+        #                                                             receiver=learning_mechanism.input_states[0])
+        #             activation_output_projection = MappingProjection(sender=origin_mechanism,
+        #                                                              receiver=learning_mechanism.input_states[1])
+        #             error_signal_projection = MappingProjection(sender=error_source,
+        #                                                         receiver=learning_mechanism.input_states[2])
+        #
+        #
+        # else:
+        #     raise SystemError("{} does not have a valid controller.".format(self.name))
 
     def _toposort_with_ordered_mechs(self, data):
         """Returns a single list of dependencies, sorted by object_item[MECHANISM].name"""

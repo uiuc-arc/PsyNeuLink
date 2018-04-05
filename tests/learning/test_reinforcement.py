@@ -167,11 +167,11 @@ def test_learn_over_prediction_process():
 
     RewardProcess = Process(pathway=[Reward],
                             name='RewardProcess')
-
+    myController = AdaptivePredictionEVCControlMechanism()
     # System:
     mySystem = System(
         processes=[TaskExecutionProcess, RewardProcess],
-        controller=AdaptivePredictionEVCControlMechanism,
+        controller=myController,
         enable_controller=True,
         monitor_for_control=[
             Reward,
@@ -180,17 +180,25 @@ def test_learn_over_prediction_process():
         ],
         name='EVC Test System',
     )
-
-    mySystem.show_graph(show_control=True)
+    mySystem.show_graph(show_learning=True)
 
     # Stimuli
     stim_list_dict = {
         Input: [0.5, 0.123],
         Reward: [20, 20]
     }
-    # mySystem.add_prediction_learning([Input, Reward])
-    mySystem.run(inputs=stim_list_dict)
+    mySystem.add_prediction_learning([Input, Reward])
+    input_mechanism_values = []
+    # reward_mechanism_values = []
+    def check_intermediate_values():
+        input_mechanism_values.append(Input.value)
+        # reward_mechanism_values.append(Reward.value)
+    mySystem.learning = True
+    mySystem.run(inputs=stim_list_dict,
+                 learning=True,
+                 call_after_trial=check_intermediate_values)
 
+    # print(input_mechanism_values)
     RewardPrediction = mySystem.execution_list[3]
     InputPrediction = mySystem.execution_list[4]
 
