@@ -473,6 +473,7 @@ GATING_SIGNAL = 'GatingSignal'
 # Projections:
 MAPPING_PROJECTION = "MappingProjection"
 AUTO_ASSOCIATIVE_PROJECTION = "AutoAssociativeProjection"
+PREDICTION_PROJECTION = "PredictionProjection"
 LEARNING_PROJECTION = "LearningProjection"
 CONTROL_PROJECTION = "ControlProjection"
 GATING_PROJECTION = "GatingProjection"

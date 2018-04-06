@@ -10,7 +10,7 @@ from psyneulink.globals.keywords import ALLOCATION_SAMPLES
 from psyneulink.globals.keywords import CYCLE, INITIALIZE_CYCLE, INTERNAL, ORIGIN, TERMINAL
 from psyneulink.library.mechanisms.processing.integrator.ddm import DDM
 from psyneulink.library.subsystems.evc.evccontrolmechanism import EVCControlMechanism
-
+from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
 
 def test_danglingControlledMech():
     #
@@ -672,3 +672,42 @@ class TestInitialize:
         # Run 1 --> Execution 1: 1 + 2 = 3    |    Execution 2: 3 + 2 = 5    |    Execution 3: 5 + 3 = 8
         # Run 2 --> Execution 1: 8 + 1 = 9    |    Execution 2: 9 + 2 = 11    |    Execution 3: 11 + 3 = 14
         assert np.allclose(C.log.nparray_dictionary('value')['value'], [[[3]], [[5]], [[8]], [[9]], [[11]], [[14]]])
+class TestIgnoredComponents:
+    def test_parallel_pathways_with_ignored_connection(self):
+        A = TransferMechanism(name="A")
+        B = TransferMechanism(name="B")
+        C = TransferMechanism(name="C",
+                              function=Linear(slope=5.0))
+
+        projAB = MappingProjection(sender=A, receiver=B)
+        projCB = MappingProjection(sender=C, receiver=B)
+
+        procAB = Process(pathway=[A, projAB, B])
+        procC = Process(pathway=[C])
+
+        sys = System(processes=[procAB, procC])
+        sys.run(inputs={A: 1.0,
+                        C: 1.0})
+        # FIX: projection from C to B executes even though it wasn't specified in the system
+        assert np.allclose(B.value, 6.0)
+        # assert np.allclose(B.value, 1.0)
+
+    def test_ignored_origin_mechanism(self):
+        A = TransferMechanism(name="A")
+        B = TransferMechanism(name="B")
+        C = TransferMechanism(name="C",
+                              function=Linear(slope=5.0))
+
+        projAB = MappingProjection(sender=A, receiver=B)
+        projCB = MappingProjection(sender=C, receiver=B)
+
+        procAB = Process(pathway=[A, projAB, B])
+        procC = Process(pathway=[C])
+        procB = Process(pathway=[B])
+
+        sys = System(processes=[procB])
+        # FIX: B is not identified as an origin mechanisms of sys because it receives projections in procAB
+        # sys.run(inputs={B: 1.0})
+
+
+
