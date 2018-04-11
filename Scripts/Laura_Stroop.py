@@ -220,9 +220,7 @@ def testtrialtype(test_trial_input, initialize_trial_input, ntrials):
     # create variable to store results
     results = np.empty((10, 0))
     # clear log
-    respond_red_accumulator.log.clear_entries(delete_entry=False)
-    respond_red_accumulator.reinitialize(0)
-    respond_green_accumulator.reinitialize(0)
+    response_layer.reinitialize([0, 0])
     for trial in range(ntrials):
         # run system once (with integrator mode off and no noise for hidden units) with only task so asymptotes
         colors_hidden_layer.integrator_mode = False
