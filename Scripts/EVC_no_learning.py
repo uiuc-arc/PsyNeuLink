@@ -20,13 +20,13 @@ Target_Rep = pnl.TransferMechanism(name='Target Representation',
                                            control_signal_params={
                                                pnl.ALLOCATION_SAMPLES: signalSearchRange}))),
                                    prefs = {pnl.LOG_PREF: pnl.PreferenceEntry(pnl.LogCondition.INITIALIZATION, pnl.PreferenceLevel.INSTANCE)})
-Target_Rep.set_log_conditions('value', pnl.LogCondition.EXECUTION + pnl.LogCondition.PROCESSING) # Log Target_Rep + pnl.LogCondition.PROCESSING
+Target_Rep.set_log_conditions('value')#, pnl.LogCondition.EXECUTION + pnl.LogCondition.PROCESSING) # Log Target_Rep + pnl.LogCondition.PROCESSING
 # Target_Rep.set_log_conditions('slope') # Log Target_Rep
 Target_Rep.loggable_items
 
 #log initialization
 
-Target_Rep.log.LogCondition =2
+# Target_Rep.log.LogCondition =2
 
 Flanker_Rep = pnl.TransferMechanism(name='Flanker Representation',
                                     function=pnl.Linear(
@@ -34,10 +34,10 @@ Flanker_Rep = pnl.TransferMechanism(name='Flanker Representation',
                                             control_signal_params={
                                                 pnl.ALLOCATION_SAMPLES: signalSearchRange}))))
 Flanker_Rep.set_log_conditions('value') # Log Flanker_Rep
-Flanker_Rep.set_log_conditions('slope') # Log Flanker_Rep
+# Flanker_Rep.set_log_conditions('slope') # Log Flanker_Rep
 Flanker_Rep.loggable_items
 
-Target_Rep.log.LogCondition =2
+# Target_Rep.log.LogCondition =2
 
 # Processing Mechanism (Automatic)
 Automatic_Component = pnl.TransferMechanism(name='Automatic Component',function=pnl.Linear)
@@ -130,7 +130,6 @@ mySystem.show()
 # mySystem.controller.show()
 
 # Show graph of system
-# mySystem.show_graph(show_control=pnl.ALL, show_dimensions=pnl.ALL)# show_control=True,show_dimensions=True)
 
 
 #log input state of mySystem
@@ -178,7 +177,7 @@ mySystem.controller.prediction_mechanisms.mechanisms[2].function_object.rate = 1
 
 # generate stimulus environment: remember that we add one congruent stimulus infront of actuall stimulus list
 # compatible with MATLAB stimulus list for initialization
-nTrials = 8
+nTrials = 7
 targetFeatures = [1.0, 1.0, 1.0, 1.0,1.0, 1.0, 1.0, 1.0]
 flankerFeatures = [1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0]
 reward = [100, 100, 100, 100, 100, 100, 100, 100]
@@ -190,23 +189,31 @@ stim_list_dict = {
 
 }
 Target_Rep.set_log_conditions('slope')
+
+def update_rate_values():
+    mySystem.controller.prediction_mechanisms.mechanisms[0].function_object.rate = 0.0
+    mySystem.controller.prediction_mechanisms.mechanisms[1].function_object.rate = 1.0  # reward rate
+    mySystem.controller.prediction_mechanisms.mechanisms[2].function_object.rate = 0.0
+
+
 # mySystem.controller.objective_mechanism.loggable_items
-mySystem.run(num_trials=nTrials,inputs=stim_list_dict)
-# mySystem.show_graph(show_mechanism_structure=pnl.VALUES, show_control=True)
+mySystem.run(call_after_trial=update_rate_values,num_trials=nTrials,inputs=stim_list_dict)
+mySystem.show_graph(show_mechanism_structure=pnl.VALUES, show_control=True, show_dimensions=True)
+
 
 
 # Reward.log.print_entries()
 D = Decision.log.nparray_dictionary()
-print(D['drift_rate'])
+print('ddm_input: ', D['InputState-0'])
 
-Flanker_Rep.log.print_entries()
+# Flanker_Rep.log.print_entries()
 
-mySystem.controller.log.print_entries()
+# mySystem.controller.log.print_entries()
 
 
 d = mySystem.controller.objective_mechanism.log.nparray_dictionary()
-print(d['PROBABILITY_UPPER_THRESHOLD'])
+print('PROBABILITY_UPPER_THRESHOLD: ', d['PROBABILITY_UPPER_THRESHOLD'])
 
 # assert np.allclose([94.81, 47.66, 94.81, 94.81, 47.66, 47.66, 94.81, 47.66],
 
-Target_Rep.log.print_entries(display = 'value')
+# Target_Rep.log.print_entries(display = 'value')

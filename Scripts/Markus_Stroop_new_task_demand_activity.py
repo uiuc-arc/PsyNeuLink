@@ -321,207 +321,207 @@ def testtrialtype(test_trial_input, initialize_trial_input, ntrials):
 
     return results
 
-# ntrials = 10
-# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 1) #red_color, green color, red_word, green word, CN, WR
-# results_WR_control_trial1 = testtrialtype(WR_control_trial_input,
-#                                          WR_trial_initialize_input,
-#                                          ntrials)
-#
-# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.8) #red_color, green color, red_word, green word, CN, WR
-# results_WR_control_trial08 = testtrialtype(WR_control_trial_input,
-#                                          WR_trial_initialize_input,
-#                                          ntrials)
-#
-# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.6) #red_color, green color, red_word, green word, CN, WR
-# results_WR_control_trial06 = testtrialtype(WR_control_trial_input,
-#                                          WR_trial_initialize_input,
-#                                          ntrials)
-#
-# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.4) #red_color, green color, red_word, green word, CN, WR
-# results_WR_control_trial04 = testtrialtype(WR_control_trial_input,
-#                                          WR_trial_initialize_input,
-#                                          ntrials)
-#
-# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.2) #red_color, green color, red_word, green word, CN, WR
-# results_WR_control_trial02 = testtrialtype(WR_control_trial_input,
-#                                          WR_trial_initialize_input,
-#                                          ntrials)
-#
-# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.1) #red_color, green color, red_word, green word, CN, WR
-# results_WR_control_trial01 = testtrialtype(WR_control_trial_input,
-#                                          WR_trial_initialize_input,
-#                                          ntrials)
-#
-# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.0) #red_color, green color, red_word, green word, CN, WR
-# results_WR_control_trial0 = testtrialtype(WR_control_trial_input,
-#                                          WR_trial_initialize_input,
-#                                          ntrials)
-#
-# CN_control_trial_input = trial_dict(1, 0, 0, 0, 1, 0) #red_color, green color, red_word, green word, CN, WR
-# results_CN_control_trial1 = testtrialtype(CN_control_trial_input,
-#                                          CN_trial_initialize_input,
-#                                          ntrials)
-# CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.8, 0) #red_color, green color, red_word, green word, CN, WR
-# results_CN_control_trial08 = testtrialtype(CN_control_trial_input,
-#                                          CN_trial_initialize_input,
-#                                          ntrials)
-# CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.6, 0) #red_color, green color, red_word, green word, CN, WR
-# results_CN_control_trial06 = testtrialtype(CN_control_trial_input,
-#                                          CN_trial_initialize_input,
-#                                          ntrials)
-# CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.4, 0) #red_color, green color, red_word, green word, CN, WR
-# results_CN_control_trial04 = testtrialtype(CN_control_trial_input,
-#                                          CN_trial_initialize_input,
-#                                          ntrials)
-#
-# CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.2, 0) #red_color, green color, red_word, green word, CN, WR
-# results_CN_control_trial02 = testtrialtype(CN_control_trial_input,
-#                                          CN_trial_initialize_input,
-#                                          ntrials)
-#
-# CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.1, 0) #red_color, green color, red_word, green word, CN, WR
-# results_CN_control_trial01 = testtrialtype(CN_control_trial_input,
-#                                          CN_trial_initialize_input,
-#                                          ntrials)
-#
-# CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.0, 0) #red_color, green color, red_word, green word, CN, WR
-# results_CN_control_trial0 = testtrialtype(CN_control_trial_input,
-#                                          CN_trial_initialize_input,
-#                                          ntrials)
-
-
-
 ntrials = 10
 WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 1) #red_color, green color, red_word, green word, CN, WR
-results_WR_control_trial = testtrialtype(WR_control_trial_input,
+results_WR_control_trial1 = testtrialtype(WR_control_trial_input,
                                          WR_trial_initialize_input,
                                          ntrials)
 
+WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.8) #red_color, green color, red_word, green word, CN, WR
+results_WR_control_trial08 = testtrialtype(WR_control_trial_input,
+                                         WR_trial_initialize_input,
+                                         ntrials)
 
-# test WR congruent trial (should have the least cycles)
-WR_congruent_trial_input = trial_dict(1, 0, 1, 0, 0, 1)  # red_color, green color, red_word, green word, CN, WR
-results_WR_congruent_trial = testtrialtype(WR_congruent_trial_input,
-                                           WR_trial_initialize_input,
-                                           ntrials)
+WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.6) #red_color, green color, red_word, green word, CN, WR
+results_WR_control_trial06 = testtrialtype(WR_control_trial_input,
+                                         WR_trial_initialize_input,
+                                         ntrials)
 
-# test WR incongruent trial, should see that color doesn't affect word (same number of cycles as WR control)
-WR_incongruent_trial_input = trial_dict(1, 0, 0, 1, 0, 1)  # red_color, green color, red_word, green word, CN, WR
-results_WR_incongruent_trial = testtrialtype(WR_incongruent_trial_input,
-                                             WR_trial_initialize_input,
-                                             ntrials)
+WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.4) #red_color, green color, red_word, green word, CN, WR
+results_WR_control_trial04 = testtrialtype(WR_control_trial_input,
+                                         WR_trial_initialize_input,
+                                         ntrials)
 
-CN_congruent_trial_input = trial_dict(1, 0, 1, 0, 1, 0)  # red_color, green color, red_word, green word, CN, WR
-results_CN_congruent_trial = testtrialtype(CN_congruent_trial_input,
-                                           CN_trial_initialize_input,
-                                           ntrials)
+WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.2) #red_color, green color, red_word, green word, CN, WR
+results_WR_control_trial02 = testtrialtype(WR_control_trial_input,
+                                         WR_trial_initialize_input,
+                                         ntrials)
 
-#
-# # #test CN incongruent trial, should see that word interferes with color (should have most cycles + more than CN control)
-CN_incongruent_trial_input = trial_dict(1, 0, 0, 1, 1, 0)  # red_color, green color, red_word, green word, CN, WR
-results_CN_incongruent_trial = testtrialtype(CN_incongruent_trial_input,
-                                             CN_trial_initialize_input,
-                                             ntrials)
+WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.1) #red_color, green color, red_word, green word, CN, WR
+results_WR_control_trial01 = testtrialtype(WR_control_trial_input,
+                                         WR_trial_initialize_input,
+                                         ntrials)
 
+WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 0.0) #red_color, green color, red_word, green word, CN, WR
+results_WR_control_trial0 = testtrialtype(WR_control_trial_input,
+                                         WR_trial_initialize_input,
+                                         ntrials)
 
 CN_control_trial_input = trial_dict(1, 0, 0, 0, 1, 0) #red_color, green color, red_word, green word, CN, WR
-results_CN_control_trial = testtrialtype(CN_control_trial_input,
+results_CN_control_trial1 = testtrialtype(CN_control_trial_input,
+                                         CN_trial_initialize_input,
+                                         ntrials)
+CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.8, 0) #red_color, green color, red_word, green word, CN, WR
+results_CN_control_trial08 = testtrialtype(CN_control_trial_input,
+                                         CN_trial_initialize_input,
+                                         ntrials)
+CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.6, 0) #red_color, green color, red_word, green word, CN, WR
+results_CN_control_trial06 = testtrialtype(CN_control_trial_input,
+                                         CN_trial_initialize_input,
+                                         ntrials)
+CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.4, 0) #red_color, green color, red_word, green word, CN, WR
+results_CN_control_trial04 = testtrialtype(CN_control_trial_input,
                                          CN_trial_initialize_input,
                                          ntrials)
 
+CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.2, 0) #red_color, green color, red_word, green word, CN, WR
+results_CN_control_trial02 = testtrialtype(CN_control_trial_input,
+                                         CN_trial_initialize_input,
+                                         ntrials)
+
+CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.1, 0) #red_color, green color, red_word, green word, CN, WR
+results_CN_control_trial01 = testtrialtype(CN_control_trial_input,
+                                         CN_trial_initialize_input,
+                                         ntrials)
+
+CN_control_trial_input = trial_dict(1, 0, 0, 0, 0.0, 0) #red_color, green color, red_word, green word, CN, WR
+results_CN_control_trial0 = testtrialtype(CN_control_trial_input,
+                                         CN_trial_initialize_input,
+                                         ntrials)
+
+
+
+# ntrials = 10
+# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 1) #red_color, green color, red_word, green word, CN, WR
+# results_WR_control_trial = testtrialtype(WR_control_trial_input,
+#                                          WR_trial_initialize_input,
+#                                          ntrials)
 #
-# W_control1 = 12 * results_WR_control_trial1[0]+ 206
-# W_control08 = 12 * results_WR_control_trial08[0]+ 206
-# W_control06 = 12 * results_WR_control_trial06[0]+ 206
-# W_control04 = 12 * results_WR_control_trial04[0]+ 206
-# W_control02 = 12 * results_WR_control_trial02[0]+ 206
-# W_control01 = 12 * results_WR_control_trial01[0]+ 206
-# W_control0 = 12 * results_WR_control_trial0[0]+ 206
+#
+# # test WR congruent trial (should have the least cycles)
+# WR_congruent_trial_input = trial_dict(1, 0, 1, 0, 0, 1)  # red_color, green color, red_word, green word, CN, WR
+# results_WR_congruent_trial = testtrialtype(WR_congruent_trial_input,
+#                                            WR_trial_initialize_input,
+#                                            ntrials)
+#
+# # test WR incongruent trial, should see that color doesn't affect word (same number of cycles as WR control)
+# WR_incongruent_trial_input = trial_dict(1, 0, 0, 1, 0, 1)  # red_color, green color, red_word, green word, CN, WR
+# results_WR_incongruent_trial = testtrialtype(WR_incongruent_trial_input,
+#                                              WR_trial_initialize_input,
+#                                              ntrials)
+#
+# CN_congruent_trial_input = trial_dict(1, 0, 1, 0, 1, 0)  # red_color, green color, red_word, green word, CN, WR
+# results_CN_congruent_trial = testtrialtype(CN_congruent_trial_input,
+#                                            CN_trial_initialize_input,
+#                                            ntrials)
+#
+# #
+# # # #test CN incongruent trial, should see that word interferes with color (should have most cycles + more than CN control)
+# CN_incongruent_trial_input = trial_dict(1, 0, 0, 1, 1, 0)  # red_color, green color, red_word, green word, CN, WR
+# results_CN_incongruent_trial = testtrialtype(CN_incongruent_trial_input,
+#                                              CN_trial_initialize_input,
+#                                              ntrials)
 #
 #
-# C_control1 = 12 * results_CN_control_trial1[0]+ 206
-# C_control08 = 12 * results_CN_control_trial08[0]+ 206
-# C_control06 = 12 * results_CN_control_trial06[0]+ 206
-# C_control04 = 12 * results_CN_control_trial04[0]+ 206
-# C_control02 = 12 * results_CN_control_trial02[0]+ 206
-# C_control01 = 12 * results_CN_control_trial01[0]+ 206
-# C_control0 = 12 * results_CN_control_trial0[0]+ 206
-#
-#
-# task_demand_mean = [np.mean(W_control0),
-#                np.mean(W_control01),
-#                np.mean(W_control02),
-#                np.mean(W_control04),
-#                np.mean(W_control06),
-#                np.mean(W_control08),
-#                np.mean(W_control1),
-#                np.mean(C_control0),
-#                np.mean(C_control01),
-#                np.mean(C_control02),
-#                np.mean(C_control04),
-#                np.mean(C_control06),
-#                np.mean(C_control08),
-#                np.mean(C_control1)]
-#
-# task_demand_cycles_x = np.array([0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0])
-# # labs = ['control',
-# #         'conflict',
-# #         'congruent']
-# legend = ['WR control trial',
-#           'CN control trial']
-# colors = ['b', 'r']
-#
-# plt.plot(task_demand_cycles_x[0:7], task_demand_mean[0:7], color=colors[0], marker='x', linestyle = 'None')
-# # plt.hold(True)
-# plt.plot(task_demand_cycles_x[0:7], task_demand_mean[7:14], color=colors[1], marker='o', linestyle = 'None')
-# plt.ylabel('reaction time')
-# plt.xlabel('task demand unit activity')
-# plt.title('Figure 13: Stroop Model - Cohen et al 1990')
-# plt.legend(legend)
+# CN_control_trial_input = trial_dict(1, 0, 0, 0, 1, 0) #red_color, green color, red_word, green word, CN, WR
+# results_CN_control_trial = testtrialtype(CN_control_trial_input,
+#                                          CN_trial_initialize_input,
+#                                          ntrials)
 
 
-W_control = 12 * results_WR_control_trial[0]+ 206
-W_congruent= 12 * results_WR_congruent_trial[0]+ 206
-W_incongruent = 12 * results_WR_incongruent_trial[0]+ 206
+W_control1 = 12 * results_WR_control_trial1[0]+ 206
+W_control08 = 12 * results_WR_control_trial08[0]+ 206
+W_control06 = 12 * results_WR_control_trial06[0]+ 206
+W_control04 = 12 * results_WR_control_trial04[0]+ 206
+W_control02 = 12 * results_WR_control_trial02[0]+ 206
+W_control01 = 12 * results_WR_control_trial01[0]+ 206
+W_control0 = 12 * results_WR_control_trial0[0]+ 206
 
 
-C_control = 12 * results_CN_control_trial[0]+ 206
-C_congruent= 12 * results_CN_congruent_trial[0]+ 206
-C_incongruent = 12 * results_CN_incongruent_trial[0]+ 206
+C_control1 = 12 * results_CN_control_trial1[0]+ 206
+C_control08 = 12 * results_CN_control_trial08[0]+ 206
+C_control06 = 12 * results_CN_control_trial06[0]+ 206
+C_control04 = 12 * results_CN_control_trial04[0]+ 206
+C_control02 = 12 * results_CN_control_trial02[0]+ 206
+C_control01 = 12 * results_CN_control_trial01[0]+ 206
+C_control0 = 12 * results_CN_control_trial0[0]+ 206
 
 
-cycles_mean = [np.mean(W_control),
-     np.mean(W_incongruent),
-     np.mean(W_congruent),
-     np.mean(C_control),
-     np.mean(C_incongruent),
-     np.mean(C_congruent)]
-# cycles_std = [np.std(W_control),
-#          # np.std(W_incongruent),
-#          # np.std(W_congruent),
-#          np.std(C_control),
-#          # np.std(C_incongruent),
-#          # np.std(C_congruent)]
-cycles_x = np.array([0, 1, 2, 0, 1, 2])
-labs = ['control',
-        'conflict',
-        'congruent']
-legend = ['WR trial',
-          'CN trial']
-colors = ['b', 'c']
+task_demand_mean = [np.mean(W_control0),
+               np.mean(W_control01),
+               np.mean(W_control02),
+               np.mean(W_control04),
+               np.mean(W_control06),
+               np.mean(W_control08),
+               np.mean(W_control1),
+               np.mean(C_control0),
+               np.mean(C_control01),
+               np.mean(C_control02),
+               np.mean(C_control04),
+               np.mean(C_control06),
+               np.mean(C_control08),
+               np.mean(C_control1)]
 
-plt.plot(cycles_x[0:3], cycles_mean[0:3], color=colors[0])
-# plt.errorbar(cycles_x[0:3], cycles_mean[0:3], xerr=0, yerr=cycles_std[0:3], ecolor=colors[0], fmt='none')
-plt.scatter(cycles_x[0], cycles_mean[0], marker='x', color=colors[0])
-plt.scatter(cycles_x[1], cycles_mean[1], marker='x', color=colors[0])
-plt.scatter(cycles_x[2], cycles_mean[2], marker='x', color=colors[0])
-plt.plot(cycles_x[3:6], cycles_mean[3:6], color=colors[1])
-# plt.errorbar(cycles_x[3:6], cycles_mean[3:6], xerr=0, yerr=cycles_std[3:6], ecolor=colors[1], fmt='none')
-plt.scatter(cycles_x[3], cycles_mean[3], marker='o', color=colors[1])
-plt.scatter(cycles_x[4], cycles_mean[4], marker='o', color=colors[1])
-plt.scatter(cycles_x[5], cycles_mean[5], marker='o', color=colors[1])
+task_demand_cycles_x = np.array([0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0])
+# labs = ['control',
+#         'conflict',
+#         'congruent']
+legend = ['WR control trial',
+          'CN control trial']
+colors = ['b', 'r']
 
-plt.xticks(cycles_x, labs, rotation=15)
-plt.tick_params(axis='x', labelsize=9)
+plt.plot(task_demand_cycles_x[0:7], task_demand_mean[0:7], color=colors[0], marker='x', linestyle = 'None')
+# plt.hold(True)
+plt.plot(task_demand_cycles_x[0:7], task_demand_mean[7:14], color=colors[1], marker='o', linestyle = 'None')
+plt.ylabel('reaction time')
+plt.xlabel('task demand unit activity')
+plt.title('Figure 13: Stroop Model - Cohen et al 1990')
 plt.legend(legend)
-plt.show()
 
+#
+# W_control = 12 * results_WR_control_trial[0]+ 206
+# W_congruent= 12 * results_WR_congruent_trial[0]+ 206
+# W_incongruent = 12 * results_WR_incongruent_trial[0]+ 206
+#
+#
+# C_control = 12 * results_CN_control_trial[0]+ 206
+# C_congruent= 12 * results_CN_congruent_trial[0]+ 206
+# C_incongruent = 12 * results_CN_incongruent_trial[0]+ 206
+#
+#
+# cycles_mean = [np.mean(W_control),
+#      np.mean(W_incongruent),
+#      np.mean(W_congruent),
+#      np.mean(C_control),
+#      np.mean(C_incongruent),
+#      np.mean(C_congruent)]
+# # cycles_std = [np.std(W_control),
+# #          # np.std(W_incongruent),
+# #          # np.std(W_congruent),
+# #          np.std(C_control),
+# #          # np.std(C_incongruent),
+# #          # np.std(C_congruent)]
+# cycles_x = np.array([0, 1, 2, 0, 1, 2])
+# labs = ['control',
+#         'conflict',
+#         'congruent']
+# legend = ['WR trial',
+#           'CN trial']
+# colors = ['b', 'c']
+#
+# plt.plot(cycles_x[0:3], cycles_mean[0:3], color=colors[0])
+# # plt.errorbar(cycles_x[0:3], cycles_mean[0:3], xerr=0, yerr=cycles_std[0:3], ecolor=colors[0], fmt='none')
+# plt.scatter(cycles_x[0], cycles_mean[0], marker='x', color=colors[0])
+# plt.scatter(cycles_x[1], cycles_mean[1], marker='x', color=colors[0])
+# plt.scatter(cycles_x[2], cycles_mean[2], marker='x', color=colors[0])
+# plt.plot(cycles_x[3:6], cycles_mean[3:6], color=colors[1])
+# # plt.errorbar(cycles_x[3:6], cycles_mean[3:6], xerr=0, yerr=cycles_std[3:6], ecolor=colors[1], fmt='none')
+# plt.scatter(cycles_x[3], cycles_mean[3], marker='o', color=colors[1])
+# plt.scatter(cycles_x[4], cycles_mean[4], marker='o', color=colors[1])
+# plt.scatter(cycles_x[5], cycles_mean[5], marker='o', color=colors[1])
+#
+# plt.xticks(cycles_x, labs, rotation=15)
+# plt.tick_params(axis='x', labelsize=9)
+# plt.legend(legend)
+# plt.show()
+#
