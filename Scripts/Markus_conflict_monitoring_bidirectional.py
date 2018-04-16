@@ -2,6 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import psyneulink as pnl
 
+
+LAMBDA = 0.95
+alpha = 11.24
+beta = 9.46
+
+#Conflict  equation:
+
+#C(t+1) = LAMBDA*C(t) +(1-LAMBDA) * (alpha*ENERGY(t) + beta)
+
 # SET UP MECHANISMS
 #   Linear input units, colors: ('red', 'green'), words: ('RED','GREEN')
 colors_input_layer = pnl.TransferMechanism(size=3,

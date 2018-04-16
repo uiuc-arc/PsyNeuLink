@@ -2,6 +2,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import psyneulink as pnl
 
+
+LAMBDA = 0.95
+alpha = 11.24
+beta = 9.46
+
+#Conflict  equation:
+
+#C(t+1) = LAMBDA*C(t) +(1-LAMBDA) * (alpha*ENERGY(t) + beta)
+
+
+
 # SET UP MECHANISMS
 #   Linear input units, colors: ('red', 'green'), words: ('RED','GREEN')
 colors_input_layer = pnl.TransferMechanism(size=2,
@@ -14,8 +25,8 @@ words_input_layer = pnl.TransferMechanism(size=2,
 
 #   Task layer, tasks: ('name the color', 'read the word')
 task_layer = pnl.TransferMechanism(size=2,
-                                   function= pnl.Linear(),
-                                   # function=pnl.Logistic(gain=(1.0, pnl.ControlProjection())),
+                                   # function= pnl.Linear(),
+                                   function=pnl.Logistic(gain=(1.0, pnl.ControlProjection())),
                                    name='TASK')
 
 #   Hidden layer units, colors: ('red','green') words: ('RED','GREEN')
@@ -59,6 +70,30 @@ response_layer = pnl.RecurrentTransferMechanism(size=2, #pnl.LCA(size=2,#
 response_layer.set_log_conditions('value')
 response_layer.set_log_conditions('DECISION_ENERGY')
 # response_layer.set_log_conditions('gain')
+
+# >>> L = pnl.Logistic(gain = 2)
+# >>> def my_fct(variable):
+# ...     return L.function(variable) + 2
+# >>> my_mech = pnl.ProcessingMechanism(size = 3, function = my_fct)
+# >>> my_mech.execute(input = [1, 2, 3])
+# array([[2.88079708, 2.98201379, 2.99752738]])
+
+#C(t+1) = LAMBDA*C(t) +(1-LAMBDA) * (alpha*ENERGY(t) + beta)
+
+
+I = pnl.Integrator(rate= 0.95,
+                          noise = 0.0)
+Linear = pnl.Linear(slope = 11.24, intercept= 9.46)
+
+def my_fct(variable1, variable2):
+    return I.function(variable1) + (1-0.95) * Linear.function(variable2)
+
+my_mech = pnl.ProcessingMechanism(function=my_fct())
+
+#
+# conflict = pnl.IntegratorMechanism(function=pnl.AdaptiveIntegrator(rate=0.95))
+# conflict.set_log_conditions('value')
+#
 
 
 #   SET UP CONNECTIONS
@@ -130,9 +165,9 @@ System_Conflict_Monitoring = pnl.System(processes=[colors_process,
                                   words_process,
                                   task_CN_process,
                                   task_WR_process],
-                      # controller=pnl.ControlMechanism,
-                      #  monitor_for_control=[response_layer.output_states['DECISION_ENERGY']],
-                      #  enable_controller=True,
+                      controller=pnl.ControlMechanism,
+                       monitor_for_control=[response_layer.output_states['DECISION_ENERGY']],
+                       enable_controller=True,
                        name='FEEDFORWARD_Conflict_Monitoring_SYSTEM')
 
 # System_Conflict_Monitoring.show_graph(show_control=pnl.ALL, show_dimensions=pnl.ALL)
@@ -159,11 +194,9 @@ WR_trial_initialize_input = trial_dict(0, 0, 0, 0, 0, 1)
 
 CN_trial_initialize_input = trial_dict(0, 0, 0, 0, 1, 0)
 
-
-#function to test a particular trial type
-def testtrialtype(test_trial_input, initialize_trial_input, ntrials):#, plot_title, trial_test_counter):
+# function to test a particular trial type
+def testtrialtype(test_trial_input, initialize_trial_input, ntrials):  # , plot_title, trial_test_counter):
     # create variable to store results
-    results = np.empty((1, 0))
     decision_energy = np.empty((ntrials))
     response_activity1 = np.empty((ntrials))
     response_activity2 = np.empty((ntrials))
@@ -172,37 +205,29 @@ def testtrialtype(test_trial_input, initialize_trial_input, ntrials):#, plot_tit
     colors_hidden_layer1 = np.empty((ntrials))
     colors_hidden_layer2 = np.empty((ntrials))
     response_layer.reinitialize([[0, 0]])
+    words_hidden_layer.reinitialize([[0, 0]])
+    colors_hidden_layer.reinitialize([[0, 0]])
     words_hidden_layer1 = np.empty((ntrials))
     words_hidden_layer2 = np.empty((ntrials))
 
-
-    System_Conflict_Monitoring.run(inputs=initialize_trial_input)
+    # run system once with integrator mode off and only task so asymptotes
     colors_hidden_layer.integrator_mode = False
     words_hidden_layer.integrator_mode = False
     response_layer.integrator_mode = False
 
+    #     System_Conflict_Monitoring.run(inputs=initialize_trial_input)
+
+    # Turn integrator mode on
+    colors_hidden_layer.integrator_mode = True
+    words_hidden_layer.integrator_mode = True
+    response_layer.integrator_mode = True
+
     for trial in range(ntrials):
-        # run system once (with integrator mode off and no noise for hidden units) with only task so asymptotes
-
-        # colors_hidden_layer.noise = 0
-        # words_hidden_layer.noise = 0
-        # response_layer.noise = 0
-
-        # print('response layer value: ', response_layer.output_states[1].value)
-        # now put back in integrator mode and noise
-        colors_hidden_layer.integrator_mode = True
-        words_hidden_layer.integrator_mode = True
-        response_layer.integrator_mode = True
-        #colors_hidden_layer.noise = pnl.NormalDist(mean=0, standard_dev=unit_noise).function
-        #words_hidden_layer.noise = pnl.NormalDist(mean=0, standard_dev=unit_noise).function
-        #response_layer.noise = pnl.NormalDist(mean=0, standard_dev=unit_noise).function
-
         # run system with test pattern
         System_Conflict_Monitoring.run(inputs=test_trial_input)
 
         # value of parts of the system
         decision_energy[trial] = np.asarray(response_layer.output_states[1].value)
-        # print('decision_energy; ', decision_energy[trial])
         response_activity1[trial] = np.asarray(response_layer.output_states[0].value[0])
         response_activity2[trial] = np.asarray(response_layer.output_states[0].value[1])
 
@@ -214,139 +239,82 @@ def testtrialtype(test_trial_input, initialize_trial_input, ntrials):#, plot_tit
         words_hidden_layer1[trial] = np.asarray(words_hidden_layer.output_states[0].value[0])
         words_hidden_layer2[trial] = np.asarray(words_hidden_layer.output_states[0].value[1])
 
-        # print('colors_hidden_layer_value: ', colors_hidden_layer_value)
-        # print('words_hidden_layer_value: ', words_hidden_layer_value)
-        # print('response_layer_value: ', response_layer_value)
-        tmp_results = np.concatenate((decision_energy,
-                                      response_activity1,
-                                      response_activity2,
-                                      task_layer1,
-                                      task_layer2,
-                                      colors_hidden_layer1,
-                                      colors_hidden_layer2,
-                                      words_hidden_layer1,
-                                      words_hidden_layer2), axis=0)
-
-        results = tmp_results #decision_energy
+    results = np.concatenate((decision_energy,
+                              response_activity1,
+                              response_activity2,
+                              task_layer1,
+                              task_layer2,
+                              colors_hidden_layer1,
+                              colors_hidden_layer2,
+                              words_hidden_layer1,
+                              words_hidden_layer2), axis=0)
 
     return results
 
 
-
-# trial_test_counter = 1
-#test WR control trial
-# ntrials = 50
-# WR_control_trial_title = 'RED word (control) WR trial where Red correct'
-# WR_control_trial_input = trial_dict(0, 0, 1, 0, 0, 1) #red_color, green color, red_word, green word, CN, WR
-# results_WR_control_trial = testtrialtype(WR_control_trial_input,
-#                                          WR_trial_initialize_input,
-#                                          ntrials,
-#                                          WR_control_trial_title,
-#                                          trial_test_counter)
-
-# ntrials = 50
-# WR_congruent_trial_title = 'congruent WR trial where Red correct'
-# WR_congruent_trial_input = trial_dict(1, 0, 1, 0, 0, 1) #red_color, green color, red_word, green word, CN, WR
-# results_WR_congruent_trial = testtrialtype(WR_congruent_trial_input,
-#                                            WR_trial_initialize_input,
-#                                            ntrials,
-#                                            WR_congruent_trial_title,
-#                                            trial_test_counter)
-
-# ntrials = 150
-# WR_incongruent_trial_title = 'incongruent WR trial where Red correct'
-# WR_incongruent_trial_input = trial_dict(1, 0, 0, 1, 0, 1) #red_color, green color, red_word, green word, CN, WR
-# results_WR_incongruent_trial = testtrialtype(WR_incongruent_trial_input,
-#                                              WR_trial_initialize_input,
-#                                              ntrials,
-#                                              WR_incongruent_trial_title,
-#                                              trial_test_counter)
-#
-# print(response_layer.value)
-
-
+# Run Models
 ntrials = 50
-CN_control_trial_input = trial_dict(1, 0, 0, 0, 1, 0) #red_color, green color, red_word, green word, CN, WR
+CN_control_trial_input = trial_dict(1, 0, 0, 0, 1, 0) #red ink, green ink, red_word, green word, CN, WR
 results_CN_control_trial = testtrialtype(CN_control_trial_input,
                                          CN_trial_initialize_input,
                                          ntrials)
-# ntrials = 50
-CN_congruent_trial_input = trial_dict(1, 0, 1, 0, 1, 0) #red_color, green color, red_word, green word, CN, WR
+
+CN_congruent_trial_input = trial_dict(1, 0, 1, 0, 1, 0) #red ink, green ink, red_word, green word, CN, WR
 results_CN_congruent_trial = testtrialtype(CN_congruent_trial_input,
                                            CN_trial_initialize_input,
                                            ntrials)
 
-# # ntrials = 50
-CN_incongruent_trial_input = trial_dict(1, 0, 0, 1, 1, 0) #red_color, green color, red_word, green word, CN, WR
+CN_incongruent_trial_input = trial_dict(1, 0, 0, 1, 1, 0) #red ink, green ink, red_word, green word, CN, WR
 results_CN_incongruent_trial = testtrialtype(CN_incongruent_trial_input,
                                              CN_trial_initialize_input,
                                              ntrials)
-# System_Conflict_Monitoring.show_graph(show_mechanism_structure=pnl.VALUES, show_control=True)
 
+# Create Plots of results
 
+#
 plt.figure()
 legend = ['control',
-        'incongruent',
-        'congruent']
-colors = ['b', 'g', 'r']
+        'congruent',
+        'incongruent']
+colors = ['k', 'm', 'b']
 t = np.arange(1.0, ntrials+1, 1.0)
-plt.plot(t,results_CN_control_trial[0:ntrials], 'b')
-plt.plot(t,results_CN_congruent_trial[0:ntrials],'r')
-plt.plot(t,results_CN_incongruent_trial[0:ntrials], 'g')
+plt.plot(t,results_CN_control_trial[0:ntrials], 'k')
+plt.plot(t,results_CN_congruent_trial[0:ntrials],'m')
+plt.plot(t,results_CN_incongruent_trial[0:ntrials], 'b')
 
 plt.tick_params(axis='x', labelsize=9)
-plt.title('Conflict Monitoring')
+plt.title('Decision Energy (Measure of Response Conflict)')
 plt.legend(legend)
-plt.xlabel('trials')
+plt.xlabel('time steps')
 plt.ylabel('ENERGY')
 plt.show()
 
 plt.figure()
 # colors = ['b', 'b', 'c', 'c', 'r', 'r']
-legend = ['control green color',
-          'congruent green color',
-          'incongruent green color',
-          'incongruent red color',
-          'congruent red color',
-          'control red color']
+legend = ['control red color unit',
+          'congruent (red word) red color unit',
+          'incongruent (green word) red color unit',
+          'incongruent (green word) green color unit',
+          'control red color unit',
+          'congruent (red word) green color unit']
 colors = ['b', 'g', 'r', 'lime', 'aqua', 'salmon']
 
-plt.plot(t,results_CN_control_trial[ntrials:ntrials*2], 'b')
-plt.plot(t,results_CN_congruent_trial[ntrials:ntrials*2], 'r')
-plt.plot(t,results_CN_incongruent_trial[ntrials:ntrials*2], 'g')
+plt.plot(t,results_CN_control_trial[ntrials:ntrials*2], 'k')
+plt.plot(t,results_CN_congruent_trial[ntrials:ntrials*2], 'm')
+plt.plot(t,results_CN_incongruent_trial[ntrials:ntrials*2], 'blue')
 
-plt.plot(t,results_CN_incongruent_trial[2*ntrials:ntrials*3], 'lime')
-plt.plot(t,results_CN_control_trial[2*ntrials:ntrials*3], 'aqua')
-plt.plot(t,results_CN_congruent_trial[2*ntrials:ntrials*3], 'salmon')
+plt.plot(t,results_CN_incongruent_trial[2*ntrials:ntrials*3], 'aqua')
+plt.plot(t,results_CN_control_trial[2*ntrials:ntrials*3], 'dimgray')
+plt.plot(t,results_CN_congruent_trial[2*ntrials:ntrials*3], 'violet')
 plt.title('Hidden layer activity')
 plt.tick_params(axis='x', labelsize=9)
-plt.title('Response Layer - green color input')
+plt.title('Response Layer Units Activity (red ink input, task = ink color naming)')
 plt.ylabel('Activity')
 plt.xlabel('cycles')
+plt.ylim(0.2,0.9)
 
 plt.legend(legend)
 plt.show()
 
-plt.figure()
-plt.plot(results_CN_control_trial[ntrials:ntrials*2], 'r')
-plt.plot(results_CN_control_trial[ntrials*2:ntrials*3], 'r')
-plt.title('log for response layer decision energy first 50 trial')
 
-plt.figure()
-
-plt.plot(results_CN_control_trial[ntrials*3:ntrials*4], 'g')
-# plt.plot(results_CN_control_trial[ntrials*4:ntrials*5], 'g')
-
-# plt.plot(task_layer_word, 'r')
-
-plt.title('Input to green unit of task layer')
-
-plt.figure()
-
-plt.plot(results_CN_incongruent_trial[ntrials*7:ntrials*8], 'r')
-plt.plot(results_CN_incongruent_trial[ntrials*8:ntrials*9], 'g')
-plt.title('word hidden unit activity')
-legend = ['red word',
-          'green word']
-colors = ['g', 'r']
-plt.legend(legend)
+# conflict.log.print_entries()
