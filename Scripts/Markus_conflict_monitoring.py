@@ -71,26 +71,22 @@ response_layer.set_log_conditions('value')
 response_layer.set_log_conditions('DECISION_ENERGY')
 # response_layer.set_log_conditions('gain')
 
-# >>> L = pnl.Logistic(gain = 2)
-# >>> def my_fct(variable):
-# ...     return L.function(variable) + 2
-# >>> my_mech = pnl.ProcessingMechanism(size = 3, function = my_fct)
-# >>> my_mech.execute(input = [1, 2, 3])
-# array([[2.88079708, 2.98201379, 2.99752738]])
-
 #C(t+1) = LAMBDA*C(t) +(1-LAMBDA) * (alpha*ENERGY(t) + beta)
 
-
-I = pnl.Integrator(rate= 0.95,
-                          noise = 0.0)
-Linear = pnl.Linear(slope = 11.24, intercept= 9.46)
-
-def my_fct(variable1, variable2):
-    return I.function(variable1) + (1-0.95) * Linear.function(variable2)
-
-my_mech = pnl.ProcessingMechanism(function=my_fct())
-
 #
+# I = pnl.Integrator(rate= 0.95,
+#                           noise = 0.0)
+# Linear = pnl.Linear(slope = 11.24, intercept= 9.46)
+#
+# def my_fct(variable1, variable2):
+#     return I.function(variable1) + (1-0.95) * Linear.function(variable2)
+
+variable_scale = pnl.TransferMechanism(function = pnl.Linear(slope = 11.24,
+                                                  intercept= 9.46))
+
+conflict = pnl.ProcessingMechanism(function=pnl.AdaptiveIntegrator(rate = 1-LAMBDA))
+
+conflict.set_log_conditions('value')
 # conflict = pnl.IntegratorMechanism(function=pnl.AdaptiveIntegrator(rate=0.95))
 # conflict.set_log_conditions('value')
 #
@@ -140,14 +136,19 @@ words_process = pnl.Process(pathway=[words_input_layer,
                                      word_weights,
                                      words_hidden_layer,
                                      word_response_weights,
-                                     response_layer], name='WORDS_PROCESS')
+                                     response_layer,
+                                     variable_scale,
+                                     conflict
+                                     ], name='WORDS_PROCESS')
 
 #   Colors pathway
 colors_process = pnl.Process(pathway=[colors_input_layer,
                                       color_weights,
                                       colors_hidden_layer,
                                       color_response_weights,
-                                      response_layer], name='COLORS_PROCESS')
+                                      response_layer,
+                                     variable_scale,
+                                     conflict], name='COLORS_PROCESS')
 
 #   Task representation pathway
 task_CN_process = pnl.Process(pathway=[task_layer,
@@ -166,7 +167,7 @@ System_Conflict_Monitoring = pnl.System(processes=[colors_process,
                                   task_CN_process,
                                   task_WR_process],
                       controller=pnl.ControlMechanism,
-                       monitor_for_control=[response_layer.output_states['DECISION_ENERGY']],
+                       monitor_for_control=[conflict],
                        enable_controller=True,
                        name='FEEDFORWARD_Conflict_Monitoring_SYSTEM')
 
@@ -196,6 +197,11 @@ CN_trial_initialize_input = trial_dict(0, 0, 0, 0, 1, 0)
 
 # function to test a particular trial type
 def testtrialtype(test_trial_input, initialize_trial_input, ntrials):  # , plot_title, trial_test_counter):
+
+    #reinitialize conflict
+    conflict.reinitialize([0])
+
+
     # create variable to store results
     decision_energy = np.empty((ntrials))
     response_activity1 = np.empty((ntrials))
@@ -215,7 +221,7 @@ def testtrialtype(test_trial_input, initialize_trial_input, ntrials):  # , plot_
     words_hidden_layer.integrator_mode = False
     response_layer.integrator_mode = False
 
-    #     System_Conflict_Monitoring.run(inputs=initialize_trial_input)
+    System_Conflict_Monitoring.run(inputs=initialize_trial_input)
 
     # Turn integrator mode on
     colors_hidden_layer.integrator_mode = True
@@ -270,7 +276,7 @@ results_CN_incongruent_trial = testtrialtype(CN_incongruent_trial_input,
                                              ntrials)
 
 # Create Plots of results
-
+#
 #
 plt.figure()
 legend = ['control',
@@ -294,9 +300,9 @@ plt.figure()
 legend = ['control red color unit',
           'congruent (red word) red color unit',
           'incongruent (green word) red color unit',
-          'incongruent (green word) green color unit',
-          'control red color unit',
-          'congruent (red word) green color unit']
+          'incongruent (red word - red task) green color unit',
+          'control (red task)green color unit ',
+          'congruent (red task) green color unit']
 colors = ['b', 'g', 'r', 'lime', 'aqua', 'salmon']
 
 plt.plot(t,results_CN_control_trial[ntrials:ntrials*2], 'k')
@@ -317,4 +323,4 @@ plt.legend(legend)
 plt.show()
 
 
-# conflict.log.print_entries()
+conflict.log.print_entries()
