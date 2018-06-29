@@ -27,7 +27,7 @@ class TestReinitialize:
 
         # reinitialize function
         D.function_object.reinitialize(2.0, 0.1)
-        assert np.allclose(D.function_object.value, 2.0)
+        assert np.allclose(D.function_object.value[0], 2.0)
         assert np.allclose(D.function_object.previous_value, 2.0)
         assert np.allclose(D.function_object.previous_time, 0.1)
         assert np.allclose(D.value,  [[1.0], [1.0]])
@@ -36,7 +36,7 @@ class TestReinitialize:
 
         # reinitialize function without value spec
         D.function_object.reinitialize()
-        assert np.allclose(D.function_object.value, 0.0)
+        assert np.allclose(D.function_object.value[0], 0.0)
         assert np.allclose(D.function_object.previous_value, 0.0)
         assert np.allclose(D.function_object.previous_time, 0.0)
         assert np.allclose(D.value, [[1.0], [1.0]])
@@ -45,7 +45,7 @@ class TestReinitialize:
 
         # reinitialize mechanism
         D.reinitialize(2.0, 0.1)
-        assert np.allclose(D.function_object.value, 2.0)
+        assert np.allclose(D.function_object.value[0], 2.0)
         assert np.allclose(D.function_object.previous_value, 2.0)
         assert np.allclose(D.function_object.previous_time, 0.1)
         assert np.allclose(D.value, [[2.0], [0.1]])
@@ -60,15 +60,17 @@ class TestReinitialize:
 
         # reinitialize mechanism without value spec
         D.reinitialize()
-        assert np.allclose(D.function_object.value, 0.0)
+        assert np.allclose(D.function_object.value[0], 0.0)
         assert np.allclose(D.function_object.previous_value, 0.0)
         assert np.allclose(D.function_object.previous_time, 0.0)
         assert np.allclose(D.output_states[0].value[0], 0.0)
         assert np.allclose(D.output_states[1].value[0], 0.0)
 
         # reinitialize only decision variable
-        D.reinitialize(1.0)
-        assert np.allclose(D.function_object.value, 1.0)
+        D.function_object.initializer = 1.0
+        D.function_object.t0 = 0.0
+        D.reinitialize()
+        assert np.allclose(D.function_object.value[0], 1.0)
         assert np.allclose(D.function_object.previous_value, 1.0)
         assert np.allclose(D.function_object.previous_time, 0.0)
         assert np.allclose(D.output_states[0].value[0], 1.0)
@@ -110,6 +112,22 @@ class TestThreshold:
 
         # decision variable accumulation stops
         assert np.allclose(decision_variables, [2.0, 4.0, 5.0, 5.0, 5.0])
+
+        # time accumulation does not stop
+        assert np.allclose(time_points, [1.0, 2.0, 3.0, 4.0, 5.0])
+
+    def test_threshold_stops_accumulation_negative(self):
+        D = DDM(name='DDM',
+                function=DriftDiffusionIntegrator(threshold=5.0))
+        decision_variables = []
+        time_points = []
+        for i in range(5):
+            output = D.execute(-2.0)
+            decision_variables.append(output[0][0][0])
+            time_points.append(output[1][0][0])
+
+        # decision variable accumulation stops
+        assert np.allclose(decision_variables, [-2.0, -4.0, -5.0, -5.0, -5.0])
 
         # time accumulation does not stop
         assert np.allclose(time_points, [1.0, 2.0, 3.0, 4.0, 5.0])
@@ -286,7 +304,7 @@ def test_DDM_noise_fn():
             name='DDM',
             function=DriftDiffusionIntegrator(
 
-                noise=NormalDist().function,
+                noise=NormalDist(),
                 rate=1.0,
                 time_step_size=1.0
             ),
@@ -389,7 +407,7 @@ def test_DDM_input_list_len_2():
 
 def test_DDM_input_fn():
     with pytest.raises(TypeError) as error_text:
-        stim = NormalDist().function
+        stim = NormalDist()
         T = DDM(
             name='DDM',
             function=DriftDiffusionIntegrator(

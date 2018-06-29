@@ -62,8 +62,8 @@ arguments for a RecurrentTransferMechanism:
 Execution
 ---------
 
-An AutoAssociativeProjection uses its `matrix <AutoAssociativeProjection.matrix>` parameter to transform the value of its
-`sender <AutoAssociativeProjection.sender>`, and provide the result as input for its
+An AutoAssociativeProjection uses its `matrix <AutoAssociativeProjection.matrix>` parameter to transform the value of
+its `sender <AutoAssociativeProjection.sender>`, and provide the result as input for its
 `receiver <AutoAssociativeProjection.receiver>`, the primary input state of the RecurrentTransferMechanism.
 
 .. note::
@@ -92,10 +92,10 @@ from psyneulink.components.projections.pathway.mappingprojection import MappingP
 from psyneulink.components.projections.projection import projection_keywords
 from psyneulink.components.shellclasses import Mechanism
 from psyneulink.components.states.outputstate import OutputState
-from psyneulink.globals.keywords import AUTO_ASSOCIATIVE_PROJECTION, DEFAULT_MATRIX, HOLLOW_MATRIX, INITIALIZING, MATRIX
+from psyneulink.globals.context import ContextFlags
+from psyneulink.globals.keywords import AUTO_ASSOCIATIVE_PROJECTION, DEFAULT_MATRIX, HOLLOW_MATRIX, MATRIX
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set
 from psyneulink.globals.preferences.preferenceset import PreferenceLevel
-from psyneulink.scheduling.time import TimeScale
 
 __all__ = [
     'AutoAssociativeError', 'AutoAssociativeProjection', 'get_auto_matrix', 'get_hetero_matrix',
@@ -117,8 +117,7 @@ class AutoAssociativeProjection(MappingProjection):
         matrix=DEFAULT_MATRIX,                              \
         params=None,                                        \
         name=None,                                          \
-        prefs=None                                          \
-        context=None)
+        prefs=None)
 
     Implements a MappingProjection that is self-recurrent on a `RecurrentTransferMechanism`; an AutoAssociativeProjection
     represents connections between nodes in a single-layer recurrent network. It multiplies the output of the
@@ -230,10 +229,12 @@ class AutoAssociativeProjection(MappingProjection):
                  sender=None,
                  receiver=None,
                  matrix=DEFAULT_MATRIX,
+                 function=None,
                  params=None,
                  name=None,
                  prefs: is_pref_set = None,
-                 context=None):
+                 context=None,
+                 ):
 
         if owner is not None:
             if not isinstance(owner, Mechanism):
@@ -248,10 +249,10 @@ class AutoAssociativeProjection(MappingProjection):
         super().__init__(sender=sender,
                          receiver=receiver,
                          matrix=matrix,
+                         function=function,
                          params=params,
                          name=name,
-                         prefs=prefs,
-                         context=context)
+                         prefs=prefs)
 
     def _execute(self, variable, runtime_params=None, context=None):
         """
@@ -518,11 +519,11 @@ def get_hetero_matrix(raw_hetero, size):
 # similar to get_hetero_matrix() above
 def get_auto_matrix(raw_auto, size):
     if isinstance(raw_auto, numbers.Number):
-        return np.diag(np.full(size, raw_auto))
+        return np.diag(np.full(size, raw_auto, dtype=np.float))
     elif ((isinstance(raw_auto, np.ndarray) and raw_auto.ndim == 1) or
               (isinstance(raw_auto, list) and np.array(raw_auto).ndim == 1)):
         if len(raw_auto) == 1:
-            return np.diag(np.full(size, raw_auto[0]))
+            return np.diag(np.full(size, raw_auto[0], dtype=np.float))
         else:
             if len(raw_auto) != size:
                 return None

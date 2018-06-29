@@ -260,12 +260,12 @@ which it should project. Each of these is described below:
     * **OutputState specification tuples** -- these are convenience formats that can be used to compactly specify an
       OutputState along with Projections to or from it in any of the following ways:
 
-        * **2-item tuple:** *(State name or list of State names, Mechanism)* -- 1st item must be the name of an
+        * **2-item tuple:** *(<State name or list of State names>, <Mechanism>)* -- 1st item must be the name of an
           `InputState` or `ModulatorySignal`, or a list of such names, and the 2nd item must be the Mechanism to
           which they all belong.  Projections of the relevant types are created for each of the specified States
           (see `State 2-item tuple <State_2_Item_Tuple>` for additional details).
         |
-        * **2-item tuple:** *(<State, Mechanism, or list of them>, Projection specification)* -- this is a contracted
+        * **2-item tuple:** *(<State, Mechanism, or list of them>, <Projection specification>)* -- this is a contracted
           form of the 3-item tuple described below
         |
         * **3-item tuple:** *(<value, State spec, or list of State specs>, variable spec, Projection specification)* --
@@ -402,14 +402,14 @@ using the following keywords:
     <Mechanism_Base.value>` indexed by the int;  indexing begins with 0 (e.g.; 1 references the 2nd item).
 
     *<attribute name>* -- the name of an attribute of the OutputState's `owner <OutputState.owner>` (must be one
-    in the `owner <OutputState.owner>`\\'s `params_dict <Mechanism._params_dict>` dictionary); returns the value
+    in the `owner <OutputState.owner>`\\'s `params_dict <Mechanism.attributes_dict>` dictionary); returns the value
     of the named attribute for use in the OutputState's `variable <OutputState.variable>`.
 
-    *PARAMS_DICT* -- the `owner <OutputState.owner>` Mechanism's entire `params_dict <Mechanism._params_dict>`
+    *PARAMS_DICT* -- the `owner <OutputState.owner>` Mechanism's entire `params_dict <Mechanism.attributes_dict>`
     dictionary, that contains entries for all of it accessible attributes.  The OutputState's `function
     <OutputState.function>` must be able to parse the dictionary.
     COMMENT
-    ??WHERE CAN THE USER GET THE LIST OF ALLOWABLE ATTRIBUTES?  USER_PARAMS?? _PARAMS_DICT?? USER ACCESSIBLE PARAMS??
+    ??WHERE CAN THE USER GET THE LIST OF ALLOWABLE ATTRIBUTES?  USER_PARAMS?? aTTRIBUTES_DICT?? USER ACCESSIBLE PARAMS??
     COMMENT
 
     *List[<any of the above items>]* -- this assigns the value of each item in the list to the corresponding item of
@@ -447,11 +447,12 @@ COMMENT
     ...                   output_states=[pnl.DDM_OUTPUT.DECISION_VARIABLE,
     ...                                  pnl.DDM_OUTPUT.PROBABILITY_UPPER_THRESHOLD,
     ...                                  {pnl.NAME: 'DECISION ENTROPY',
-    ...                                   pnl.VARIABLE: (OWNER_VALUE, 2),
-    ...                                   pnl.FUNCTION: pnl.Stability(metric=pnl.ENTROPY).function }])
+    ...                                   pnl.VARIABLE: (pnl.OWNER_VALUE, 2),
+    ...                                   pnl.FUNCTION: pnl.Stability(metric=pnl.ENTROPY) }])
 
 COMMENT:
    ADD VERSION IN WHICH INDEX IS SPECIFIED USING DDM_standard_output_states
+   CW 3/20/18: TODO: this example is flawed: if you try to execute() it, it gives divide by zero error.
 COMMENT
 
 The first two are `Standard OutputStates <OutputState_Standard>` that represent the decision variable of the DDM and
@@ -469,7 +470,7 @@ the ``DECISION ENTROPY`` OutputState could be created as follows::
 
     >>> decision_entropy_output_state = pnl.OutputState(name='DECISION ENTROPY',
     ...                                                 variable=(OWNER_VALUE, 2),
-    ...                                                 function=pnl.Stability(metric=pnl.ENTROPY).function)
+    ...                                                 function=pnl.Stability(metric=pnl.ENTROPY))
 
 and then assigned either as::
 
@@ -482,7 +483,7 @@ or::
 
     >>> another_decision_entropy_output_state = pnl.OutputState(name='DECISION ENTROPY',
     ...                                                variable=(OWNER_VALUE, 2),
-    ...                                                function=pnl.Stability(metric=pnl.ENTROPY).function)
+    ...                                                function=pnl.Stability(metric=pnl.ENTROPY))
     >>> my_mech2 = pnl.DDM(function=pnl.BogaczEtAl(),
     ...                    output_states=[pnl.DDM_OUTPUT.DECISION_VARIABLE,
     ...                                   pnl.DDM_OUTPUT.PROBABILITY_UPPER_THRESHOLD])
@@ -583,31 +584,23 @@ Class Reference
 
 """
 
-import numbers
 import warnings
 
 import numpy as np
 import typecheck as tc
 
-from psyneulink.components.component import Component, InitStatus
-from psyneulink.components.functions.function import Function, \
-    Linear, OneHot, function_type, method_type, is_function_type
-from psyneulink.components.shellclasses import Mechanism, Projection
-from psyneulink.components.states.state import ADD_STATES, State_Base, _instantiate_state_list, state_type_keywords
-from psyneulink.globals.keywords import ALL, ASSIGN, CALCULATE, COMMAND_LINE, FUNCTION, FUNCTION_PARAMS, GATING_SIGNAL,\
-    INDEX, INITIALIZING, INPUT_STATE, INPUT_STATES, \
-    MAPPING_PROJECTION, MAX_VAL, MAX_ABS_VAL, MAX_INDICATOR, MAX_ABS_INDICATOR, MEAN, MECHANISM_VALUE, MEDIAN, NAME, \
-    OUTPUT_STATE, OUTPUT_STATES, OUTPUT_STATE_PARAMS, OWNER_VALUE, \
-    PARAMS, PARAMS_DICT, PROB, PROJECTION, PROJECTIONS, \
-    PROJECTION_TYPE, RECEIVER, REFERENCE_VALUE, RESULT, STANDARD_DEVIATION, STANDARD_OUTPUT_STATES, STATE, \
-    VALUE, VARIABLE, VARIANCE
+from psyneulink.components.component import Component
+from psyneulink.components.functions.function import Function, OneHot, function_type, method_type
+from psyneulink.components.shellclasses import Mechanism
+from psyneulink.components.states.state import State_Base, _instantiate_state_list, state_type_keywords
+from psyneulink.globals.context import ContextFlags
+from psyneulink.globals.keywords import ALL, ASSIGN, CALCULATE, COMMAND_LINE, FUNCTION, GATING_SIGNAL, INDEX, INPUT_STATE, INPUT_STATES, MAPPING_PROJECTION, MAX_ABS_INDICATOR, MAX_ABS_VAL, MAX_INDICATOR, MAX_VAL, MEAN, MECHANISM_VALUE, MEDIAN, NAME, OUTPUT_STATE, OUTPUT_STATE_PARAMS, OWNER_VALUE, PARAMS, PARAMS_DICT, PROB, PROJECTION, PROJECTIONS, PROJECTION_TYPE, RECEIVER, REFERENCE_VALUE, RESULT, STANDARD_DEVIATION, STANDARD_OUTPUT_STATES, STATE, VALUE, VARIABLE, VARIANCE
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set
 from psyneulink.globals.preferences.preferenceset import PreferenceLevel
-from psyneulink.globals.context import ContextStatus
-from psyneulink.globals.utilities import UtilitiesError, is_numeric, iscompatible, type_match, recursive_update
+from psyneulink.globals.utilities import UtilitiesError, is_numeric, iscompatible, make_readonly_property, recursive_update
 
 __all__ = [
-    'make_readonly_property', 'OUTPUTS', 'OutputState', 'OutputStateError', 'PRIMARY', 'SEQUENTIAL',
+    'OUTPUTS', 'OutputState', 'OutputStateError', 'PRIMARY', 'SEQUENTIAL',
     'standard_output_states', 'StandardOutputStates', 'StandardOutputStatesError', 'state_type_keywords',
 ]
 
@@ -819,6 +812,12 @@ class OutputState(State_Base):
         assigned the result of `function <OutputState.function>`;  the same value is assigned to the corresponding item
         of the owner Mechanism's `output_values <Mechanism_Base.output_values>` attribute.
 
+    label : string or number
+        the string label that represents the current `value <OutputState.value>` of the OutputState, according to the
+        owner mechanism's `output_labels_dict <Mechanism.output_labels_dict>`. If the current
+        `value <OutputState.value>` of the OutputState does not have a corresponding label, then the numeric
+        `value <OutputState.value>` is returned.
+
     efferents : List[MappingProjection]
         `MappingProjections <MappingProjection>` sent by the OutputState (i.e., for which the OutputState
         is a `sender <Projection_Base.sender>`).
@@ -879,7 +878,7 @@ class OutputState(State_Base):
                  reference_value=None,
                  variable=None,
                  size=None,
-                 function=Linear(),
+                 function=None,
                  projections=None,
                  params=None,
                  name=None,
@@ -887,13 +886,13 @@ class OutputState(State_Base):
                  context=None,
                  **kwargs):
 
-        if context is None: # cxt-test
-            context = COMMAND_LINE # cxt-done
-            self.context.status = ContextStatus.COMMAND_LINE
+        if context is None:
+            context = ContextFlags.COMMAND_LINE
+            self.context.source = ContextFlags.COMMAND_LINE
             self.context.string = COMMAND_LINE
         else:
-            context = self # cxt-done
-            self.context.status = ContextStatus.CONSTRUCTOR
+            context = ContextFlags.CONSTRUCTOR
+            self.context.source = ContextFlags.CONSTRUCTOR
 
         # For backward compatibility with CALCULATE, ASSIGN and INDEX
         if 'calculate' in kwargs:
@@ -919,7 +918,7 @@ class OutputState(State_Base):
             self.init_args['projections'] = projections
 
             # Flag for deferred initialization
-            self.init_status = InitStatus.DEFERRED_INITIALIZATION
+            self.context.initialization_status = ContextFlags.DEFERRED_INIT
             return
 
         self.reference_value = reference_value
@@ -959,7 +958,36 @@ class OutputState(State_Base):
                          params=params,
                          name=name,
                          prefs=prefs,
-                         context=context)
+                         context=context,
+                         function=function,
+                         )
+
+    def _parse_function_variable(self, variable):
+        # variable is passed to OutputState by _instantiate_function for OutputState
+        if variable is not None:
+            return variable
+        # otherwise, OutputState uses specified item(s) of owner's value
+        else:
+            # variable attribute should not be used for computations!
+            fct_var = self.variable
+
+            # If variable is not specified, check if OutputState has index attribute
+            #    (for backward compatibility with INDEX and ASSIGN)
+            if fct_var is None:
+                try:
+                    # Get indexed item of owner's value
+                    fct_var = self.owner.value[self.index]
+                except IndexError:
+                    # Index is ALL, so use owner's entire value
+                    if self.index is ALL:
+                        fct_var = self.owner.value
+                    else:
+                        raise IndexError
+                except AttributeError:
+                    raise OutputStateError("PROGRAM ERROR: Failure to parse variable for {} of {}".
+                                           format(self.name, self.owner.name))
+
+            return fct_var
 
     def _validate_against_reference_value(self, reference_value):
         """Validate that State.variable is compatible with the reference_value
@@ -968,10 +996,11 @@ class OutputState(State_Base):
         """
         return
 
-    def _instantiate_attributes_before_function(self, context=None):
+    def _instantiate_attributes_before_function(self, function=None, context=None):
         """Instantiate default variable if it is None or numeric
+        :param function:
         """
-        super()._instantiate_attributes_before_function(context=context)
+        super()._instantiate_attributes_before_function(function=function, context=context)
 
         # If variable has not been assigned, or it is numeric (in which case it can be assumed that
         #    the value was a reference_value generated during initialization/parsing and passed in the constructor
@@ -995,13 +1024,9 @@ class OutputState(State_Base):
         function_value is converted to returned value by assign function
 
         """
-        from psyneulink.components.projections.modulatory.modulatoryprojection import ModulatoryProjection_Base
         from psyneulink.components.states.modulatorysignals.modulatorysignal import \
-            ModulatorySignal, _is_modulatory_spec
-        from psyneulink.components.mechanisms.adaptive.adaptivemechanism import AdaptiveMechanism_Base
+            _is_modulatory_spec
         from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
-        from psyneulink.components.projections.projection import ProjectionTuple
-
 
         # Treat as ModulatoryProjection spec if it is a ModulatoryProjection, ModulatorySignal or AdaptiveMechanism
         # or one of those is the first or last item of a ProjectionTuple
@@ -1028,42 +1053,6 @@ class OutputState(State_Base):
             self._instantiate_projection_from_state(projection_spec=MappingProjection,
                                                     receiver=proj,
                                                     context=context)
-
-    def _execute(self, variable=None, runtime_params=None, context=None):
-        """Call self.function with owner's value as variable
-        """
-
-        # variable is passed to OutputState by _instantiate_function for OutputState
-        if variable is not None:
-            assert INITIALIZING in context # cxt-test
-            fct_var = variable
-
-        # otherwise, OutputState uses specified item(s) of owner's value
-        else:
-            fct_var = self.variable
-
-            # If variable is not specified, check if OutputState has index attribute
-            #    (for backward compatibility with INDEX and ASSIGN)
-            if fct_var is None:
-                try:
-                    # Get indexed item of owner's value
-                    fct_var = self.owner.value[self.index]
-                except IndexError:
-                    # Index is ALL, so use owner's entire value
-                    if self.index is ALL:
-                        fct_var = self.owner.value
-                    else:
-                        raise IndexError
-                except AttributeError:
-                    raise OutputStateError("PROGRAM ERROR: Failure to parse variable for {} of {}".
-                                           format(self.name, self.owner.name))
-
-        # IMPLEMENTATION NOTE: OutputStates don't currently receive PathwayProjections,
-        #                      so there is no need to use their value (as do InputStates)
-        value = self.function(variable=fct_var,
-                             params=runtime_params,
-                             context=context)
-        return value
 
     def _get_primary_state(self, mechanism):
         return mechanism.output_state
@@ -1093,7 +1082,6 @@ class OutputState(State_Base):
         #      THIS WOULD ALLOW FULLY GENEREAL (HIEARCHICALLY NESTED) ALGEBRAIC COMBINATION OF INPUT VALUES
         #      TO A MECHANISM
         from psyneulink.components.projections.projection import _parse_connection_specs, ProjectionTuple
-        from psyneulink.components.system import MonitoredOutputStatesOption
 
         params_dict = {}
         state_spec = state_specific_spec
@@ -1184,22 +1172,24 @@ class OutputState(State_Base):
 
     @staticmethod
     def _get_state_function_value(owner, function, variable):
-        # -- CALL TO GET DEFAULT VALUE AND RETURN THAT (CAN'T USE VARIABLE SINCE DON'T KNOW MECH YET)
-        #      THOUGH COULD PASS IN OWNER TO DETERMINE IT
         fct_variable = _parse_output_state_variable(owner, variable)
 
         # If variable has not been specified, assume it is the default of (OWNER_VALUE,0), and use that value
         if fct_variable is None:
-            if owner.value is not None:
-                fct_variable = owner.value[0]
-            # Get owner's value by calling its function
-            else:
-                owner.function(owner.variable)[0]
+            try:
+                if owner.value is not None:
+                    fct_variable = owner.value[0]
+                # Get owner's value by calling its function
+                else:
+                    fct_variable = owner.function(owner.variable)[0]
+            except AttributeError:
+                fct_variable = None
 
         fct = _parse_output_state_function(owner, OutputState.__name__, function, fct_variable is PARAMS_DICT)
 
         try:
-            return fct(variable=fct_variable)
+            # return fct(variable=fct_variable)
+            return State_Base._get_state_function_value(owner=owner, function=fct, variable=fct_variable)
         except:
             try:
                 return fct(fct_variable)
@@ -1210,7 +1200,6 @@ class OutputState(State_Base):
     @property
     def variable(self):
         return _parse_output_state_variable(self.owner, self._variable)
-
 
     @variable.setter
     def variable(self, variable):
@@ -1227,6 +1216,9 @@ class OutputState(State_Base):
             self._variable = value
             return self.variable
 
+    @property
+    def socket_width(self):
+        return self.value.shape[-1]
 
     @property
     def owner_value_index(self):
@@ -1265,6 +1257,13 @@ class OutputState(State_Base):
     @property
     def calculate(self):
         return self.assign
+
+    @property
+    def label(self):
+        label_dictionary = {}
+        if hasattr(self.owner, "output_labels_dict"):
+            label_dictionary = self.owner.output_labels_dict
+        return self._get_value_label(label_dictionary, self.owner.output_states)
 
 
 def _instantiate_output_states(owner, output_states=None, context=None):
@@ -1341,7 +1340,7 @@ def _instantiate_output_states(owner, output_states=None, context=None):
 
             # OutputState object
             if isinstance(output_state, OutputState):
-                if output_state.init_status is InitStatus.DEFERRED_INITIALIZATION:
+                if output_state.context.initialization_status == ContextFlags.DEFERRED_INIT:
                     try:
                         output_state_value = OutputState._get_state_function_value(owner,
                                                                                    output_state.function,
@@ -1378,6 +1377,7 @@ def _instantiate_output_states(owner, output_states=None, context=None):
                                                                                output_state[VARIABLE])
                 else:
                     output_state_value = _parse_output_state_variable(owner, output_state[VARIABLE])
+                output_state[VALUE] = output_state_value
 
             output_states[i] = output_state
             reference_value.append(output_state_value)
@@ -1399,7 +1399,7 @@ def _instantiate_output_states(owner, output_states=None, context=None):
                                          context=context)
 
     # Call from Mechanism.add_states, so add to rather than assign output_states (i.e., don't replace)
-    if any(keyword in context for keyword in {COMMAND_LINE, ADD_STATES}): # cxt-test
+    if context & (ContextFlags.COMMAND_LINE | ContextFlags.METHOD):
         owner.output_states.extend(state_list)
     else:
         owner._output_states = state_list
@@ -1554,7 +1554,7 @@ class StandardOutputStates():
                 index = state[VARIABLE]
             else:
                 continue
-            setattr(self.owner.__class__, state[NAME]+'_INDEX', make_readonly_property(index))
+            setattr(self.owner.__class__, state[NAME]+'_INDEX', make_readonly_property(index, name=state[NAME] + '_INDEX'))
 
     @tc.typecheck
     def add_state_dicts(self, output_state_dicts:list, indices:tc.optional(tc.any(int, str, list))=None):
@@ -1584,7 +1584,7 @@ class StandardOutputStates():
     #     return [item[INDEX] for item in self.data]
 
 
-def  _parse_output_state_variable(owner, variable, output_state_name=None):
+def _parse_output_state_variable(owner, variable, output_state_name=None):
     """Return variable for OutputState based on VARIABLE entry of owner's params dict
 
     The format of the VARIABLE entry determines the format returned:
@@ -1600,19 +1600,24 @@ def  _parse_output_state_variable(owner, variable, output_state_name=None):
         elif isinstance(spec, tuple):
             # Tuple indexing item of owner's attribute (e.g.,: OWNER_VALUE, int))
             try:
-                return owner._params_dict[spec[0]][spec[1]]
+                return owner.attributes_dict[spec[0]][spec[1]]
             except TypeError:
-                if owner._params_dict[spec[0]] is None:
+                if owner.attributes_dict[spec[0]] is None:
                     return None
                 else:
-                    raise OutputStateError("Can't parse variable ({}) for {} of {}".
-                                           format(spec, output_state_name or OutputState.__name__, owner.name))
+                    # raise OutputStateError("Can't parse variable ({}) for {} of {}".
+                    #                        format(spec, output_state_name or OutputState.__name__, owner.name))
+                    raise Exception
+            except:
+                raise OutputStateError("Can't parse variable ({}) for {} of {}".
+                                       format(spec, output_state_name or OutputState.__name__, owner.name))
+
         elif isinstance(spec, str) and spec == PARAMS_DICT:
             # Specifies passing owner's params_dict as variable
-            return owner._params_dict
+            return owner.attributes_dict
         elif isinstance(spec, str):
             # Owner's full value or attribute other than its value
-            return owner._params_dict[spec]
+            return owner.attributes_dict[spec]
         else:
             raise OutputStateError("\'{}\' entry for {} specification dictionary of {} ({}) must be "
                                    "numeric or a list of {} attribute names".
@@ -1636,11 +1641,11 @@ def _parse_output_state_function(owner, output_state_name, function, params_dict
     """ Parse specification of function as Function, Function class, Function.function, function_type or method_type.
 
     If params_dict_as_variable is True, and function is a Function, check whether it allows params_dict as variable;
-    if it is and does, leave as is, other
-    wrap in lambda function that provides first item of OutputState's
-    value
-    as the functions argument.
+    if it is and does, leave as is,
+    otherwise, wrap in lambda function that provides first item of OutputState's value as the functions argument.
     """
+    if function is None:
+        function = OutputState.ClassDefaults.function
 
     if isinstance(function, (function_type, method_type)):
         return function
@@ -1666,21 +1671,6 @@ def _parse_output_state_function(owner, output_state_name, function, params_dict
                                      OutputState.name, owner.name, owner.name, VALUE))
             return lambda x : fct(x[OWNER_VALUE][0])
     return fct
-
-
-def make_readonly_property(val):
-    """Return property that provides read-only access to its value
-    """
-
-    def getter(self):
-        return val
-
-    def setter(self, val):
-        raise UtilitiesError("{} is read-only property of {}".format(val, self.__class__.__name__))
-
-    # Create the property
-    prop = property(getter).setter(setter)
-    return prop
 
 
 @tc.typecheck
@@ -1742,5 +1732,3 @@ def _maintain_backward_compatibility(d:dict, name, owner):
                       "it will still work, but should be changed in {} specification of {} for future compatibility.".
                       format(OUTPUT_STATES, owner.name))
         assert False
-
-

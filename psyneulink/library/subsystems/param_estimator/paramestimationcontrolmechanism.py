@@ -37,17 +37,18 @@ import typecheck as tc
 
 import hddm
 
+from psyneulink import ContextFlags
 from psyneulink.library.subsystems.param_estimator.hddm_psyneulink import HDDMPsyNeuLink
 
 from psyneulink.globals.defaults import defaultControlAllocation
 from psyneulink.components.functions.function import Function_Base
-from psyneulink.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref, kpRuntimeParamStickyAssignmentPref
+from psyneulink.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref
 from psyneulink.components.functions.function import LinearCombination
 from psyneulink.globals.keywords import CONTROL, COST_FUNCTION, FUNCTION, INITIALIZING, \
     INIT_FUNCTION_METHOD_ONLY, PARAMETER_STATES, PREDICTION_MECHANISM, PREDICTION_MECHANISM_PARAMS, \
     PREDICTION_MECHANISM_TYPE, SUM, PARAM_EST_MECHANISM, COMBINE_OUTCOME_AND_COST_FUNCTION, COST_FUNCTION, \
     EXECUTING, FUNCTION_OUTPUT_TYPE_CONVERSION, INITIALIZING, PARAMETER_STATE_PARAMS, kwPreferenceSetName, \
-    kwProgressBarChar, COMMAND_LINE, CONTROL_SIMULATION
+    kwProgressBarChar, COMMAND_LINE
 from psyneulink.components.shellclasses import Function, System_Base
 from psyneulink.components.mechanisms.adaptive.control.controlmechanism import ControlMechanism
 from psyneulink.components.mechanisms.mechanism import MechanismList
@@ -73,7 +74,6 @@ class MCMCParamSampler(Function_Base):
     This is the default function assigned to the ParamEstimationControlMechanism
     """
     componentName = MCMC_PARAM_SAMPLE_FUNCTION
-    componentType = kwParamEstimationFunctionType
 
     class ClassDefaults(Function_Base.ClassDefaults):
         variable = None
@@ -83,21 +83,23 @@ class MCMCParamSampler(Function_Base):
         FUNCTION_OUTPUT_TYPE_CONVERSION: False,
         PARAMETER_STATE_PARAMS: None})
 
-    # MODIFIED 11/29/16 NEW:
     classPreferences = {
         kwPreferenceSetName: 'ValueFunctionCustomClassPreferences',
         kpReportOutputPref: PreferenceEntry(False, PreferenceLevel.INSTANCE),
-        kpRuntimeParamStickyAssignmentPref: PreferenceEntry(False, PreferenceLevel.INSTANCE)
     }
 
+    @tc.typecheck
     def __init__(self,
-                 function=None,
-                 variable=None,
-                 default_variable=None,
-                 params=None,
-                 owner=None,
-                 prefs: is_pref_set = None,
-                 context=componentType + INITIALIZING):
+        default_variable=None,
+        function=None,
+        variable = None,
+        params = None,
+        owner = None,
+        prefs: is_pref_set = None,
+        context = None):
+
+        function = function or self.function
+
         # Assign args to params and functionParams dicts (kwConstants must == arg names)
         params = self._assign_args_to_param_dicts(params=params)
         self.aux_function = function
@@ -106,9 +108,8 @@ class MCMCParamSampler(Function_Base):
                          params=params,
                          owner=owner,
                          prefs=prefs,
-                         context=context)
-
-        self.functionOutputType = None
+                         context=ContextFlags.CONSTRUCTOR,
+                         function=function)
 
         # This dictionary maps between how DDM parameters in PsyNeuLink are called and how HDDM references them.
         self.pnl_ddm_param_to_hddm = {'threshold': 'a', 'drift_rate': 'v', 'drift_rate_std': 'sv',
@@ -124,9 +125,18 @@ class MCMCParamSampler(Function_Base):
         params=None,
         context=None,
     ):
+        if self.owner is None or self.owner.control_signals is None:
+            return np.zeros((1,))
 
-        if INITIALIZING in context:
-            return defaultControlAllocation
+        if context & (ContextFlags.DEFERRED_INIT | ContextFlags.INITIALIZING):
+            return np.zeros((len(self.owner.control_signals), 1))
+
+        # Reset context so that System knows this is a simulation (to avoid infinitely recursive loop)
+        # FIX 3/30/18 - IS controller CORRECT FOR THIS, OR SHOULD IT BE System (controller.system)??
+        controller.context.execution_phase = ContextFlags.SIMULATION
+        controller.context.string = "{0} EXECUTING {1} of {2}".format(controller.name,
+                                                                      "CONTROL SIMULATION",
+                                                                      controller.system.name)
 
         # Run the MCMC sampling
         self.owner.hddm_model.sample(1, burn=0, progress_bar=False)
@@ -165,6 +175,7 @@ class ParamEstimationControlMechanism(ControlMechanism):
     class ClassDefaults(ControlMechanism.ClassDefaults):
         # This must be a list, as there may be more than one (e.g., one per control_signal)
         variable = defaultControlAllocation
+        function = MCMCParamSampler
 
     paramClassDefaults = ControlMechanism.paramClassDefaults.copy()
     paramClassDefaults.update({PARAMETER_STATES: NotImplemented})  # This suppresses parameterStates
@@ -197,11 +208,11 @@ class ParamEstimationControlMechanism(ControlMechanism):
             control_signals=control_signals,
             params=params,
             name=name,
-            prefs=prefs,
-            context=self)
+            prefs=prefs)
+
 
     @tc.typecheck
-    def assign_as_controller(self, system: System_Base, context=COMMAND_LINE):
+    def assign_as_controller(self, system: System_Base, context=ContextFlags.COMMAND_LINE):
         super().assign_as_controller(system=system, context=context)
         self.hddm_model = HDDMPsyNeuLink(data=self.data, system=system)
 
@@ -232,7 +243,8 @@ class ParamEstimationControlMechanism(ControlMechanism):
                        inputs,
                        allocation_vector,
                        termination_processing=None,
-                       runtime_params=None):
+                       runtime_params=None,
+                       context=None):
         """
         Run simulation of `System` for which the ParamEstimationControlMechanism is the `controller <System.controller>`.
 
@@ -254,8 +266,6 @@ class ParamEstimationControlMechanism(ControlMechanism):
             description.
 
         """
-        context = CONTROL_SIMULATION
-
         if self.value is None:
             # Initialize value if it is None
             self.value = self.allocation_policy
@@ -266,14 +276,16 @@ class ParamEstimationControlMechanism(ControlMechanism):
             # self.control_signals[list(self.control_signals.values())[i]].value = np.atleast_1d(allocation_vector[i])
             self.value[i] = np.atleast_1d(allocation_vector[i])
 
-        self._update_output_states(runtime_params=runtime_params, context=context)
+        self._update_output_states(runtime_params=runtime_params, context=ContextFlags.COMPOSITION)
 
+        self.system.context.execution_phase = ContextFlags.SIMULATION
         result = self.system.run(inputs=inputs, context=context, termination_processing=termination_processing)
+        self.system.context.execution_phase = ContextFlags.IDLE
 
         # Get outcomes for current allocation_policy
         #    = the values of the monitored output states (self.input_states)
         # self.objective_mechanism.execute(context=CONTROL_SIMULATION)
-        monitored_states = self._update_input_states(runtime_params=runtime_params, context=context)
+        monitored_states = self._update_input_states(runtime_params=runtime_params, context=ContextFlags.COMPOSITION)
 
         for i in range(len(self.control_signals)):
             self.control_signal_costs[i] = self.control_signals[i].cost

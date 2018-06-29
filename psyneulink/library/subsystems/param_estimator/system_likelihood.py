@@ -1,5 +1,3 @@
-from psyneulink import CONTROL_SIMULATION
-from psyneulink.components.system import System
 import numpy as np
 from hddm import wfpt
 

@@ -75,13 +75,15 @@ OTHER
 
 """
 
-import collections
+import copy
 import inspect
+import logging
 import numbers
 import warnings
 
 from enum import Enum, EnumMeta, IntEnum
 
+import collections
 import numpy as np
 
 from psyneulink.globals.keywords import DISTANCE_METRICS, MATRIX_KEYWORD_VALUES, NAME, VALUE
@@ -98,6 +100,8 @@ __all__ = [
     'parameter_spec', 'random_matrix', 'ReadOnlyOrderedDict', 'safe_len', 'TEST_CONDTION', 'type_match',
     'underscore_to_camelCase', 'UtilitiesError',
 ]
+
+logger = logging.getLogger(__name__)
 
 
 class UtilitiesError(Exception):
@@ -505,7 +509,7 @@ def iscompatible(candidate, reference=None, **kargs):
 
 def get_args(frame):
     """Gets dictionary of arguments and their values for a function
-    Frame should be assigned as follows in the funciton itself:  frame = inspect.currentframe()
+    Frame should be assigned as follows in the function itself:  frame = inspect.currentframe()
     """
     args, _, _, values = inspect.getargvalues(frame)
     return dict((key, value) for key, value in values.items() if key in args)
@@ -613,6 +617,35 @@ def multi_getattr(obj, attr, default = None):
 # multi_getattr(obj, attr) #Will return the docstring for the
 #                          #capitalize method of the builtin string
 #                          #object
+
+
+# based off the answer here https://stackoverflow.com/a/15774013/3131666
+def get_deepcopy_with_shared_keys(shared_keys_iter):
+    '''
+        Arguments
+        ---------
+            shared_keys_iter
+                an Iterable containing a list of strings that should be shallow copied
+
+        Returns
+        -------
+            a __deepcopy__ function
+    '''
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k in shared_keys_iter:
+            if k in self.__dict__:
+                setattr(result, k, self.__dict__[k])
+
+        for k, v in self.__dict__.items():
+            if k not in shared_keys_iter:
+                res_val = copy.deepcopy(v, memo)
+                setattr(result, k, res_val)
+        return result
+
+    return __deepcopy__
 
 
 #region NUMPY ARRAY METHODS ******************************************************************************************
@@ -1068,16 +1101,27 @@ def is_component(val):
     from psyneulink.components.component import Component
     return isinstance(val, Component)
 
+def is_instance_or_subclass(candidate, spec):
+    """
+    Returns
+    -------
 
-def make_readonly_property(val):
+    True if **candidate** is a subclass of **spec** or an instance thereof, False otherwise
+    """
+    return isinstance(candidate, spec) or (inspect.isclass(candidate) and issubclass(candidate, spec))
+
+
+def make_readonly_property(val, name=None):
     """Return property that provides read-only access to its value
     """
+    if name is None:
+        name = val
 
     def getter(self):
         return val
 
     def setter(self, val):
-        raise UtilitiesError("{} is read-only property of {}".format(val, self.__class__.__name__))
+        raise UtilitiesError("{} is read-only property of {}".format(name, self.__class__.__name__))
 
     # Create the property
     prop = property(getter).setter(setter)
@@ -1155,3 +1199,90 @@ def safe_len(arr, fallback=1):
         return len(arr)
     except TypeError:
         return fallback
+
+
+import typecheck as tc
+@tc.typecheck
+def _get_arg_from_stack(arg_name:str):
+    # Get arg from the stack
+
+    import inspect
+
+    curr_frame = inspect.currentframe()
+    prev_frame = inspect.getouterframes(curr_frame, 2)
+    i = 1
+    # Search stack for first frame (most recent call) with a arg_val specification
+    arg_val = None
+    while arg_val is None:
+        try:
+            arg_val = inspect.getargvalues(prev_frame[i][0]).locals[arg_name]
+        except KeyError:
+            # Try earlier frame
+            i += 1
+        except IndexError:
+            # Ran out of frames, so just set arg_val to empty string
+            arg_val = ""
+        else:
+            break
+
+    # No arg_val was specified in any frame
+    if arg_val is None: # cxt-done
+        raise UtilitiesError("PROGRAM ERROR: arg_name not found in any frame")
+
+    return arg_val
+
+
+def prune_unused_args(func, args=None, kwargs=None):
+    # use the func signature to filter out arguments that aren't compatible
+    sig = inspect.signature(func)
+
+    has_args_param = False
+    has_kwargs_param = False
+    count_positional = 0
+    func_kwargs_names = set()
+
+    for name, param in sig.parameters.items():
+        if param.kind is inspect.Parameter.VAR_POSITIONAL:
+            has_args_param = True
+        elif param.kind is inspect.Parameter.VAR_KEYWORD:
+            has_kwargs_param = True
+        elif param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD or param.kind is inspect.Parameter.KEYWORD_ONLY:
+            if param.default is inspect.Parameter.empty:
+                count_positional += 1
+            func_kwargs_names.add(name)
+
+    if args is not None:
+        try:
+            args = list(args)
+        except TypeError:
+            args = [args]
+
+        if not has_args_param:
+            num_extra_args = len(args) - count_positional
+            if num_extra_args > 0:
+                logger.debug('{1} extra arguments specified to function {0}, will be ignored (values: {2})'.format(func, num_extra_args, args[-num_extra_args:]))
+            args = args[:count_positional]
+    else:
+        args = []
+
+    if kwargs is not None:
+        kwargs = dict(kwargs)
+
+        if not has_kwargs_param:
+            filtered = set()
+            for kw in kwargs:
+                if kw not in func_kwargs_names:
+                    filtered.add(kw)
+            if len(filtered) > 0:
+                logger.debug('{1} extra keyword arguments specified to function {0}, will be ignored (values: {2})'.format(func, len(filtered), filtered))
+            for kw in filtered:
+                del kwargs[kw]
+    else:
+        kwargs = {}
+
+    return args, kwargs
+
+
+def call_with_pruned_args(func, *args, **kwargs):
+    args, kwargs = prune_unused_args(func, args, kwargs)
+    return func(*args, **kwargs)

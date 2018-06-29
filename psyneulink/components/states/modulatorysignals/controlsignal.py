@@ -49,7 +49,7 @@ When a ControlSignal is specified in the **control_signals** argument of the con
     * for controlling a single parameter, the dictionary can have the following two entries:
 
         * *NAME*: str
-            the string must be the name of the parameter to be gated;
+            the string must be the name of the parameter to be controlled;
 
         * *MECHANISM*: Mechanism
             the Mechanism must be the one to the which the parameter to be controlled belongs.
@@ -61,10 +61,10 @@ When a ControlSignal is specified in the **control_signals** argument of the con
             and each item of the list must be a `specification of a parameter <ParameterState_Specification>` to be
             controlled by the ControlSignal (and that will receive a `ControlProjection` from it).
   ..
-  * **2-item tuple** -- the 1st time must be the name of the parameter (or list of parameter names), and the 2nd item
-    the Mechanism to which it (they) belong(s); this is a convenience format, that is simpler to use than a
-    specification dictionary (see above), but precludes specification of any `parameters <ControlSignal_Structure>`
-    for the ControlSignal.
+  * **2-item tuple:** *(parameter name or list of them>, <Mechanism>)* -- the 1st item must be the name of the
+    parameter (or list of parameter names), and the 2nd item the Mechanism to which it (they) belong(s); this is a
+    convenience format, that is simpler to use than a specification dictionary (see above), but precludes
+    specification of any `parameters <ControlSignal_Structure>` for the ControlSignal.
   ..
 
 .. _ControlSignal_Structure:
@@ -291,26 +291,25 @@ Class Reference
 
 import inspect
 import warnings
-
 from enum import IntEnum
 
 import numpy as np
 import typecheck as tc
 
-from psyneulink.components.component import InitStatus, function_type, method_type
+from psyneulink.components.component import function_type, method_type
 # import Components
 # FIX: EVCControlMechanism IS IMPORTED HERE TO DEAL WITH COST FUNCTIONS THAT ARE DEFINED IN EVCControlMechanism
 #            SHOULD THEY BE LIMITED TO EVC??
-from psyneulink.components.functions.function import CombinationFunction, Exponential, IntegratorFunction, Linear, LinearCombination, Reduce, SimpleIntegrator, TransferFunction, _is_modulation_param, is_function_type
+from psyneulink.components.functions.function import CombinationFunction, Exponential, IntegratorFunction, Linear, Reduce, SimpleIntegrator, TransferFunction, _is_modulation_param, is_function_type
 from psyneulink.components.shellclasses import Function
 from psyneulink.components.states.modulatorysignals.modulatorysignal import ModulatorySignal
 from psyneulink.components.states.outputstate import SEQUENTIAL
 from psyneulink.components.states.state import State_Base
+from psyneulink.globals.context import ContextFlags
 from psyneulink.globals.defaults import defaultControlAllocation
-from psyneulink.globals.keywords import ALLOCATION_SAMPLES, AUTO, COMMAND_LINE, CONTROLLED_PARAMS, CONTROL_PROJECTION, CONTROL_SIGNAL, EXECUTING, FUNCTION, FUNCTION_PARAMS, INTERCEPT, OFF, ON, OUTPUT_STATE_PARAMS, PARAMETER_STATE, PARAMETER_STATES, PROJECTION_TYPE, RECEIVER, SEPARATOR_BAR, SLOPE, SUM, kwAssign
+from psyneulink.globals.keywords import ALLOCATION_SAMPLES, AUTO, COMMAND_LINE, CONTROLLED_PARAMS, CONTROL_PROJECTION, CONTROL_SIGNAL, OFF, ON, OUTPUT_STATE_PARAMS, PARAMETER_STATE, PARAMETER_STATES, PROJECTION_TYPE, RECEIVER, SUM
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set
 from psyneulink.globals.preferences.preferenceset import PreferenceLevel
-from psyneulink.globals.context import ContextStatus
 from psyneulink.globals.utilities import is_numeric, iscompatible, kwCompatibilityLength, kwCompatibilityNumeric, kwCompatibilityType
 
 __all__ = [
@@ -682,13 +681,12 @@ class ControlSignal(ModulatorySignal):
                  prefs:is_pref_set=None,
                  context=None):
 
-        if context is None: # cxt-test
-            context = COMMAND_LINE # cxt-done
-            self.context.status = ContextStatus.COMMAND_LINE
-            self.context.string = COMMAND_LINE
+        if context is None:
+            context = ContextFlags.COMMAND_LINE
+            self.context.source = ContextFlags.COMMAND_LINE
         else:
-            context = self # cxt-done
-            self.context.status = ContextStatus.CONSTRUCTOR
+            context = ContextFlags.CONSTRUCTOR
+            self.context.source = ContextFlags.CONSTRUCTOR
 
         # Note index and assign are not used by ControlSignal, but included here for consistency with OutputState
         if params and ALLOCATION_SAMPLES in params and params[ALLOCATION_SAMPLES] is not None:
@@ -726,10 +724,12 @@ class ControlSignal(ModulatorySignal):
                          params=params,
                          name=name,
                          prefs=prefs,
-                         context=context)
+                         context=context,
+                         function=function,
+                         )
 
         # Default cost params
-        if self.init_status is not InitStatus.DEFERRED_INITIALIZATION:
+        if self.context.initialization_status != ContextFlags.DEFERRED_INIT:
             self.intensity_cost = self.intensity_cost_function(self.instance_defaults.allocation)
         else:
             self.intensity_cost = self.intensity_cost_function(self.ClassDefaults.allocation)
@@ -835,9 +835,9 @@ class ControlSignal(ModulatorySignal):
                      not issubclass(cost_function, Function))):
                 raise ControlSignalError("{0} not a valid Function".format(cost_function))
 
-    def _instantiate_attributes_before_function(self, context=None):
+    def _instantiate_attributes_before_function(self, function=None, context=None):
 
-        super()._instantiate_attributes_before_function(context=context)
+        super()._instantiate_attributes_before_function(function=function, context=context)
 
         # Instantiate cost functions (if necessary) and assign to attributes
         for cost_function_name in costFunctionNames:
@@ -876,8 +876,6 @@ class ControlSignal(ModulatorySignal):
         Returns params dict with CONNECTIONS entries if any of these was specified.
 
         """
-        from psyneulink.components.mechanisms.mechanism import Mechanism
-        from psyneulink.components.states.parameterstate import ParameterState
         from psyneulink.components.projections.projection import _parse_connection_specs
         from psyneulink.globals.keywords import PROJECTIONS
 
@@ -951,9 +949,6 @@ class ControlSignal(ModulatorySignal):
     def update(self, params=None, context=None):
         super().update(params=params, context=context)
         self._compute_costs()
-
-    def _execute(self, variable=None, runtime_params=None, context=None):
-        return float(super()._execute(variable, runtime_params=runtime_params, context=context))
 
     def _compute_costs(self):
         """Compute costs based on self.value."""
@@ -1186,7 +1181,7 @@ class ControlSignal(ModulatorySignal):
     @property
     def value(self):
         # In case the ControlSignal has not yet been assigned (and its value is INITIALIZING or DEFERRED_INITIALIZATION
-        if self.init_status in {InitStatus.DEFERRED_INITIALIZATION, InitStatus.INITIALIZING}:
+        if self.context.initialization_status & (ContextFlags.DEFERRED_INIT | ContextFlags.INITIALIZING):
             return None
         else:
             return self._value

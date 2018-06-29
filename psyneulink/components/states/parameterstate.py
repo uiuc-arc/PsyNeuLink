@@ -62,7 +62,7 @@ COMMENT:
                     suppressed if a *PARAMETER_STATES* entry is included and set to `NotImplemented` in the
                     paramClassDefaults dictionary of its class definition;  the instantiation of a ParameterState
                     for an individual parameter in user_params can be suppressed by including it in
-                    ClassDefaults.exclude_from_parameter_states for the class (or one of its parent classes)
+                    exclude_from_parameter_states for the class (or one of its parent classes)
                     (see LearningProjection and EVCControlMechanism for examples, and `note
                     <ParameterStates_Suppression>` below for additional information about how
                     to suppress creation of a ParameterState for individual parameters.  This should be done
@@ -101,7 +101,7 @@ Parameters can be specified in one of several places:
     ..
     * In the `assign_params <Component.assign_params>` method for the Component.
     ..
-    * In the **runtime_params** argument of a call to component's `execute <Mechanism_Base.execute>` method.
+    * In the **runtime_params** argument of a call to a Composition's `Run` method
 
 .. _ParameterState_Value_Specification:
 
@@ -136,7 +136,7 @@ The specification of the initial value of a parameter can take any of the follow
     ..
     .. _ParameterState_Tuple_Specification:
 
-    * **2-item tuple:** *(value, Modulatory specification)* -- this creates a default ParameterState, uses the value
+    * **2-item tuple:** *(<value>, <Modulatory specification>)* -- this creates a default ParameterState, uses the value
       specification (1st item) as parameter's `value assignment <ParameterState_Value_Assignment>`, and assigns the
       parameter's name as the name of the ParameterState.  The Modulatory specification (2nd item) is used as the
       ParameterState's `modulatory assignment <ParameterState_Modulatory_Specification>`, and the ParameterState
@@ -352,16 +352,15 @@ Class Reference
 
 import inspect
 
-from collections import Iterable
-
 import numpy as np
 import typecheck as tc
 
-from psyneulink.components.component import Component, InitStatus, function_type, method_type, parameter_keywords
-from psyneulink.components.functions.function import Linear, get_param_value_for_keyword
+from psyneulink.components.component import Component, function_type, method_type, parameter_keywords
+from psyneulink.components.functions.function import get_param_value_for_keyword
 from psyneulink.components.shellclasses import Mechanism, Projection
 from psyneulink.components.states.modulatorysignals.modulatorysignal import ModulatorySignal
 from psyneulink.components.states.state import StateError, State_Base, _instantiate_state, state_type_keywords
+from psyneulink.globals.context import ContextFlags
 from psyneulink.globals.keywords import CONTROL_PROJECTION, CONTROL_SIGNAL, CONTROL_SIGNALS, FUNCTION, FUNCTION_PARAMS, LEARNING_SIGNAL, LEARNING_SIGNALS, MECHANISM, NAME, PARAMETER_STATE, PARAMETER_STATES, PARAMETER_STATE_PARAMS, PATHWAY_PROJECTION, PROJECTION, PROJECTIONS, PROJECTION_TYPE, REFERENCE_VALUE, SENDER, VALUE
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set
 from psyneulink.globals.preferences.preferenceset import PreferenceLevel
@@ -536,7 +535,6 @@ class ParameterState(State_Base):
     #     kwPreferenceSetName: 'ParameterStateCustomClassPreferences',
     #     kp<pref>: <setting>...}
 
-
     paramClassDefaults = State_Base.paramClassDefaults.copy()
     paramClassDefaults.update({PROJECTION_TYPE: CONTROL_PROJECTION})
     #endregion
@@ -547,7 +545,7 @@ class ParameterState(State_Base):
                  reference_value=None,
                  variable=None,
                  size=None,
-                 function=Linear(),
+                 function=None,
                  projections=None,
                  params=None,
                  name=None,
@@ -571,10 +569,12 @@ class ParameterState(State_Base):
                                              variable=variable,
                                              size=size,
                                              projections=projections,
+                                             function=function,
                                              params=params,
                                              name=name,
                                              prefs=prefs,
-                                             context=self)
+                                             context=ContextFlags.CONSTRUCTOR)
+                                             # context=context)
 
     def _validate_params(self, request_set, target_set=None, context=None):
         """Insure that ParameterState (as identified by its name) is for a valid parameter of the owner
@@ -605,28 +605,6 @@ class ParameterState(State_Base):
                                       "with its expected format ({})".
                                       format(name, self.componentName, self.owner.name, self.value, reference_value))
 
-    def _instantiate_function(self, context=None):
-        """Insure function is LinearCombination and that its output is compatible with param with which it is associated
-
-        Notes:
-        * Relevant param should have been provided as reference_value arg in the call to InputState__init__()
-        * Insures that self.value has been assigned (by call to super()._validate_function)
-        * This method is called only if the parameterValidationPref is True
-
-        :param context:
-        :return:
-        """
-        super()._instantiate_function(context=context)
-
-        # # Insure that output of function (self.value) is compatible with relevant parameter's reference_value
-        if not iscompatible(self.value, self.reference_value):
-            raise ParameterStateError("Value ({0}) of the {1} ParameterState for the {2} Mechanism is not compatible "
-                                      "with the type of value expected for that parameter ({3})".
-                                           format(self.value,
-                                                  self.name,
-                                                  self.owner.name,
-                                                  self.reference_value))
-
     def _instantiate_projections(self, projections, context=None):
         """Instantiate Projections specified in PROJECTIONS entry of params arg of State's constructor
 
@@ -651,7 +629,6 @@ class ParameterState(State_Base):
                                     pathway_proj_names))
 
         self._instantiate_projections_to_state(projections=projections, context=context)
-
 
     @tc.typecheck
     def _parse_state_specific_specs(self, owner, state_dict, state_specific_spec):
@@ -794,7 +771,7 @@ class ParameterState(State_Base):
                                                                      ControlProjection.__name__,
                                                                      LearningProjection.__name__,
                                                                      mod_projection, state_dict[NAME], owner.name))
-                                elif mod_projection.init_status is InitStatus.DEFERRED_INITIALIZATION:
+                                elif mod_projection.context.initialization_status == ContextFlags.DEFERRED_INIT:
                                     continue
                                 mod_proj_value = mod_projection.value
                             else:
@@ -836,6 +813,11 @@ class ParameterState(State_Base):
 
         return state_spec, params_dict
 
+    @staticmethod
+    def _get_state_function_value(owner, function, variable):
+        """Return parameter variable (since ParameterState's function never changes the form of its variable"""
+        return variable
+
     def _execute(self, variable=None, runtime_params=None, context=None):
         """Call self.function with current parameter value as the variable
 
@@ -844,22 +826,23 @@ class ParameterState(State_Base):
         """
 
         if variable is not None:
-            return self.function(variable, runtime_params, context)
+            return super()._execute(variable, runtime_params=runtime_params, context=context)
         else:
             # Most commonly, ParameterState is for the parameter of a function
             try:
-                param_value = getattr(self.owner.function_object, '_'+ self.name)
+                variable = getattr(self.owner.function_object, '_'+ self.name)
                 # param_value = self.owner.function_object.params[self.name]
 
            # Otherwise, should be for an attribute of the ParameterState's owner:
             except AttributeError:
                 # param_value = self.owner.params[self.name]
-                param_value = getattr(self.owner, '_'+ self.name)
+                variable = getattr(self.owner, '_'+ self.name)
 
-            value = self.function(variable=param_value,
-                                  params=runtime_params,
-                                  context=context)
-            return value
+            return super()._execute(
+                variable=variable,
+                runtime_params=runtime_params,
+                context=context
+            )
 
     @property
     def pathway_projections(self):
@@ -872,12 +855,13 @@ class ParameterState(State_Base):
                                   format(PATHWAY_PROJECTION, self.name, PARAMETER_STATE, PATHWAY_PROJECTION))
 
 
-def _instantiate_parameter_states(owner, context=None):
+def _instantiate_parameter_states(owner, function=None, context=None):
     """Call _instantiate_parameter_state for all params in user_params to instantiate ParameterStates for them
 
     If owner.params[PARAMETER_STATE] is None or False:
         - no ParameterStates will be instantiated.
     Otherwise, instantiate ParameterState for each allowable param in owner.user_params
+    :param function:
 
     """
 
@@ -908,12 +892,12 @@ def _instantiate_parameter_states(owner, context=None):
     #                       and that, in turn, will overwrite their current values with the defaults from paramsCurrent)
     for param_name, param_value in owner.user_params_for_instantiation.items():
         # Skip any parameter that has been specifically excluded
-        if param_name in owner.ClassDefaults.exclude_from_parameter_states:
+        if param_name in owner.exclude_from_parameter_states:
             continue
-        _instantiate_parameter_state(owner, param_name, param_value, context=context)
+        _instantiate_parameter_state(owner, param_name, param_value, context=context, function=function)
 
 
-def _instantiate_parameter_state(owner, param_name, param_value, context):
+def _instantiate_parameter_state(owner, param_name, param_value, context, function=None):
     """Call _instantiate_state for allowable params, to instantiate a ParameterState for it
 
     Include ones in owner.user_params[FUNCTION_PARAMS] (nested iteration through that dict)
@@ -934,19 +918,18 @@ def _instantiate_parameter_state(owner, param_name, param_value, context):
     """
     from psyneulink.components.states.modulatorysignals.modulatorysignal import _is_modulatory_spec
     from psyneulink.components.projections.modulatory.modulatoryprojection import ModulatoryProjection_Base
-    from psyneulink.components.states.state import _parse_state_spec
 
     def _get_tuple_for_single_item_modulatory_spec(obj, name, value):
         """Return (<default param value>, <modulatory spec>) for modulatory spec
         """
         try:
-            param_default_value = obj.paramClassDefaults[name]
+            param_default_value = obj.get_constructor_defaults()[name]
             # Only assign default value if it is not None
             if param_default_value is not None:
                 return (param_default_value, value)
             else:
                 return value
-        except:
+        except KeyError:
             raise ParameterStateError("Unrecognized specification for {} paramater of {} ({})".
                                       format(param_name, owner.name, param_value))
 
@@ -981,7 +964,10 @@ def _instantiate_parameter_state(owner, param_name, param_value, context):
         # If parameter is a single Modulatory specification (e.g., ControlSignal, or CONTROL, etc.)
          #  try to place it in a tuple (for interpretation by _parse_state_spec) using default value as 1st item
         #   (note: exclude matrix since it is allowed as a value specification but not a projection reference)
-       param_value = _get_tuple_for_single_item_modulatory_spec(owner, param_name, param_value)
+        try:
+            param_value = _get_tuple_for_single_item_modulatory_spec(function, param_name, param_value)
+        except ParameterStateError:
+            param_value = _get_tuple_for_single_item_modulatory_spec(owner, param_name, param_value)
 
     # Allow tuples (could be spec that includes a Projection or Modulation)
     elif isinstance(param_value, tuple):
@@ -1028,10 +1014,10 @@ def _instantiate_parameter_state(owner, param_name, param_value, context):
 
             # Raise exception if the function parameter's name is the same as one that already exists for its owner
             if function_param_name in owner.user_params:
-                if inspect.isclass(owner.function):
-                    function_name = owner.function.__name__
+                if inspect.isclass(function):
+                    function_name = function.__name__
                 else:
-                    function_name= owner.function.name
+                    function_name= function.name
                 raise ParameterStateError("PROGRAM ERROR: the function ({}) of a component ({}) has a parameter ({}) "
                                           "with the same name as a parameter of the component itself".
                                           format(function_name, owner.name, function_param_name))
@@ -1041,9 +1027,18 @@ def _instantiate_parameter_state(owner, param_name, param_value, context):
                 # If parameter is a single Modulatory specification (e.g., ControlSignal, or CONTROL, etc.)
                 # try to place it in a tuple (for interpretation by _parse_state_spec) using default value as 1st item
                 #   (note: exclude matrix since it is allowed as a value specification vs. a projection reference)
-                function_param_value = _get_tuple_for_single_item_modulatory_spec(owner.function,
-                                                                                  function_param_name,
-                                                                                  function_param_value)
+                try:
+                    function_param_value = _get_tuple_for_single_item_modulatory_spec(
+                        function,
+                        function_param_name,
+                        function_param_value
+                    )
+                except ParameterStateError:
+                    function_param_value = _get_tuple_for_single_item_modulatory_spec(
+                        owner,
+                        function_param_name,
+                        function_param_value
+                    )
 
 
             # # FIX: 10/3/17 - ??MOVE THIS TO _parse_state_specific_specs ----------------
@@ -1086,9 +1081,9 @@ def _instantiate_parameter_state(owner, param_name, param_value, context):
         if state:
             owner._parameter_states[param_name] = state
 
+
 def _is_legal_param_value(owner, value):
 
-    from psyneulink.components.states.modulatorysignals.modulatorysignal import _is_modulatory_spec
     from psyneulink.components.mechanisms.adaptive.control.controlmechanism import _is_control_spec
     from psyneulink.components.mechanisms.adaptive.gating.gatingmechanism import _is_gating_spec
 

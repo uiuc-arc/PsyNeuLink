@@ -23,9 +23,13 @@ def pytest_addoption(parser):
 
 
 def pytest_runtest_setup(item):
+    import doctest
+
     for m in marks_default_skip:
         if getattr(item.obj, m, None) and not item.config.getvalue(m):
             pytest.skip('{0} tests not requested'.format(m))
+
+    doctest.ELLIPSIS_MARKER = "[...]"
 
 
 def pytest_runtest_call(item):
@@ -37,6 +41,7 @@ def pytest_runtest_call(item):
 
 @pytest.helpers.register
 def expand_np_ndarray(arr):
+    # this will fail on an input containing a float (not np.ndarray)
     try:
         iter(arr)
     except TypeError:
@@ -57,7 +62,3 @@ def expand_np_ndarray(arr):
                 nested_elem = [nested_elem]
             results_list.extend(nested_elem)
     return results_list
-
-def pytest_runtest_setup():
-    import doctest
-    doctest.ELLIPSIS_MARKER = "[...]"

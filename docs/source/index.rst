@@ -58,10 +58,11 @@ PsyNeuLink is:
  ..
  - *extensible* -- it has an interface (API) that allows it to be used with other powerful tools for implementing
    individual components, such as:
-   * Neuron (biophysically realistic models of neuronal function)
-   * TensorFlow (ODE's, deep learning);
-   * Emergent (broad class of neurally-plausible connectionist models);
-   * ACT-R (symbolic, production system models).
+
+    * Neuron (biophysically realistic models of neuronal function)
+    * TensorFlow (ODE's, deep learning);
+    * Emergent (broad class of neurally-plausible connectionist models);
+    * ACT-R (symbolic, production system models).
 
 .. note::
    PsyNeuLink is alpha software, that is still being actively developed.  Although it is useable, and most of the
@@ -192,7 +193,7 @@ Contributors
 * **Peter Johnson**, Princeton Neuroscience Institute, Princeton University
 * **Justin Junge**, Department of Psychology, Princeton University
 * **Kristen Manning**, Princeton Neuroscience Institute, Princeton University
-* **Kevin Mantel**, Princeton Neuroscience Institute, Princeton University
+* **Katherine Mantel**, Princeton Neuroscience Institute, Princeton University
 * **Markus Spitzer**, Princeton Neuroscience Institute, Princeton University
 * **Jan Vesely**, Department of Computer Science, Rutgers University
 * **Changyan Wang**, Princeton Neuroscience Institute, Princeton University

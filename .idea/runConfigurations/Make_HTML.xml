@@ -1,14 +1,21 @@
 <component name="ProjectRunConfigurationManager">
+<<<<<<< HEAD
   <configuration default="false" name="Make HTML" type="docs" factoryName="Sphinx task" singleton="true">
+=======
+  <configuration default="false" factoryName="Sphinx task" name="Make HTML" singleton="true" type="docs">
+    <module name="" />
+>>>>>>> d94293a227fe75e4baa6679376a7f8f3acf90c51
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
-    <envs />
     <option name="SDK_HOME" value="" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/docs" />
     <option name="IS_MODULE_SDK" value="false" />
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
+<<<<<<< HEAD
     <module name="PsyNeuLink" />
+=======
+>>>>>>> d94293a227fe75e4baa6679376a7f8f3acf90c51
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" runner="coverage.py" sample_coverage="true" />
     <option name="docutils_input_file" value="$PROJECT_DIR$/docs/source" />
     <option name="docutils_output_file" value="$PROJECT_DIR$/docs/build/html" />
