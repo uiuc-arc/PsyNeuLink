@@ -339,7 +339,7 @@ from collections import Iterable
 from psyneulink.components.component import method_type
 from psyneulink.components.functions.function import \
     BogaczEtAl, DriftDiffusionIntegrator, Integrator, LinearCombination, Reduce, \
-    NF_Results, NavarroAndFuss, STARTING_POINT, THRESHOLD
+    NF_Results, NavarroAndFuss, NavarroAndFussWFPTLike, STARTING_POINT, THRESHOLD
 from psyneulink.components.mechanisms.mechanism import Mechanism_Base
 from psyneulink.components.mechanisms.processing.processingmechanism import ProcessingMechanism_Base
 from psyneulink.components.mechanisms.adaptive.control.controlmechanism import _is_control_spec
@@ -902,7 +902,7 @@ class DDM(ProcessingMechanism_Base):
     def _validate_params(self, request_set, target_set=None, context=None):
 
         super()._validate_params(request_set=request_set, target_set=target_set, context=context)
-        functions = {BogaczEtAl, NavarroAndFuss, DriftDiffusionIntegrator}
+        functions = {BogaczEtAl, NavarroAndFuss, NavarroAndFussWFPTLike, DriftDiffusionIntegrator}
 
         if FUNCTION in target_set:
             # If target_set[FUNCTION] is a method of a Function (e.g., being assigned in _instantiate_function),
@@ -973,7 +973,7 @@ class DDM(ProcessingMechanism_Base):
         """Execute DDM function (currently only trial-level, analytic solution)
         Execute DDM and estimate outcome or calculate trajectory of decision variable
         Currently implements only trial-level DDM (analytic solution) and returns:
-            - stochastically estimated decion outcome (convert mean ER into value between 1 and -1)
+            - stochastically estimated decision outcome (convert mean ER into value between 1 and -1)
             - mean ER
             - mean DT
             - mean ER and DT variabilty (kwNavarroAndFuss ony)
@@ -1046,16 +1046,21 @@ class DDM(ProcessingMechanism_Base):
                 return_value[self.RT_CORRECT_VARIANCE_INDEX] = result[NF_Results.COND_VAR_RTS.value][1]
                 # CORRECT_RT_SKEW = results[DDMResults.MEAN_CORRECT_SKEW_RT.value]
 
+            elif isinstance(self.function.__self__, NavarroAndFussWFPTLike):
+                return_value = np.array([[0.0], [0.0], [0.0], [0.0], [0.0], [0.0], [0.0]])
+                return_value[6] = result
+
             else:
                 raise DDMError("The function specified ({}) for {} is not a valid function selection for the DDM".
                                format(self.function_object.name, self.name))
 
-            # Convert ER to decision variable:
-            threshold = float(self.function_object.get_current_function_param(THRESHOLD))
-            if random.random() < return_value[self.PROBABILITY_LOWER_THRESHOLD_INDEX]:
-                return_value[self.DECISION_VARIABLE_INDEX] = np.atleast_1d(-1 * threshold)
-            else:
-                return_value[self.DECISION_VARIABLE_INDEX] = threshold
+            # Convert ER to decision variable, unless we are computing a likelihood
+            if not isinstance(self.function.__self__, NavarroAndFussWFPTLike):
+                threshold = float(self.function_object.get_current_function_param(THRESHOLD))
+                if random.random() < return_value[self.PROBABILITY_LOWER_THRESHOLD_INDEX]:
+                    return_value[self.DECISION_VARIABLE_INDEX] = np.atleast_1d(-1 * threshold)
+                else:
+                    return_value[self.DECISION_VARIABLE_INDEX] = threshold
 
             return return_value
 

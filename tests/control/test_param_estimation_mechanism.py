@@ -1,11 +1,11 @@
 import numpy as np
 
-from psyneulink.components.functions.function import BogaczEtAl, Linear
+from psyneulink.components.functions.function import BogaczEtAl, Linear, NavarroAndFussWFPTLike
 from psyneulink.components.mechanisms.processing.transfermechanism import TransferMechanism
 from psyneulink.components.process import Process
 from psyneulink.components.projections.modulatory.controlprojection import ControlProjection
 from psyneulink.components.system import System
-from psyneulink.globals.keywords import ALLOCATION_SAMPLES, IDENTITY_MATRIX, MEAN, RESULT, VARIANCE
+from psyneulink.globals.keywords import ALLOCATION_SAMPLES, IDENTITY_MATRIX, MEAN, RESULT, VARIANCE, CONTROL
 from psyneulink.library.mechanisms.processing.integrator.ddm import DDM, DECISION_VARIABLE, PROBABILITY_UPPER_THRESHOLD, \
     RESPONSE_TIME
 from psyneulink.library.subsystems.param_estimator.paramestimationcontrolmechanism import \
@@ -109,31 +109,17 @@ import hddm
 #     mySystem.run(inputs=stim_list_dict)
 
 def test_pecm():
-
     Decision = DDM(
-        function=BogaczEtAl(
-            drift_rate=(
-                1.0,
-                ControlProjection(
-                    function=Linear,
-                    control_signal_params={
-                        ALLOCATION_SAMPLES: np.arange(0.1, 1.01, 0.3)
-                    },
-                ),
+        function=NavarroAndFussWFPTLike(
+            response_time=CONTROL,
+            drift_rate=CONTROL,
+            drift_rate_std=CONTROL,
+            threshold=CONTROL,
+            bias=CONTROL,
+            bias_std=CONTROL,
+            non_decision_time=CONTROL,
+            non_decision_time_std=CONTROL
             ),
-            threshold=(
-                1.0,
-                ControlProjection(
-                    function=Linear,
-                    control_signal_params={
-                        ALLOCATION_SAMPLES: np.arange(0.1, 1.01, 0.3)
-                    },
-                ),
-            ),
-            noise=(0.5),
-            starting_point=(0),
-            t0=0.45
-        ),
         output_states=[
             DECISION_VARIABLE,
             RESPONSE_TIME,

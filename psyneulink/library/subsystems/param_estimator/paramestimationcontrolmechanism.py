@@ -110,6 +110,11 @@ class MCMCParamSampler(Function_Base):
 
         self.functionOutputType = None
 
+        # This dictionary maps between how DDM parameters in PsyNeuLink are called and how HDDM references them.
+        self.pnl_ddm_param_to_hddm = {'threshold': 'a', 'drift_rate': 'v', 'drift_rate_std': 'sv',
+                                      'bias': 'z', 'bias_std': 'sz',
+                                      'non_decision_time': 't', 'non_decision_time_std': 'st'}
+
     def function(
         self,
         controller=None,
@@ -126,18 +131,27 @@ class MCMCParamSampler(Function_Base):
         # Run the MCMC sampling
         self.owner.hddm_model.sample(1, burn=0, progress_bar=False)
 
-        # Get a sample from the trace for each parameter we are estimating.
-        threshold_node, drift_rate_node = self.owner.hddm_model.nodes_db.node[['a', 'v']]
-        threshold = threshold_node.trace()[0]
-        drift_rate = drift_rate_node.trace()[0]
+        # Go through each control signal and grab the appropriate value for from the sample to create the allocation
+        allocation_policy = np.zeros((len(self.owner.control_signals),1))
+        for i in range(len(self.owner.control_signals)):
+            # Get the receiving name of the parameter
+            param_name = self.owner.control_signals[i].projections[0].receiver.name
 
-        #drift_rate = self.owner.hddm_model.mc.trace('v')[0]
-        #threshold = self.owner.hddm_model.mc.trace('a')[0]
+            try:
+                # Get the statistical model name for this parameter
+                stat_model_param_name =  self.pnl_ddm_param_to_hddm[param_name]
+            except KeyError:
+                #raise ValueError('Could not find appropriate HDDM parameter for Control Signal {}'.format(param_name))
+                pass
 
-        #print("MCMCParamSampler: drift_rate={}, threshold={}".format(drift_rate, threshold))
+            try:
+                # Extract the value from the PyMC trace based on this name
+                allocation_policy[i,0] = self.owner.hddm_model.nodes_db.node[stat_model_param_name].trace()[0]
+            except KeyError:
+                allocation_policy[i,0] = 0.0
 
         # Assign our allocation policy
-        controller.allocation_policy = np.array([[drift_rate, threshold]]).T
+        controller.allocation_policy = allocation_policy
 
         return controller.allocation_policy
 
@@ -251,9 +265,10 @@ class ParamEstimationControlMechanism(ControlMechanism):
         for i in range(len(self.control_signals)):
             # self.control_signals[list(self.control_signals.values())[i]].value = np.atleast_1d(allocation_vector[i])
             self.value[i] = np.atleast_1d(allocation_vector[i])
+
         self._update_output_states(runtime_params=runtime_params, context=context)
 
-        self.system.run(inputs=inputs, context=context, termination_processing=termination_processing)
+        result = self.system.run(inputs=inputs, context=context, termination_processing=termination_processing)
 
         # Get outcomes for current allocation_policy
         #    = the values of the monitored output states (self.input_states)
@@ -263,4 +278,4 @@ class ParamEstimationControlMechanism(ControlMechanism):
         for i in range(len(self.control_signals)):
             self.control_signal_costs[i] = self.control_signals[i].cost
 
-        return monitored_states
+        return result

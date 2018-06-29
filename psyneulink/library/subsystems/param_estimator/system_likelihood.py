@@ -27,9 +27,35 @@ class SystemLikelihoodEstimator:
                 # Run simulations of the PsyNeuLink system, we will use the outputs of these simulations to estimate the
                 # conditional log probability
                 input = {self.system.origin_mechanisms[0] : [1]}
-                allocation_values = np.array([v, a])
-                context = CONTROL_SIMULATION
-                self.system.controller.run_simulation(inputs=input, allocation_vector=allocation_values)
+
+                control_signals = self.system.controller.control_signals
+
+                # Search through control signals and find appropriate psyneulink parameter in the system
+                # to map this value to.
+                allocation_values = []
+                for i in range(len(control_signals)):
+
+                    # Get the receiving name of the parameter control signal
+                    param_name = control_signals[i].projections[0].receiver.name
+
+                    if param_name is "drift_rate":
+                        allocation_values.append(v)
+                    elif param_name is "drift_rate_std":
+                        allocation_values.append(sv)
+                    elif param_name is "bias":
+                        allocation_values.append(z)
+                    elif param_name is "bias_std":
+                        allocation_values.append(sz)
+                    elif param_name is "non_decision_time":
+                        allocation_values.append(t)
+                    elif param_name is "non_decision_time_std":
+                        allocation_values.append(st)
+                    elif param_name is "threshold":
+                        allocation_values.append(a)
+                    elif param_name is "response_time":
+                        allocation_values.append(x['rt'].values[0])
+
+                result = self.system.controller.run_simulation(inputs=input, allocation_vector=allocation_values)
 
             if np.all(~np.isnan(x['rt'])):
                 return wfpt.wiener_like(x['rt'].values, v, sv, a, z, sz, t, st,

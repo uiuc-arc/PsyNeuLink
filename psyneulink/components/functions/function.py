@@ -211,7 +211,8 @@ from psyneulink.globals.keywords import \
     RL_FUNCTION, SCALE, SIMPLE_INTEGRATOR_FUNCTION, SLOPE, SOFTMAX_FUNCTION, STABILITY_FUNCTION, \
     STANDARD_DEVIATION, SUM, TDLEARNING_FUNCTION, TIME_STEP_SIZE, TRANSFER_FUNCTION_TYPE, UNIFORM_DIST_FUNCTION, \
     USER_DEFINED_FUNCTION, USER_DEFINED_FUNCTION_TYPE, UTILITY_INTEGRATOR_FUNCTION, VARIABLE, \
-    WALD_DIST_FUNCTION, WEIGHTS, kwComponentCategory, kwPreferenceSetName, LIKELIHOOD_FUNCTION_TYPE, LIKELIHOOD_FUNCTION
+    WALD_DIST_FUNCTION, WEIGHTS, kwComponentCategory, kwPreferenceSetName, LIKELIHOOD_FUNCTION_TYPE, LIKELIHOOD_FUNCTION, \
+    CONTROL
 
 from psyneulink.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref, kpRuntimeParamStickyAssignmentPref
 from psyneulink.globals.preferences.preferenceset import PreferenceEntry, PreferenceLevel
@@ -4451,19 +4452,21 @@ class NavarroAndFussWFPTLike(LikelihoodFunction):
     @tc.typecheck
     def __init__(self,
                  default_variable=ClassDefaults.variable,
-                 drift_rate=None,
-                 drift_rate_std=None,
-                 threshold=None,
-                 bias=None,
-                 bias_std=None,
-                 non_decision_time=None,
-                 non_decision_time_std=None,
+                 response_time: parameter_spec = np.array([0.0]),
+                 drift_rate: parameter_spec = 2.0,
+                 drift_rate_std: parameter_spec = 1,
+                 threshold: parameter_spec = 1.0,
+                 bias: parameter_spec = 0.5,
+                 bias_std: parameter_spec = 0.01,
+                 non_decision_time: parameter_spec = 0.2,
+                 non_decision_time_std: parameter_spec = 0.001,
                  params=None,
                  owner=None,
                  prefs: is_pref_set = None,
                  context=componentName + INITIALIZING):
         # Assign args to params and functionParams dicts (kwConstants must == arg names)
-        params = self._assign_args_to_param_dicts(drift_rate=drift_rate,
+        params = self._assign_args_to_param_dicts(response_time=response_time,
+                                                  drift_rate=drift_rate,
                                                   drift_rate_std=drift_rate_std,
                                                   threshold=threshold,
                                                   bias=bias,
@@ -4528,10 +4531,17 @@ class NavarroAndFussWFPTLike(LikelihoodFunction):
                 ' https://github.com/hddm-devs/hddm for more info.'
             )
 
-        # We will use HDDMs implementation of Navarro and Fuss's WFPT likelihood
-        self.wiener_like = self.hddm.wfpt.wiener_like
+        # FIXME: Default parameters for the WFPT likielihood, these should be configurable somewhere
+        self.wiener_params = {'err': 1e-4, 'n_st': 2, 'n_sz': 2,
+                         'use_adaptive': 1,
+                         'simps_err': 1e-3,
+                         'w_outlier': 0.1}
 
         super()._instantiate_function(context=context)
+
+    def wfpt_like(self, x, v, sv, a, z, sz, t, st, wiener_params, p_outlier=0):
+        return self.hddm.wfpt.wiener_like(x, v, sv, a, z, sz, t, st,
+                                p_outlier=p_outlier, **wiener_params)
 
     def function(self,
                  variable=None,
@@ -4541,12 +4551,22 @@ class NavarroAndFussWFPTLike(LikelihoodFunction):
         # Validate variable and validate params
         variable = self._update_variable(self._check_args(variable=variable, params=params, context=context))
 
-        # Calculate the likelihood
-        #result = self.wiener_like(variable, self.drift_rate, self.drift_rate_std,
-        #                          self.threshold, self.bias, self.bias_std,
-        #                          self.non_decision_time, self.non_decision_time_std, p_outlier=0)
-        result = np.array([])
+        drift_rate = float(self.get_current_function_param('drift_rate'))
+        drift_rate_std = float(self.get_current_function_param('drift_rate_std'))
+        response_time = self.get_current_function_param('response_time')
+        threshold = float(self.get_current_function_param('threshold'))
+        bias = float(self.get_current_function_param('bias'))
+        bias_std = float(self.get_current_function_param('bias_std'))
+        non_decision_time = float(self.get_current_function_param('non_decision_time'))
+        non_decision_time_std = float(self.get_current_function_param('non_decision_time_std'))
 
+        stimulus_drift_rate = float(variable)
+
+        # Calculate the likelihood
+        result = self.wfpt_like(x=response_time, v=drift_rate * stimulus_drift_rate, sv=drift_rate_std,
+                                a=threshold, z=bias, sz=bias_std,
+                                t=non_decision_time, st=non_decision_time_std,
+                                wiener_params=self.wiener_params)
 
         return result
 
