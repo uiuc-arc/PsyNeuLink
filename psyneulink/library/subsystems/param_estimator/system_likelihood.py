@@ -51,7 +51,7 @@ class SystemLikelihoodEstimator:
                     elif param_name is "threshold":
                         allocation_values.append(a)
                     elif param_name is "response_time":
-                        allocation_values.append(x['rt'].values[0])
+                        allocation_values.append(x['rt'].values)
 
                 result = self.system.controller.run_simulation(inputs=input, allocation_vector=allocation_values)
 

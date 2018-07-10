@@ -125,11 +125,14 @@ class MCMCParamSampler(Function_Base):
         params=None,
         context=None,
     ):
+        if controller is None:
+            return np.zeros((1,1), dtype=np.object)
+
         if self.owner is None or self.owner.control_signals is None:
-            return np.zeros((1,))
+            return np.zeros((1,1), dtype=np.object)
 
         if context & (ContextFlags.DEFERRED_INIT | ContextFlags.INITIALIZING):
-            return np.zeros((len(self.owner.control_signals), 1))
+            return np.zeros((len(self.owner.control_signals),1), dtype=np.object)
 
         # Reset context so that System knows this is a simulation (to avoid infinitely recursive loop)
         # FIX 3/30/18 - IS controller CORRECT FOR THIS, OR SHOULD IT BE System (controller.system)??
@@ -142,23 +145,23 @@ class MCMCParamSampler(Function_Base):
         self.owner.hddm_model.sample(1, burn=0, progress_bar=False)
 
         # Go through each control signal and grab the appropriate value for from the sample to create the allocation
-        allocation_policy = np.zeros((len(self.owner.control_signals),1))
+        allocation_policy = np.zeros((len(self.owner.control_signals),1), dtype=np.object)
         for i in range(len(self.owner.control_signals)):
             # Get the receiving name of the parameter
             param_name = self.owner.control_signals[i].projections[0].receiver.name
 
             try:
                 # Get the statistical model name for this parameter
-                stat_model_param_name =  self.pnl_ddm_param_to_hddm[param_name]
+                stat_model_param_name = self.pnl_ddm_param_to_hddm[param_name]
             except KeyError:
                 #raise ValueError('Could not find appropriate HDDM parameter for Control Signal {}'.format(param_name))
                 pass
 
             try:
                 # Extract the value from the PyMC trace based on this name
-                allocation_policy[i,0] = self.owner.hddm_model.nodes_db.node[stat_model_param_name].trace()[0]
+                allocation_policy[i] = self.owner.hddm_model.nodes_db.node[stat_model_param_name].trace()[0]
             except KeyError:
-                allocation_policy[i,0] = 0.0
+                allocation_policy[i] = 0.0
 
         # Assign our allocation policy
         controller.allocation_policy = allocation_policy
@@ -215,29 +218,6 @@ class ParamEstimationControlMechanism(ControlMechanism):
     def assign_as_controller(self, system: System_Base, context=ContextFlags.COMMAND_LINE):
         super().assign_as_controller(system=system, context=context)
         self.hddm_model = HDDMPsyNeuLink(data=self.data, system=system)
-
-    def _execute(self,
-                    variable=None,
-                    runtime_params=None,
-                    context=None):
-        """Determine `allocation_policy <ParamEstimationControlMechanism.allocation_policy>` for next run of System
-
-        Call self.function -- default is MCMCParamSearch
-        Return an allocation_policy
-        """
-
-
-        # IMPLEMENTATION NOTE:
-        # self.system._store_system_state()
-
-        allocation_policy = self.function(controller=self,
-                                          variable=variable,
-                                          runtime_params=runtime_params,
-                                          context=context)
-        # IMPLEMENTATION NOTE:
-        # self.system._restore_system_state()
-
-        return allocation_policy
 
     def run_simulation(self,
                        inputs,
