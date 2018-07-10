@@ -2779,7 +2779,7 @@ class System(System_Base):
                 if self.context.initialization_status != ContextFlags.INITIALIZING:
                     raise SystemError("PROGRAM ERROR: Problem executing controller ({}) for {}: unidentified "
                                       "attribute (\'{}\') encountered for it or one of the methods it calls."
-                                      .format(self.controller.name, self.name, error_msg.args[0]))
+                                      .format(self.controller.name, self.name, error_msg.args[0])) from error_msg
 
         # Report completion of system execution and value of designated outputs
         if self._report_system_output:

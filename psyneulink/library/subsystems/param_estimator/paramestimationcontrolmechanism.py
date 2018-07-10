@@ -37,7 +37,7 @@ import typecheck as tc
 
 import hddm
 
-from psyneulink import ContextFlags
+from psyneulink import ContextFlags, EVCAuxiliaryError
 from psyneulink.library.subsystems.param_estimator.hddm_psyneulink import HDDMPsyNeuLink
 
 from psyneulink.globals.defaults import defaultControlAllocation
@@ -125,14 +125,16 @@ class MCMCParamSampler(Function_Base):
         params=None,
         context=None,
     ):
+
+
+        if (self.context.initialization_status == ContextFlags.INITIALIZING or
+                self.owner.context.initialization_status == ContextFlags.INITIALIZING):
+            return defaultControlAllocation
+
+        # Get value of, or set default for standard args
         if controller is None:
-            return np.zeros((1,1), dtype=np.object)
+            raise EVCAuxiliaryError("Call to ControlSignalGridSearch() missing controller argument")
 
-        if self.owner is None or self.owner.control_signals is None:
-            return np.zeros((1,1), dtype=np.object)
-
-        if context & (ContextFlags.DEFERRED_INIT | ContextFlags.INITIALIZING):
-            return np.zeros((len(self.owner.control_signals),1), dtype=np.object)
 
         # Reset context so that System knows this is a simulation (to avoid infinitely recursive loop)
         # FIX 3/30/18 - IS controller CORRECT FOR THIS, OR SHOULD IT BE System (controller.system)??
@@ -213,11 +215,24 @@ class ParamEstimationControlMechanism(ControlMechanism):
             name=name,
             prefs=prefs)
 
-
     @tc.typecheck
     def assign_as_controller(self, system: System_Base, context=ContextFlags.COMMAND_LINE):
         super().assign_as_controller(system=system, context=context)
         self.hddm_model = HDDMPsyNeuLink(data=self.data, system=system)
+
+    def _execute(
+        self,
+        variable=None,
+        runtime_params=None,
+        context=None
+    ):
+        allocation_policy = super(ControlMechanism, self)._execute(
+            controller=self,
+            variable=variable,
+            runtime_params=runtime_params,
+            context=context
+        )
+        return allocation_policy
 
     def run_simulation(self,
                        inputs,
