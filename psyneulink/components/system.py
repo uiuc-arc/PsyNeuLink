@@ -1652,6 +1652,8 @@ class System(System_Base):
             # that the length of the corresponding item of self.instance_defaults.variable matches the length of the
             #  ORIGIN inputState's instance_defaults.variable attribute
             for j in range(len(origin_mech.input_states)):
+                if origin_mech.input_states[j].internal_only:
+                    continue
                 if len(self.instance_defaults.variable[i][j]) != origin_mech.input_states[j].socket_width:
                     raise SystemError("Length of input {} ({}) does not match the length of the input ({}) for the "
                                       "corresponding ORIGIN Mechanism ()".
@@ -2280,7 +2282,7 @@ class System(System_Base):
                     # Search System for Mechanisms with OutputStates with the string as their name
                     for mech in self.mechanisms:
                         for output_state in mech.output_states:
-                            if output_state.name is spec:
+                            if output_state.name == spec:
                                 monitored_output_state_tuples.extend(
                                         [MonitoredOutputStateTuple(output_state=output_state,
                                                                    weight=weight,
@@ -3404,9 +3406,9 @@ class System(System_Base):
         # assign to backing field
         self._reinitialize_mechanisms_when = new_condition
 
-        # assign to all mechanisms that do not already have a user-specified condition
         for mechanism in self.mechanisms:
             if hasattr(mechanism, "reinitialize_when"):
+                # assign to all mechanisms that do not already have a user-specified condition
                 if isinstance(mechanism.reinitialize_when, Never):
                     mechanism.reinitialize_when = new_condition
 
@@ -3424,7 +3426,7 @@ class System(System_Base):
     @property
     def stateful_mechanisms(self):
         """
-        List of all mechanisms in the system that are currently marked as stateful (mechanism.auto_dependent = True)
+        List of all mechanisms in the system that are currently marked as stateful (mechanism.has_initializers = True)
 
         Returns
         -------
@@ -3434,7 +3436,7 @@ class System(System_Base):
 
         stateful_mechanisms = []
         for mechanism in self.mechanisms:
-            if mechanism.auto_dependent:
+            if mechanism.has_initializers:
                 stateful_mechanisms.append(mechanism)
 
         return stateful_mechanisms
