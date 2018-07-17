@@ -129,7 +129,7 @@ class MCMCParamSampler(Function_Base):
 
         if (self.context.initialization_status == ContextFlags.INITIALIZING or
                 self.owner.context.initialization_status == ContextFlags.INITIALIZING):
-            return defaultControlAllocation
+            return np.array([1.0], dtype=np.object)
 
         # Get value of, or set default for standard args
         if controller is None:

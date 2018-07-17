@@ -867,9 +867,6 @@ class System(System_Base):
                  prefs:is_sys_pref_set=None,
                  context=None):
 
-        # A flag to indicate when the entire constructor has been run for the System
-        self.is_controller_initialized = False
-
         # Required to defer assignment of self.controller by setter
         #     until the rest of the System has been instantiated
         self.context.initialization_status = ContextFlags.INITIALIZING

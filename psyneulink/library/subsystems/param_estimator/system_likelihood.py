@@ -1,6 +1,8 @@
 import numpy as np
 from hddm import wfpt
 
+from psyneulink import ContextFlags
+
 
 class SystemLikelihoodEstimator:
     """
@@ -21,7 +23,7 @@ class SystemLikelihoodEstimator:
 
         def wfpt_like(x, v, sv, a, z, sz, t, st, p_outlier=0):
 
-            if self.system.is_controller_initialized:
+            if self.system.controller.context.execution_phase == ContextFlags.SIMULATION:
                 # Run simulations of the PsyNeuLink system, we will use the outputs of these simulations to estimate the
                 # conditional log probability
                 input = {self.system.origin_mechanisms[0] : [1]}

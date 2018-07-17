@@ -134,10 +134,12 @@ def test_pecm():
         name='TaskExecutionProcess',
     )
 
+    controller = ParamEstimationControlMechanism(data_in_file='tests/control/hddm_test_data.csv')
+
     # System:
     mySystem = System(
         processes=[TaskExecutionProcess],
-        controller=ParamEstimationControlMechanism(data_in_file='tests/control/hddm_test_data.csv'),
+        controller=controller,
         enable_controller=True,
         monitor_for_control=[
             Decision.PROBABILITY_UPPER_THRESHOLD,
