@@ -12,6 +12,7 @@ class SystemLikelihoodEstimator:
     """
     def __init__(self, system):
         self.system = system
+        self.context = None
 
     def get_likelihood_function(self, **kwargs):
         """
@@ -23,7 +24,7 @@ class SystemLikelihoodEstimator:
 
         def wfpt_like(x, v, sv, a, z, sz, t, st, p_outlier=0):
 
-            if self.system.controller.context.execution_phase == ContextFlags.SIMULATION:
+            if self.system.context.initialization_status != ContextFlags.INITIALIZING and self.context is not None:
                 # Run simulations of the PsyNeuLink system, we will use the outputs of these simulations to estimate the
                 # conditional log probability
                 input = {self.system.origin_mechanisms[0] : [1]}
@@ -55,7 +56,9 @@ class SystemLikelihoodEstimator:
                     elif param_name is "response_time":
                         allocation_values.append(x['rt'].values)
 
-                result = self.system.controller.run_simulation(inputs=input, allocation_vector=allocation_values)
+                result = self.system.controller.run_simulation(inputs=input,
+                                                               allocation_vector=allocation_values,
+                                                               context=self.context)
 
             if np.all(~np.isnan(x['rt'])):
                 return wfpt.wiener_like(x['rt'].values, v, sv, a, z, sz, t, st,

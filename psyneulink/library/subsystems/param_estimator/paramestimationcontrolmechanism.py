@@ -126,7 +126,6 @@ class MCMCParamSampler(Function_Base):
         context=None,
     ):
 
-
         if (self.context.initialization_status == ContextFlags.INITIALIZING or
                 self.owner.context.initialization_status == ContextFlags.INITIALIZING):
             return np.array([1.0], dtype=np.object)
@@ -135,13 +134,10 @@ class MCMCParamSampler(Function_Base):
         if controller is None:
             raise EVCAuxiliaryError("Call to ControlSignalGridSearch() missing controller argument")
 
-
-        # Reset context so that System knows this is a simulation (to avoid infinitely recursive loop)
-        # FIX 3/30/18 - IS controller CORRECT FOR THIS, OR SHOULD IT BE System (controller.system)??
-        controller.context.execution_phase = ContextFlags.SIMULATION
-        controller.context.string = "{0} EXECUTING {1} of {2}".format(controller.name,
-                                                                      "CONTROL SIMULATION",
-                                                                      controller.system.name)
+        # FIXME: This is a hack. We need to pass the current context to the likelihood before
+        # it gets called during sampling. This is because the likelihood function will make
+        # a call to run_simulation on the controller.
+        controller.hddm_model.pnl_likelihood_estimator.context = context
 
         # Run the MCMC sampling
         self.owner.hddm_model.sample(1, burn=0, progress_bar=False)
@@ -267,11 +263,14 @@ class ParamEstimationControlMechanism(ControlMechanism):
 
         # Implement the current allocation_policy over ControlSignals (outputStates),
         #    by assigning allocation values to EVCControlMechanism.value, and then calling _update_output_states
-        for i in range(len(self.control_signals)):
-            # self.control_signals[list(self.control_signals.values())[i]].value = np.atleast_1d(allocation_vector[i])
-            self.value[i] = np.atleast_1d(allocation_vector[i])
+        allocation_policy = np.empty(len(allocation_vector), dtype=np.object)
+        allocation_policy[:] = allocation_vector
+        self.value = allocation_policy
+        # for i in range(len(self.control_signals)):
+        #     # self.control_signals[list(self.control_signals.values())[i]].value = np.atleast_1d(allocation_vector[i])
+        #     self.value[i] = np.atleast_1d(allocation_vector[i])
 
-        self._update_output_states(runtime_params=runtime_params, context=ContextFlags.COMPOSITION)
+        self._update_output_states(runtime_params=runtime_params, context=context)
 
         self.system.context.execution_phase = ContextFlags.SIMULATION
         result = self.system.run(inputs=inputs, context=context, termination_processing=termination_processing)
@@ -280,9 +279,9 @@ class ParamEstimationControlMechanism(ControlMechanism):
         # Get outcomes for current allocation_policy
         #    = the values of the monitored output states (self.input_states)
         # self.objective_mechanism.execute(context=CONTROL_SIMULATION)
-        monitored_states = self._update_input_states(runtime_params=runtime_params, context=ContextFlags.COMPOSITION)
+        monitored_states = self._update_input_states(runtime_params=runtime_params, context=context)
 
-        for i in range(len(self.control_signals)):
-            self.control_signal_costs[i] = self.control_signals[i].cost
+        #for i in range(len(self.control_signals)):
+        #    self.control_signal_costs[i] = self.control_signals[i].cost
 
         return result

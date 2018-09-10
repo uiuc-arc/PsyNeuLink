@@ -894,7 +894,7 @@ class ControlMechanism(AdaptiveMechanism_Base):
 
         # since output_states is exactly control_signals is exactly the shape of value, we can just construct it here
         self.instance_defaults.value = np.array([[ControlSignal.ClassDefaults.allocation]
-                                                 for i in range(len(self._output_states))])
+                                                 for i in range(len(self._output_states))], dtype=np.object)
         self.value = self.instance_defaults.value
 
         # Assign ControlSignal's variable to index of owner's value

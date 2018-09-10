@@ -715,7 +715,10 @@ def type_match(value, value_type):
     if value_type in {int, np.integer, np.int64, np.int32}:
         return int(value)
     if value_type in {float, np.float, np.float64, np.float32}:
-        return float(value)
+        if isinstance(value, np.ndarray) and value.size > 1:
+            return value
+        else:
+            return float(value)
     if value_type is np.ndarray:
         return np.array(value)
     if value_type is list:
