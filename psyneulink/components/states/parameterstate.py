@@ -49,7 +49,7 @@ Creating a ParameterState
 -------------------------
 
 ParameterStates are created automatically when the `Mechanism <Mechanism>` or `Projection <Projection>` to which they
-belong is created.  The `owner <ParameterState.owner>` of a ParameterState must be a `Mechanism or `MappingProjection`.
+belong is created.  The `owner <ParameterState.owner>` of a ParameterState must be a `Mechanism` or `MappingProjection`.
 One ParameterState is created for each configurable parameter of its owner, as well as for each configurable parameter
 of the owner's `function <Component.function>` (the `configurable parameters <ParameterState_Configurable_Parameters>`
 of a Component are listed in its `user_params <Component.user_params>` and function_params <Component.function_params>`
@@ -79,8 +79,8 @@ COMMENT
 
 .. _ParameterState_Specification:
 
-Specifying Parameters
-~~~~~~~~~~~~~~~~~~~~~
+*Specifying Parameters*
+~~~~~~~~~~~~~~~~~~~~~~~
 
 Parameters can be specified in one of several places:
 
@@ -164,8 +164,8 @@ of a parameter named *param* is assigned to an attribute named ``param`` that ca
 
 .. _ParameterState_Specification_Examples:
 
-Examples
-~~~~~~~~
+*Examples*
+~~~~~~~~~~
 
 In the following example, a Mechanism is created by specifying two of its parameters, as well as its
 `function <Component.function>` and two of that function's parameters, each using a different specification format::

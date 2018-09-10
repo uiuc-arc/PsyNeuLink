@@ -68,8 +68,8 @@ The DDM Mechanism implements a general form of the decision process.
 
 .. _DDM_Input:
 
-Input
-~~~~~
+*Input*
+~~~~~~~
 
 The input to the `function <DDM_Function>` of a DDM Mechanism is always a scalar, irrespective of `type of function
 <DDM_Modes>` that is used.  Accordingly, the default `InputState` for a DDM takes a single scalar value as its input,
@@ -95,8 +95,8 @@ COMMENT
 
 .. _DDM_Output:
 
-Output
-~~~~~~
+*Output*
+~~~~~~~~
 
 The DDM Mechanism can generate two different types of results depending on which function is selected. When a
 function representing an analytic solution is selected, the mechanism generates a single estimation for the process.
@@ -148,8 +148,8 @@ OutputStates <OutputState_Customization>` can also be created and assigned.
 
 .. _DDM_Modes:
 
-DDM Function Types
-~~~~~~~~~~~~~~~~~~
+*DDM Function Types*
+~~~~~~~~~~~~~~~~~~~~
 
 .. _DDM_Analytic_Mode:
 
@@ -752,7 +752,7 @@ class DDM(ProcessingMechanism_Base):
             size=1 # size of variable for DDM Mechanism
             input_states = [
                 {NAME:'ARRAY',
-                 VARIABLE:[0,0],
+                 VARIABLE: np.array([[0.0, 0.0]]),
                  FUNCTION: Reduce(weights=[1,-1])}
             ]
             self.standard_output_states.add_state_dicts([
@@ -764,21 +764,20 @@ class DDM(ProcessingMechanism_Base):
                            #    v[0]=self.value[self.DECISION_VARIABLE_INDEX]
                            #    v[1]=self.parameter_states[THRESHOLD]
                  FUNCTION: lambda v: [float(v[0]), 0] if (v[1]-v[0]) < (v[1]+v[0]) else [0, float(v[0])]},
-
                 # Provides a 1d 2-item array with:
                 #    input value in position corresponding to threshold crossed by decision variable, and 0 in the other
                 {NAME: SELECTED_INPUT_ARRAY, # 1d len 2, DECISION_VARIABLE as element 0 or 1
                  VARIABLE:[(OWNER_VALUE, self.DECISION_VARIABLE_INDEX), THRESHOLD, (INPUT_STATE_VARIABLES, 0)],
-                           # per VARIABLE assignment above, items of v of lambda function below are:
-                           #    v[0]=self.value[self.DECISION_VARIABLE_INDEX]
-                           #    v[1]=self.parameter_states[THRESHOLD]
-                           #    v[2]=self.input_states[0].variable
-                 # FUNCTION: lambda v: [float(v[2][0]), 0] if (v[1]-v[0]) < (v[1]+v[0]) else [0, float(v[2][1])]}
-                 # FUNCTION: lambda v: [float(v[2][0]), 0] if (v[1]-v[0]) < (v[1]+v[0]) else [0, float(v[2][0][1])]}
-                 FUNCTION: lambda v: [float(np.atleast_2d(v[2])[0][0]), 0] \
+                 # per VARIABLE assignment above, items of v of lambda function below are:
+                 #    v[0]=self.value[self.DECISION_VARIABLE_INDEX]
+                 #    v[1]=self.parameter_states[THRESHOLD]
+                 #    v[2]=self.input_states[0].variable
+                 FUNCTION: lambda v: [float(v[2][0][0]), 0] \
                                       if (v[1]-v[0]) < (v[1]+v[0]) \
-                                      else [0,float(np.atleast_2d(v[2])[0][1])]
+                                      else [0,float(v[2][0][1])]
+
                  }
+
             ])
 
         else:
