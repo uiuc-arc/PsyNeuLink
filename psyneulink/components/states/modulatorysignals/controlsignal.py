@@ -729,16 +729,15 @@ class ControlSignal(ModulatorySignal):
                          )
 
         # Default cost params
-        if self.cost_options:
-            if self.context.initialization_status != ContextFlags.DEFERRED_INIT:
-                self.intensity_cost = self.intensity_cost_function(self.instance_defaults.allocation)
-            else:
-                self.intensity_cost = self.intensity_cost_function(self.ClassDefaults.allocation)
-            self.adjustment_cost = 0
-            self.duration_cost = 0
-            self.last_duration_cost = self.duration_cost
-            self.cost = self.intensity_cost
-            self.last_cost = self.cost
+        if self.context.initialization_status != ContextFlags.DEFERRED_INIT:
+            self.intensity_cost = self.intensity_cost_function(self.instance_defaults.allocation)
+        else:
+            self.intensity_cost = self.intensity_cost_function(self.ClassDefaults.allocation)
+        self.adjustment_cost = 0
+        self.duration_cost = 0
+        self.last_duration_cost = self.duration_cost
+        self.cost = self.intensity_cost
+        self.last_cost = self.cost
 
     def _validate_params(self, request_set, target_set=None, context=None):
         """Validate allocation_samples and control_signal cost functions
