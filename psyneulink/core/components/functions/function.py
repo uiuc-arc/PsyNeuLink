@@ -5453,14 +5453,9 @@ class LikelihoodFunction(Function_Base):
 class NavarroAndFussWFPTLike(LikelihoodFunction):
     componentName = LIKELIHOOD_FUNCTION
 
-    class ClassDefaults(LikelihoodFunction.ClassDefaults):
-        variable = [0]
-
-    paramClassDefaults = Function_Base.paramClassDefaults.copy()
-
     @tc.typecheck
     def __init__(self,
-                 default_variable=ClassDefaults.variable,
+                 default_variable=[0.0],
                  response_time: parameter_spec = np.array([0.0]),
                  drift_rate: parameter_spec = 2.0,
                  drift_rate_std: parameter_spec = 1,

@@ -40,24 +40,24 @@ import hddm
 from psyneulink import ContextFlags, EVCAuxiliaryError
 from psyneulink.library.subsystems.param_estimator.hddm_psyneulink import HDDMPsyNeuLink
 
-from psyneulink.globals.defaults import defaultControlAllocation
-from psyneulink.components.functions.function import Function_Base
-from psyneulink.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref
-from psyneulink.components.functions.function import LinearCombination
-from psyneulink.globals.keywords import CONTROL, COST_FUNCTION, FUNCTION, INITIALIZING, \
+from psyneulink.core.components.component import Param, function_type
+from psyneulink.core.globals.defaults import defaultControlAllocation
+from psyneulink.core.components.functions.function import Function_Base
+from psyneulink.core.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref
+from psyneulink.core.globals.keywords import CONTROL, COST_FUNCTION, FUNCTION, INITIALIZING, \
     INIT_FUNCTION_METHOD_ONLY, PARAMETER_STATES, PREDICTION_MECHANISM, PREDICTION_MECHANISM_PARAMS, \
     PREDICTION_MECHANISM_TYPE, SUM, PARAM_EST_MECHANISM, COMBINE_OUTCOME_AND_COST_FUNCTION, COST_FUNCTION, \
     EXECUTING, FUNCTION_OUTPUT_TYPE_CONVERSION, INITIALIZING, PARAMETER_STATE_PARAMS, kwPreferenceSetName, \
     kwProgressBarChar, COMMAND_LINE
-from psyneulink.components.shellclasses import Function, System_Base
-from psyneulink.components.mechanisms.adaptive.control.controlmechanism import ControlMechanism
-from psyneulink.components.mechanisms.mechanism import MechanismList
-from psyneulink.components.mechanisms.processing import integratormechanism
-from psyneulink.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
-from psyneulink.components.projections.pathway.mappingprojection import MappingProjection
-from psyneulink.globals.preferences.preferenceset import PreferenceEntry, PreferenceLevel
-from psyneulink.globals.preferences.componentpreferenceset import is_pref_set
-from psyneulink.scheduling.time import TimeScale
+from psyneulink.core.components.shellclasses import Function, System_Base
+from psyneulink.core.components.mechanisms.adaptive.control.controlmechanism import ControlMechanism
+from psyneulink.core.components.mechanisms.mechanism import MechanismList
+from psyneulink.core.components.mechanisms.processing import integratormechanism
+from psyneulink.core.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
+from psyneulink.core.components.projections.pathway.mappingprojection import MappingProjection
+from psyneulink.core.globals.preferences.preferenceset import PreferenceEntry, PreferenceLevel
+from psyneulink.core.globals.preferences.componentpreferenceset import is_pref_set
+from psyneulink.core.scheduling.time import TimeScale
 
 
 
@@ -74,9 +74,6 @@ class MCMCParamSampler(Function_Base):
     This is the default function assigned to the ParamEstimationControlMechanism
     """
     componentName = MCMC_PARAM_SAMPLE_FUNCTION
-
-    class ClassDefaults(Function_Base.ClassDefaults):
-        variable = None
 
     paramClassDefaults = Function_Base.paramClassDefaults.copy()
     paramClassDefaults.update({
@@ -173,10 +170,14 @@ class ParamEstimationControlMechanism(ControlMechanism):
 
     classPreferenceLevel = PreferenceLevel.SUBTYPE
 
-    class ClassDefaults(ControlMechanism.ClassDefaults):
-        # This must be a list, as there may be more than one (e.g., one per control_signal)
-        variable = defaultControlAllocation
-        function = MCMCParamSampler
+    class Params(ControlMechanism.Params):
+        function = Param(MCMCParamSampler, stateful=False, loggable=False)
+        simulation_ids = Param(list, user=False)
+
+    # class ClassDefaults(ControlMechanism.ClassDefaults):
+    #     # This must be a list, as there may be more than one (e.g., one per control_signal)
+    #     variable = defaultControlAllocation
+    #     function = MCMCParamSampler
 
     paramClassDefaults = ControlMechanism.paramClassDefaults.copy()
     paramClassDefaults.update({PARAMETER_STATES: NotImplemented})  # This suppresses parameterStates
