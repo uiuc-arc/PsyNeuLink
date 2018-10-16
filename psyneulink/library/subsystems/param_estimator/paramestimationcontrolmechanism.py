@@ -272,9 +272,17 @@ class ParamEstimationControlMechanism(ControlMechanism):
 
         self._update_output_states(runtime_params=runtime_params, context=context)
 
+        # Buffer System attributes
+        execution_id_buffer = self.system._execution_id
+        animate_buffer = self.system._animate
+
         self.system.context.execution_phase = ContextFlags.SIMULATION
         result = self.system.run(inputs=inputs, context=context, termination_processing=termination_processing)
         self.system.context.execution_phase = ContextFlags.IDLE
+
+        # Restore System attributes
+        self.system._animate = animate_buffer
+        self.system._execution_id = execution_id_buffer
 
         # Get outcomes for current allocation_policy
         #    = the values of the monitored output states (self.input_states)
