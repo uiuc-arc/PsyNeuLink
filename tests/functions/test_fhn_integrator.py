@@ -1,6 +1,6 @@
-import psyneulink.components.functions.function as Function
-import psyneulink.globals.keywords as kw
 import numpy as np
+import psyneulink.core.components.functions.function as Function
+import psyneulink.core.globals.keywords as kw
 import pytest
 
 np.random.seed(0)
@@ -60,6 +60,7 @@ def test_basic(func, variable, integration_method, params, expected, benchmark):
     assert np.allclose(res[2], expected[2])
 
 
+@pytest.mark.llvm
 @pytest.mark.function
 @pytest.mark.integrator_function
 @pytest.mark.parametrize("func, variable, integration_method, params, expected", test_data, ids=names)

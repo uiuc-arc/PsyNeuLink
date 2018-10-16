@@ -1,6 +1,6 @@
-import psyneulink.components.functions.function as Function
-import psyneulink.globals.keywords as kw
 import numpy as np
+import psyneulink.core.components.functions.function as Function
+import psyneulink.core.globals.keywords as kw
 import pytest
 
 @pytest.mark.function
@@ -13,6 +13,7 @@ def test_basic(size, benchmark):
     res = benchmark(f.function, variable)
     assert np.allclose(res, variable)
 
+@pytest.mark.llvm
 @pytest.mark.function
 @pytest.mark.identity_function
 @pytest.mark.parametrize("size", [1, 2, 4, 8, 16])

@@ -1,7 +1,7 @@
 
-import psyneulink.components.functions.function as Function
-import psyneulink.globals.keywords as kw
 import numpy as np
+import psyneulink.core.components.functions.function as Function
+import psyneulink.core.globals.keywords as kw
 import pytest
 
 SIZE=1000
@@ -71,6 +71,7 @@ def test_basic(variable, metric, normalize, fail, expected, benchmark):
     assert np.isscalar(res) or len(res) == 1 or (metric == kw.PEARSON and res.size == 4)
 
 
+@pytest.mark.llvm
 @pytest.mark.function
 @pytest.mark.distance_function
 @pytest.mark.parametrize("variable, metric, normalize, fail, expected", test_data, ids=names)

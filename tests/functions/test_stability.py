@@ -1,7 +1,7 @@
 
-import psyneulink.components.functions.function as Function
-import psyneulink.globals.keywords as kw
 import numpy as np
+import psyneulink.core.components.functions.function as Function
+import psyneulink.core.globals.keywords as kw
 import pytest
 
 SIZE=10
@@ -38,6 +38,7 @@ def test_basic(variable, metric, normalize, expected, benchmark):
     assert np.allclose(res, expected)
     assert np.isscalar(res)
 
+@pytest.mark.llvm
 @pytest.mark.function
 @pytest.mark.stability_function
 @pytest.mark.parametrize("variable, metric, normalize, expected", test_data, ids=names)

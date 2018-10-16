@@ -1,7 +1,7 @@
-import psyneulink as pnl
-import psyneulink.components.functions.function as Function
-import psyneulink.globals.keywords as kw
 import numpy as np
+import psyneulink as pnl
+import psyneulink.core.components.functions.function as Function
+import psyneulink.core.globals.keywords as kw
 import pytest
 
 from itertools import product
@@ -240,6 +240,7 @@ def test_linear_combination_function_in_mechanism(operation, input, size, input_
 
     assert np.allclose(res, expected)
 
+@pytest.mark.llvm
 @pytest.mark.function
 @pytest.mark.combination_function
 @pytest.mark.parametrize("operation, input, size, input_states, scale, offset, expected", test_linear_comb_data_2, ids=linear_comb_names_2)
