@@ -8,7 +8,7 @@ import pytest
 
 from itertools import product
 
-from psyneulink.core.components.functions.function import Linear, Logistic, ModulationParam, SimpleIntegrator, UserDefinedFunction
+from psyneulink.core.components.functions.function import AdaptiveIntegrator, Linear, Logistic, ModulationParam, SimpleIntegrator, UserDefinedFunction
 from psyneulink.core.components.mechanisms.processing.integratormechanism import IntegratorMechanism
 from psyneulink.core.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
 from psyneulink.core.components.mechanisms.processing.processingmechanism import ProcessingMechanism
@@ -1045,6 +1045,52 @@ class TestExecutionOrder:
         output = comp.run(inputs=inputs_dict, scheduler_processing=sched, bin_execute=mode)
         assert np.allclose(output, 600)
         benchmark(comp.run, inputs=inputs_dict, scheduler_processing=sched, bin_execute=mode)
+
+    @pytest.mark.composition
+    @pytest.mark.benchmark(group="Transfer")
+    @pytest.mark.parametrize("mode", ['Python',
+                             pytest.param('LLVM', marks=pytest.mark.llvm),
+                             pytest.param('LLVMExec', marks=pytest.mark.llvm),
+                             pytest.param('LLVMRun', marks=pytest.mark.llvm)])
+    def test_transfer_mechanism(self, benchmark, mode):
+
+        # mechanisms
+        C = TransferMechanism(name="C",
+                              function=Logistic,
+                              integration_rate=0.1,
+                              integrator_mode=True)
+
+        # comp2 uses a TransferMechanism in integrator mode
+        comp2 = Composition(name="comp2")
+        comp2.add_c_node(C)
+
+        # pass same 3 trials of input to comp1 and comp2
+        benchmark(comp2.run, inputs={C: [1.0, 2.0, 3.0]}, bin_execute=mode)
+
+        assert np.allclose(comp2.results[:3], [[[0.52497918747894]], [[0.5719961329315186]], [[0.6366838893983633]]])
+
+    @pytest.mark.composition
+    @pytest.mark.benchmark(group="Transfer")
+    @pytest.mark.parametrize("mode", ['Python',
+                             pytest.param('LLVM', marks=pytest.mark.llvm),
+                             pytest.param('LLVMExec', marks=pytest.mark.llvm),
+                             pytest.param('LLVMRun', marks=pytest.mark.llvm)])
+    def test_transfer_mechanism_split(self, benchmark, mode):
+
+        # mechanisms
+        A = ProcessingMechanism(name="A",
+                                function=AdaptiveIntegrator(rate=0.1))
+        B = ProcessingMechanism(name="B",
+                                function=Logistic)
+
+        # comp1 separates Integrator fn and Logistic fn into mech A and mech B
+        comp1 = Composition(name="comp1")
+        comp1.add_linear_processing_pathway([A, B])
+
+        benchmark(comp1.run, inputs={A: [1.0, 2.0, 3.0]}, bin_execute=mode)
+
+        assert np.allclose(comp1.results[:3], [[[0.52497918747894]], [[0.5719961329315186]], [[0.6366838893983633]]])
+
 
 
 # class TestValidateFeedDict:
@@ -3283,6 +3329,68 @@ class TestSystemComposition:
 #
 
 class TestNestedCompositions:
+
+    @pytest.mark.composition
+    @pytest.mark.parametrize("mode", ['Python',
+                             pytest.param('LLVM', marks=pytest.mark.llvm),
+                             pytest.param('LLVMExec', marks=pytest.mark.llvm),
+                             pytest.param('LLVMRun', marks=pytest.mark.llvm)])
+    def test_transfer_mechanism_composition(self, mode):
+
+        # mechanisms
+        A = ProcessingMechanism(name="A",
+                                function=AdaptiveIntegrator(rate=0.1))
+        B = ProcessingMechanism(name="B",
+                                function=Logistic)
+        C = TransferMechanism(name="C",
+                              function=Logistic,
+                              integration_rate=0.1,
+                              integrator_mode=True)
+
+        # comp1 separates Integrator fn and Logistic fn into mech A and mech B
+        comp1 = Composition(name="comp1")
+        comp1.add_linear_processing_pathway([A, B])
+
+        # comp2 uses a TransferMechanism in integrator mode
+        comp2 = Composition(name="comp2")
+        comp2.add_c_node(C)
+
+        # pass same 3 trials of input to comp1 and comp2
+        comp1.run(inputs={A: [1.0, 2.0, 3.0]}, bin_execute=mode)
+        comp2.run(inputs={C: [1.0, 2.0, 3.0]}, bin_execute=mode)
+
+        assert np.allclose(comp1.results, comp2.results)
+        assert np.allclose(comp2.results, [[[0.52497918747894]], [[0.5719961329315186]], [[0.6366838893983633]]])
+
+    # Does not work yet due to initial_values bug that causes first recurrent projection to pass different values
+    # to TranfserMechanism version vs Logistic fn + AdaptiveIntegrator fn version 
+    # def test_recurrent_transfer_mechanism_composition(self):
+    #
+    #     # mechanisms
+    #     A = ProcessingMechanism(name="A",
+    #                             function=AdaptiveIntegrator(rate=0.1))
+    #     B = ProcessingMechanism(name="B",
+    #                             function=Logistic)
+    #     C = RecurrentTransferMechanism(name="C",
+    #                                    function=Logistic,
+    #                                    integration_rate=0.1,
+    #                                    integrator_mode=True)
+    #
+    #     # comp1 separates Integrator fn and Logistic fn into mech A and mech B and uses a "feedback" proj for recurrence
+    #     comp1 = Composition(name="comp1")
+    #     comp1.add_linear_processing_pathway([A, B])
+    #     comp1.add_linear_processing_pathway([B, A], feedback=True)
+    #
+    #     # comp2 uses a RecurrentTransferMechanism in integrator mode
+    #     comp2 = Composition(name="comp2")
+    #     comp2.add_c_node(C)
+    #
+    #     # pass same 3 trials of input to comp1 and comp2
+    #     comp1.run(inputs={A: [1.0, 2.0, 3.0]})
+    #     comp2.run(inputs={C: [1.0, 2.0, 3.0]})
+    #
+    #     # assert np.allclose(comp1.results, comp2.results)
+
     def test_combine_two_disjunct_trees(self):
         # Goal:
 
