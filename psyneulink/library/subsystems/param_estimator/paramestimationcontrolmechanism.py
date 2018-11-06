@@ -158,10 +158,7 @@ class MCMCParamSampler(Function_Base):
             except KeyError:
                 allocation_policy[i] = 0.0
 
-        # Assign our allocation policy
-        controller.allocation_policy = allocation_policy
-
-        return controller.allocation_policy
+        return allocation_policy
 
 
 class ParamEstimationControlMechanism(ControlMechanism):

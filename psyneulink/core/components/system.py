@@ -162,7 +162,7 @@ The `Mechanisms <Mechanism>` in a System are assigned designations based on the 
        Mechanism of a Process is also the `ORIGIN` and/or `TERMINAL` of a System to which the Process belongs (see
        `example <LearningProjection_Target_vs_Terminal_Figure>`).
 
-    .. note: designations are stored in the `systems <Mechanism.systems>` attribute of a `Mechanism <Mechanism>`.
+    .. note:: designations are stored in the `systems <Mechanism.systems>` attribute of a `Mechanism <Mechanism>`.
     COMMENT:
     (see _instantiate_graph below)
     COMMENT
@@ -447,7 +447,7 @@ from psyneulink.core.components.mechanisms.adaptive.control.controlmechanism imp
 from psyneulink.core.components.mechanisms.adaptive.learning.learningauxiliary import _assign_error_signal_projections, _get_learning_mechanisms
 from psyneulink.core.components.mechanisms.adaptive.learning.learningmechanism import LearningMechanism, LearningTiming
 from psyneulink.core.components.mechanisms.mechanism import MechanismList
-from psyneulink.core.components.mechanisms.processing.objectivemechanism import DEFAULT_MONITORED_STATE_EXPONENT, DEFAULT_MONITORED_STATE_MATRIX, DEFAULT_MONITORED_STATE_WEIGHT, OUTCOME, ObjectiveMechanism
+from psyneulink.core.components.mechanisms.processing.objectivemechanism import DEFAULT_MONITORED_STATE_EXPONENT, DEFAULT_MONITORED_STATE_MATRIX, DEFAULT_MONITORED_STATE_WEIGHT, ObjectiveMechanism
 from psyneulink.core.components.process import Process, ProcessList, ProcessTuple
 from psyneulink.core.components.projections.pathway.mappingprojection import MappingProjection
 from psyneulink.core.components.projections.projection import Projection
@@ -455,7 +455,10 @@ from psyneulink.core.components.shellclasses import Mechanism, Process_Base, Sys
 from psyneulink.core.components.states.inputstate import InputState
 from psyneulink.core.components.states.parameterstate import ParameterState
 from psyneulink.core.globals.context import ContextFlags
-from psyneulink.core.globals.keywords import ALL, BOLD, COMPONENT, CONDITION, CONTROL, CONTROLLER, CYCLE, EXECUTING, FUNCTION, FUNCTIONS, INITIALIZE_CYCLE, INITIALIZING, INITIAL_VALUES, INTERNAL, LABELS, LEARNING, MATRIX, MONITOR_FOR_CONTROL, ORIGIN, PROJECTIONS, ROLES, SAMPLE, SINGLETON, SYSTEM, SYSTEM_INIT, TARGET, TERMINAL, VALUES, kwSeparator, kwSystemComponentCategory
+from psyneulink.core.globals.keywords import ALL, BOLD, COMPONENT, CONDITION, CONTROL, CONTROLLER, CYCLE, EXECUTING, \
+    FUNCTION, FUNCTIONS, INITIALIZE_CYCLE, INITIALIZING, INITIAL_VALUES, INTERNAL, LABELS, LEARNING, MATRIX, \
+    MONITOR_FOR_CONTROL, ORIGIN, OUTCOME, PROJECTIONS, ROLES, SAMPLE, SINGLETON, SYSTEM, SYSTEM_INIT, TARGET, \
+    TERMINAL, VALUES, kwSeparator, kwSystemComponentCategory
 from psyneulink.core.globals.log import Log
 from psyneulink.core.globals.preferences.preferenceset import PreferenceLevel
 from psyneulink.core.globals.preferences.systempreferenceset import SystemPreferenceSet, is_sys_pref_set
@@ -814,14 +817,15 @@ class System(System_Base):
         `recurrent_init_mechanisms <System.recurrent_init_mechanisms>` attribute.
 
     results : List[OutputState.value]
-        list of return values from the sequence of executions.  Each item is a 1d array containing the `value
-        <OutputState.value>` of each `TERMINAL` Mechanism of the System for a given execution. Excludes simulated runs.
+        list of return values from the sequence of executions.  Each item is a 2d array containing the `output_values
+        <Mechanism.output_values>` of each `TERMINAL` Mechanism of the System for a given execution.
+        Excludes simulated runs.
 
     simulation_results : List[OutputState.value]
         list of return values from the sequence of executions in simulation run(s) of the System; requires
-        recordSimulationPref to be `True`.  Each item is a 1d array containing the `value <OutputState.value>` of
-        each `OutputState` of each `TERMINAL` Mechanism in the System for a given execution in the simulation. Excludes
-        values from non-simulation runs.
+        recordSimulationPref to be `True`.  Each item is a 2d array containing the `output_values
+        <Mechanism.output_values>` of each `TERMINAL` Mechanism in the System for a given execution in the simulation.
+        Excludes values from non-simulation runs.
 
     name : str
         the name of the System; if it is not specified in the **name** argument of the constructor, a default is
@@ -2150,7 +2154,7 @@ class System(System_Base):
             - if specification in output_state is None:
                  do NOT monitor this state (this overrides any other specifications)
             - if an OutputState is specified in *any* MONITOR_FOR_CONTROL, monitor it (this overrides any other specs)
-            - if a Mechanism is terminal and/or specified in the System or `controller <Systsem_Base.controller>`:
+            - if a Mechanism is terminal and/or specified in the System or `controller <Systsem.controller>`:
                 if MonitoredOutputStatesOptions is PRIMARY_OUTPUT_STATES:  monitor only its primary (first) OutputState
                 if MonitoredOutputStatesOptions is ALL_OUTPUT_STATES:  monitor all of its OutputStates
             Note: precedence is given to MonitoredOutputStatesOptions specification in Mechanism > controller > System
@@ -3704,6 +3708,7 @@ class System(System_Base):
                    show_processes = False,
                    show_learning = False,
                    show_control = False,
+                   show_prediction_mechanisms = False,
                    show_roles = False,
                    show_dimensions = False,
                    show_mechanism_structure=False,
@@ -3777,14 +3782,14 @@ class System(System_Base):
         show_graph method::
 
             import psyneulink as pnl
-            mech_1 = pnl.TransferMechanism(name='Mech 1', size=3, output_states=[pnl.RESULTS, pnl.MEAN])
+            mech_1 = pnl.TransferMechanism(name='Mech 1', size=3, output_states=[pnl.RESULTS, pnl.OUTPUT_MEAN])
             mech_2 = pnl.TransferMechanism(name='Mech 2', size=5)
             mech_3 = pnl.TransferMechanism(name='Mech 3', size=2, function=pnl.Logistic(gain=pnl.CONTROL))
             my_process_A = pnl.Process(pathway=[mech_1, mech_3], learning=pnl.ENABLED)
             my_process_B = pnl.Process(pathway=[mech_2, mech_3])
             my_system = pnl.System(processes=[my_process_A, my_process_B],
                                    controller=pnl.ControlMechanism(name='my_system Controller'),
-                                   monitor_for_control=[(pnl.MEAN, mech_1)],
+                                   monitor_for_control=[(pnl.OUTPUT_MEAN, mech_1)],
                                    enable_controller=True)
 
         .. _System_show_graph_figure:
@@ -3880,6 +3885,11 @@ class System(System_Base):
         show_control :  bool : default False
             specifies whether or not to show the control components of the system;
             they will all be displayed in the color specified for **control_color**.
+
+        show_prediction_mechanisms :  bool : default False
+            specifies whether or not to show the `PredictionMechanisms <Prediction_Mechanism>` for the
+            `controller <System.controller>` of the System; they will be displayed in the color specified for
+            **prediction_mechanism_color**.  Only applicable if **show_control** is `True`.
 
         show_roles : bool : default False
             specifies whether or not to include the `role <System_Mechanisms>` that each Mechanism plays in the System
@@ -4451,7 +4461,7 @@ class System(System_Base):
                            color=learning_proj_color, penwidth=learning_proj_width)
             return True
 
-        def _assign_control_components(G, sg):
+        def _assign_control_components(G, sg, show_prediction_mechanisms):
             '''Assign control nodes and edges to graph, or subgraph for rcvr in any of the specified **processes** '''
 
             controller = self.controller
@@ -4606,50 +4616,51 @@ class System(System_Base):
                            color=proj_color, penwidth=proj_width)
 
             # prediction mechanisms
-            for mech in self.execution_list:
-                if mech in active_items:
-                    if active_color is BOLD:
-                        pred_mech_color = prediction_mechanism_color
-                    else:
-                        pred_mech_color = active_color
-                    pred_mech_width = str(default_width + active_thicker_by)
-                    self.active_item_rendered = True
-                else:
-                    pred_mech_color = prediction_mechanism_color
-                    pred_mech_width = str(default_width)
-                if mech._role is CONTROL and hasattr(mech, 'origin_mech'):
-                    recvr = mech.origin_mech
-                    recvr_label = self._get_label(recvr, show_dimensions, show_roles)
-                    # IMPLEMENTATION NOTE:
-                    #     THIS IS HERE FOR FUTURE COMPATIBILITY WITH FULL IMPLEMENTATION OF PredictionMechanisms
-                    if show_mechanism_structure and False:
-                        proj = mech.output_state.efferents[0]
-                        if proj in active_items:
-                            if active_color is BOLD:
-                                pred_proj_color = prediction_mechanism_color
-                            else:
-                                pred_proj_color = active_color
-                            pred_proj_width = str(default_width + active_thicker_by)
-                            self.active_item_rendered = True
+            if show_prediction_mechanisms:
+                for mech in self.execution_list:
+                    if mech in active_items:
+                        if active_color is BOLD:
+                            pred_mech_color = prediction_mechanism_color
                         else:
-                            pred_proj_color = prediction_mechanism_color
-                            pred_proj_width = str(default_width)
-                        sg.node(mech.name,
-                                shape=mech.show_structure(**mech_struct_args),
-                                color=pred_mech_color,
-                                penwidth=pred_mech_width)
-
-                        G.edge(mech.name + ':' + OutputState.__name__ + '-' + mech.output_state.name,
-                               recvr_label + ':' + InputState.__name__ + '-' + proj.receiver.name,
-                               label=' prediction assignment',
-                               color=pred_proj_color, penwidth=pred_proj_width)
+                            pred_mech_color = active_color
+                        pred_mech_width = str(default_width + active_thicker_by)
+                        self.active_item_rendered = True
                     else:
-                        sg.node(self._get_label(mech, show_dimensions, show_roles),
-                                color=pred_mech_color, shape=mechanism_shape, penwidth=pred_mech_width)
-                        G.edge(self._get_label(mech, show_dimensions, show_roles),
-                               recvr_label,
-                               label=' prediction assignment',
-                               color=prediction_mechanism_color)
+                        pred_mech_color = prediction_mechanism_color
+                        pred_mech_width = str(default_width)
+                    if mech._role is CONTROL and hasattr(mech, 'origin_mech'):
+                        recvr = mech.origin_mech
+                        recvr_label = self._get_label(recvr, show_dimensions, show_roles)
+                        # IMPLEMENTATION NOTE:
+                        #     THIS IS HERE FOR FUTURE COMPATIBILITY WITH FULL IMPLEMENTATION OF PredictionMechanisms
+                        if show_mechanism_structure and False:
+                            proj = mech.output_state.efferents[0]
+                            if proj in active_items:
+                                if active_color is BOLD:
+                                    pred_proj_color = prediction_mechanism_color
+                                else:
+                                    pred_proj_color = active_color
+                                pred_proj_width = str(default_width + active_thicker_by)
+                                self.active_item_rendered = True
+                            else:
+                                pred_proj_color = prediction_mechanism_color
+                                pred_proj_width = str(default_width)
+                            sg.node(mech.name,
+                                    shape=mech.show_structure(**mech_struct_args),
+                                    color=pred_mech_color,
+                                    penwidth=pred_mech_width)
+    
+                            G.edge(mech.name + ':' + OutputState.__name__ + '-' + mech.output_state.name,
+                                   recvr_label + ':' + InputState.__name__ + '-' + proj.receiver.name,
+                                   label=' prediction assignment',
+                                   color=pred_proj_color, penwidth=pred_proj_width)
+                        else:
+                            sg.node(self._get_label(mech, show_dimensions, show_roles),
+                                    color=pred_mech_color, shape=mechanism_shape, penwidth=pred_mech_width)
+                            G.edge(self._get_label(mech, show_dimensions, show_roles),
+                                   recvr_label,
+                                   label=' prediction assignment',
+                                   color=prediction_mechanism_color)
 
         # MAIN BODY OF METHOD:
 
@@ -4840,9 +4851,9 @@ class System(System_Base):
                     sg.attr(rank='top')
                     # sg.attr(style='filled')
                     # sg.attr(color='lightgrey')
-                    _assign_control_components(G, sg)
+                    _assign_control_components(G, sg, show_prediction_mechanisms)
             else:
-                _assign_control_components(G, G)
+                _assign_control_components(G, G, show_prediction_mechanisms)
 
         # GENERATE OUTPUT
 

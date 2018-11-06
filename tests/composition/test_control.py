@@ -11,9 +11,10 @@ class TestControlMechanisms:
         c.add_c_node(m1, required_roles=pnl.CNodeRole.ORIGIN)
         c.add_c_node(m2, required_roles=pnl.CNodeRole.ORIGIN)
         c._analyze_graph()
-        lvoc = pnl.LVOCControlMechanism(predictors=[{pnl.SHADOW_EXTERNAL_INPUTS: [m1, m2]}],
+        lvoc = pnl.LVOCControlMechanism(feature_predictors=[{pnl.SHADOW_EXTERNAL_INPUTS: [m1, m2]}],
                                         objective_mechanism=pnl.ObjectiveMechanism(monitored_output_states=[m1, m2]),
                                         terminal_objective_mechanism=True,
+                                        function=pnl.GridSearch(max_iterations=1),
                                         control_signals=[(pnl.SLOPE, m1), (pnl.SLOPE, m2)])
         c.add_c_node(lvoc)
         input_dict = {m1: [[1], [1]], m2: [1]}
@@ -36,9 +37,10 @@ class TestControlMechanisms:
         c.add_c_node(m1, required_roles=pnl.CNodeRole.ORIGIN)
         c.add_c_node(m2, required_roles=pnl.CNodeRole.ORIGIN)
         c._analyze_graph()
-        lvoc = pnl.LVOCControlMechanism(predictors=[{pnl.SHADOW_EXTERNAL_INPUTS: [m1, m2]}, m2],
+        lvoc = pnl.LVOCControlMechanism(feature_predictors=[{pnl.SHADOW_EXTERNAL_INPUTS: [m1, m2]}, m2],
                                         objective_mechanism=pnl.ObjectiveMechanism(monitored_output_states=[m1, m2]),
                                         terminal_objective_mechanism=True,
+                                        function=pnl.GridSearch(max_iterations=1),
                                         control_signals=[(pnl.SLOPE, m1), (pnl.SLOPE, m2)])
         c.add_c_node(lvoc)
         input_dict = {m1: [[1], [1]], m2: [1]}
@@ -48,21 +50,21 @@ class TestControlMechanisms:
 
         assert len(lvoc.input_states) == 5
 
-    def test_lvoc_predictors_function(self):
+    def test_lvoc_feature_predictors_function(self):
         m1 = pnl.TransferMechanism(input_states=["InputState A", "InputState B"])
         m2 = pnl.TransferMechanism()
         c = pnl.Composition()
         c.add_c_node(m1, required_roles=pnl.CNodeRole.ORIGIN)
         c.add_c_node(m2, required_roles=pnl.CNodeRole.ORIGIN)
         c._analyze_graph()
-        lvoc = pnl.LVOCControlMechanism(predictors=[{pnl.SHADOW_EXTERNAL_INPUTS: [m1, m2]}, m2],
-                                        predictor_function=pnl.LinearCombination(offset=10.0),
+        lvoc = pnl.LVOCControlMechanism(feature_predictors=[{pnl.SHADOW_EXTERNAL_INPUTS: [m1, m2]}, m2],
+                                        feature_function=pnl.LinearCombination(offset=10.0),
                                         objective_mechanism=pnl.ObjectiveMechanism(monitored_output_states=[m1, m2]),
                                         terminal_objective_mechanism=True,
+                                        function=pnl.GradientOptimization(max_iterations=1),
                                         control_signals=[(pnl.SLOPE, m1), (pnl.SLOPE, m2)])
         c.add_c_node(lvoc)
         input_dict = {m1: [[1], [1]], m2: [1]}
-
 
         c.run(inputs=input_dict)
 
@@ -200,8 +202,6 @@ class TestObjectiveMechanismRoles:
 
         c.add_linear_processing_pathway([lvoc, A])
 
-        c.show_graph()
-
         assert lvoc.objective_mechanism not in c.get_c_nodes_by_role(pnl.CNodeRole.ORIGIN)
 
     def test_origin_objective_mechanism_true_origin(self):
@@ -301,7 +301,7 @@ class TestObjectiveMechanismRoles:
 #             name='Input',
 #         )
 #         Reward = TransferMechanism(
-#             output_states=[RESULT, MEAN, VARIANCE],
+#             output_states=[RESULT, OUTPUT_MEAN, OUTPUT_VARIANCE],
 #             name='Reward'
 #         )
 #         Decision = DDM(
@@ -445,9 +445,9 @@ class TestObjectiveMechanismRoles:
 #         #     #       transfer mean
 #         #     (Reward.output_states[RESULT].value, np.array([15.])),
 #         #     #       transfer_result
-#         #     (Reward.output_states[MEAN].value, np.array(15.0)),
+#         #     (Reward.output_states[OUTPUT_MEAN].value, np.array(15.0)),
 #         #     #       transfer variance
-#         #     (Reward.output_states[VARIANCE].value, np.array(0.0)),
+#         #     (Reward.output_states[OUTPUT_VARIANCE].value, np.array(0.0)),
 #         #
 #         #     # System Results Array
 #         #     #   (all intermediate output values of system)

@@ -5,7 +5,7 @@ from psyneulink.core.components.mechanisms.processing.transfermechanism import T
 from psyneulink.core.components.process import Process
 from psyneulink.core.components.projections.modulatory.controlprojection import ControlProjection
 from psyneulink.core.components.system import System
-from psyneulink.core.globals.keywords import ALLOCATION_SAMPLES, IDENTITY_MATRIX, MEAN, RESULT, VARIANCE, CONTROL
+from psyneulink.core.globals.keywords import ALLOCATION_SAMPLES, IDENTITY_MATRIX, RESULT, VARIANCE, CONTROL
 from psyneulink.library.components.mechanisms.processing.integrator.ddm import DDM, DECISION_VARIABLE, PROBABILITY_UPPER_THRESHOLD, \
     RESPONSE_TIME
 from psyneulink.library.subsystems.param_estimator.paramestimationcontrolmechanism import \

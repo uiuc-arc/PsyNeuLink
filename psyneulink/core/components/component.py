@@ -42,11 +42,10 @@ If information necessary to complete initialization is not specified in the cons
 full initialization is deferred until its the information is available (e.g., the `State <State>` is assigned to a
 `Mechanism <Mechanism>`, or a `Projection <Projection>` is assigned its `sender <Projection_Base.sender>` and `receiver
 <Projection_Base.receiver>`).  This allows Components to be created before all of the information they require is
-available (e.g., at the beginning of a script). However, for the Component to be operational, initialization must be
-completed its `deferred_init` method must be called.  This is usually done automatically when the Component is
+available (e.g., at the beginning of a script). However, for the Component to be operational, its initialization must
+be completed by a call to it `deferred_init` method.  This is usually done automatically when the Component is
 assigned to another Component to which it belongs (e.g., assigning a State to a Mechanism) or to a Composition (e.g.,
-a Projection to the `pathway <Process.pahtway>`)
-of a `Process`), as appropriate.
+a Projection to the `pathway <Process.pahtway>`) of a `Process`), as appropriate.
 
 .. _Component_Structure:
 
@@ -865,7 +864,14 @@ class Param(types.SimpleNamespace):
         execution_id = parse_execution_context(execution_context)
 
         if self.setter is not None:
-            kwargs = {**self._default_setter_kwargs, **{'execution_id': execution_id}, **kwargs}
+            kwargs = {
+                **self._default_setter_kwargs,
+                **{
+                    'execution_id': execution_id,
+                    'override': override,
+                },
+                **kwargs
+            }
             value = call_with_pruned_args(self.setter, value, **kwargs)
 
         if not self.stateful:
@@ -1024,8 +1030,8 @@ class ParamAlias(types.SimpleNamespace, metaclass=_ParamAliasMeta):
     def get(self, execution_context=None, **kwargs):
         self.source.get(execution_context, **kwargs)
 
-    def set(self, value, execution_context=None, override=False):
-        self.source.set(value, execution_context, override)
+    def set(self, value, execution_context=None, override=False, skip_history=False, skip_log=False, **kwargs):
+        self.source.set(value, execution_context, override, skip_history, skip_log, **kwargs)
 
 
 class Parameters(ParamsTemplate):
@@ -1638,11 +1644,8 @@ class Component(object, metaclass=ComponentsMeta):
         self.__llvm_function_name = None
         self.__llvm_bin_function = None
 
-        self.nv_state = None
-
-
     @property
-    def llvmSymbolName(self):
+    def _llvm_symbol_name(self):
         if self.__llvm_function_name is None:
             self.__llvm_function_name = self._gen_llvm_function()
             self.__llvm_bin_function = None
@@ -1651,7 +1654,7 @@ class Component(object, metaclass=ComponentsMeta):
     @property
     def _llvmBinFunction(self):
         if self.__llvm_bin_function is None:
-            self.__llvm_bin_function = pnlvm.LLVMBinaryFunction.get(self.llvmSymbolName)
+            self.__llvm_bin_function = pnlvm.LLVMBinaryFunction.get(self._llvm_symbol_name)
         return self.__llvm_bin_function
 
     def _gen_llvm_function(self):
@@ -1659,10 +1662,10 @@ class Component(object, metaclass=ComponentsMeta):
         llvm_func = None
         with pnlvm.LLVMBuilderContext() as ctx:
             func_ty = ir.FunctionType(ir.VoidType(),
-                (self.get_param_struct_type().as_pointer(),
-                 self.get_context_struct_type().as_pointer(),
-                 self.get_input_struct_type().as_pointer(),
-                 self.get_output_struct_type().as_pointer()))
+                (ctx.get_param_struct_type(self).as_pointer(),
+                 ctx.get_context_struct_type(self).as_pointer(),
+                 ctx.get_input_struct_type(self).as_pointer(),
+                 ctx.get_output_struct_type(self).as_pointer()))
 
             func_name = ctx.get_unique_name(self.name)
             llvm_func = ir.Function(ctx.module, func_ty, name=func_name)
@@ -1876,7 +1879,14 @@ class Component(object, metaclass=ComponentsMeta):
                 pass
 
             # Complete initialization
+            # MODIFIED 10/27/18 OLD:
             super(self.__class__,self).__init__(**self.init_args)
+            # MODIFIED 10/27/18 NEW:  FOLLOWING IS NEEDED TO HANDLE FUNCTION DEFERRED INIT (JDC)
+            # try:
+            #     super(self.__class__,self).__init__(**self.init_args)
+            # except:
+            #     self.__init__(**self.init_args)
+            # MODIFIED 10/27/18 END
 
             # If name was assigned, "[DEFERRED INITIALIZATION]" was appended to it, so remove it
             if DEFERRED_INITIALIZATION in self.name:
@@ -3340,11 +3350,12 @@ class Component(object, metaclass=ComponentsMeta):
                 new_value = self.function_object.reinitialize(*args)
                 self.value = np.atleast_2d(new_value)
             else:
-                ComponentError("Reinitializing {} is not allowed because this Component is not stateful. "
+                raise ComponentError("Reinitializing {} is not allowed because this Component is not stateful. "
                                "(It does not have an accumulator to reinitialize).".format(self.name))
         else:
-            ComponentError("Reinitializing {} is not allowed because this Component is not stateful. "
+            raise ComponentError("Reinitializing {} is not allowed because this Component is not stateful. "
                            "(It does not have an accumulator to reinitialize).".format(self.name))
+        assert True
 
     def execute(self, variable=None, runtime_params=None, context=None):
         return self._execute(variable=variable, runtime_params=runtime_params, context=context)
