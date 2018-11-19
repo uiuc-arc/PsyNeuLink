@@ -34,27 +34,32 @@ parameters to be controlled specified for that System (see `System_Control`).
 
 import numpy as np
 import typecheck as tc
+from collections import Iterable
 
 import hddm
 
 from psyneulink import ContextFlags, EVCAuxiliaryError
+from psyneulink.core.globals.utilities import is_iterable
 from psyneulink.library.subsystems.param_estimator.hddm_psyneulink import HDDMPsyNeuLink
 
-from psyneulink.core.components.component import Param, function_type
-from psyneulink.core.globals.defaults import defaultControlAllocation
-from psyneulink.core.components.functions.function import Function_Base
-from psyneulink.core.globals.preferences.componentpreferenceset import is_pref_set, kpReportOutputPref
-from psyneulink.core.globals.keywords import CONTROL, COST_FUNCTION, FUNCTION, INITIALIZING, \
-    INIT_FUNCTION_METHOD_ONLY, PARAMETER_STATES, PREDICTION_MECHANISM, PREDICTION_MECHANISM_PARAMS, \
-    PREDICTION_MECHANISM_TYPE, SUM, PARAM_EST_MECHANISM, COMBINE_OUTCOME_AND_COST_FUNCTION, COST_FUNCTION, \
-    EXECUTING, FUNCTION_OUTPUT_TYPE_CONVERSION, INITIALIZING, PARAMETER_STATE_PARAMS, kwPreferenceSetName, \
-    kwProgressBarChar, COMMAND_LINE
-from psyneulink.core.components.shellclasses import Function, System_Base
+from psyneulink.core.components.mechanisms.adaptive.control.optimizationcontrolmechanism import \
+    OptimizationControlMechanism
+
+from psyneulink.core.components.mechanisms.mechanism import Mechanism
+from psyneulink.core.components.states.inputstate import InputState
+from psyneulink.core.components.states.outputstate import OutputState
+from psyneulink.core.components.states.parameterstate import ParameterState
+from psyneulink.core.components.component import Param
+from psyneulink.core.components.states.modulatorysignals.controlsignal import  ControlSignal
+from psyneulink.core.components.functions.function import Function_Base, _is_modulation_param, ModulationParam, \
+    is_function_type
+from psyneulink.core.globals.preferences.componentpreferenceset import kpReportOutputPref
+from psyneulink.core.globals.keywords import \
+    INIT_FUNCTION_METHOD_ONLY, PARAMETER_STATES, PARAM_EST_MECHANISM, FUNCTION_OUTPUT_TYPE_CONVERSION, \
+    PARAMETER_STATE_PARAMS, kwPreferenceSetName
+from psyneulink.core.components.shellclasses import System_Base
 from psyneulink.core.components.mechanisms.adaptive.control.controlmechanism import ControlMechanism
-from psyneulink.core.components.mechanisms.mechanism import MechanismList
-from psyneulink.core.components.mechanisms.processing import integratormechanism
 from psyneulink.core.components.mechanisms.processing.objectivemechanism import ObjectiveMechanism
-from psyneulink.core.components.projections.pathway.mappingprojection import MappingProjection
 from psyneulink.core.globals.preferences.preferenceset import PreferenceEntry, PreferenceLevel
 from psyneulink.core.globals.preferences.componentpreferenceset import is_pref_set
 from psyneulink.core.scheduling.time import TimeScale
@@ -161,7 +166,7 @@ class MCMCParamSampler(Function_Base):
         return allocation_policy
 
 
-class ParamEstimationControlMechanism(ControlMechanism):
+class ParamEstimationControlMechanism(OptimizationControlMechanism):
     componentType = PARAM_EST_MECHANISM
     initMethod = INIT_FUNCTION_METHOD_ONLY
 
@@ -182,37 +187,52 @@ class ParamEstimationControlMechanism(ControlMechanism):
     @tc.typecheck
     def __init__(self,
                  data_in_file,
-                 system: tc.optional(System_Base) = None,
-                 control_signals: tc.optional(list) = None,
+                 feature_predictors: tc.optional(tc.any(Iterable, Mechanism, OutputState, InputState)) = None,
+                 feature_function: tc.optional(tc.any(is_function_type)) = None,
                  objective_mechanism: tc.optional(tc.any(ObjectiveMechanism, list)) = None,
+                 origin_objective_mechanism=False,
+                 terminal_objective_mechanism=False,
+                 learning_function=None,
+                 prediction_terms: tc.optional(list) = None,
                  function=MCMCParamSampler,
+                 control_signals: tc.optional(tc.any(is_iterable, ParameterState, ControlSignal)) = None,
+                 modulation: tc.optional(_is_modulation_param) = ModulationParam.MULTIPLICATIVE,
                  params=None,
                  name=None,
-                 prefs: is_pref_set = None):
+                 prefs: is_pref_set = None,
+                 **kwargs):
+
 
         # Assign args to params and functionParams dicts (kwConstants must == arg names)
-        params = self._assign_args_to_param_dicts(system=system,
-                                                  objective_mechanism=objective_mechanism,
-                                                  function=function,
-                                                  control_signals=control_signals,
+        params = self._assign_args_to_param_dicts(input_states=feature_predictors,
+                                                  feature_function=feature_function,
+                                                  prediction_terms=prediction_terms,
+                                                  origin_objective_mechanism=origin_objective_mechanism,
+                                                  terminal_objective_mechanism=terminal_objective_mechanism,
                                                   params=params)
 
-        # Create a statistical model using HDDM.
+        # Lets load the data file
         self.data = hddm.load_csv(data_in_file)
 
-        super(ParamEstimationControlMechanism, self).__init__(
-            system=system,
-            function=function,
-            objective_mechanism=objective_mechanism,
-            control_signals=control_signals,
-            params=params,
-            name=name,
-            prefs=prefs)
+        super().__init__(objective_mechanism=objective_mechanism,
+                         learning_function=learning_function,
+                         function=function,
+                         control_signals=control_signals,
+                         modulation=modulation,
+                         params=params,
+                         name=name,
+                         prefs=prefs)
 
     @tc.typecheck
     def assign_as_controller(self, system: System_Base, context=ContextFlags.COMMAND_LINE):
         super().assign_as_controller(system=system, context=context)
         self.hddm_model = HDDMPsyNeuLink(data=self.data, system=system)
+
+    def _instantiate_attributes_after_function(self, context=None):
+        '''Assign ParamEstimationControlMechanism's objective_function'''
+
+        self.objective_function = None
+        super()._instantiate_attributes_after_function(context=context)
 
     def _execute(
         self,
