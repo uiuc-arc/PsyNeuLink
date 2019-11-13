@@ -28,7 +28,7 @@ requirements:
     - matplotlib
     - numpy
     - pillow
-    - torch
+    - pytorch
     - graphviz
 
     # ELFI deps
