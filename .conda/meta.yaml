@@ -1,0 +1,37 @@
+{% set data = load_setup_py_data() %}
+
+package:
+  # Repeating name because of the following issue:
+  # https://github.com/conda/conda-build/issues/2475
+  name: psyneulink
+  version: {{ GIT_DESCRIBE_TAG[1:] }}
+
+about:
+  home: {{ data.get('url') }}
+  license: {{ data.get('license') }}
+  summary: {{ data.get('description') }}
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+
+source:
+  path: ../
+
+requirements:
+  host:
+    - python>=3.6
+
+  run:
+    - python>=3.6
+    - dill
+    - llvmlite
+    - matplotlib
+    - numpy
+    - pillow
+    - torch
+    - graphviz
+
+    # ELFI deps
+    - scipy>=0.19
+    - networkX<2.0
+    - ipyparallel>=6
