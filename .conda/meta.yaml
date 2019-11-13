@@ -20,6 +20,18 @@ source:
 requirements:
   host:
     - python>=3.6
+    - dill
+    - llvmlite
+    - matplotlib
+    - numpy
+    - pillow
+    - pytorch
+    - graphviz
+
+    # ELFI deps
+    - scipy>=0.19
+    - networkX<2.0
+    - ipyparallel>=6
 
   run:
     - python>=3.6
