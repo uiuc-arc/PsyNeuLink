@@ -27,77 +27,126 @@ definition of new components of the core standard itself.
 Overall structure
 -----------------
 
+XXX REWORD BY DESIGNATING 5 PRIMARY TYPES OF OBJECT:  **graph**, **node**, **edge**, **port** and **function**
+
 The BIDS-MDF is a hierarchically orgainzed format using JSON-compliant syntax, that can be used to describe one or model
 models in a single text file.  The outermost level of the specificaton is a dictionary with a single entry named
 ``graphs``, the value of which is a ``list`` of  **graph** objects.  Each **graph** object is a dictionary that
-defines a single model.  Each **graph** dictionary must have at least two entries, named **nodes** and **edges**. 
-Each entry in the **node** and **edge** dictionaries is itself a dictionary that contains object-specifific
-entries.  A **node** entry can contain a graph, that can be used to describe hierarchically-structured models.
-The outermost structure of the JSON specification looks like this: 
+defines a single model.  Each **graph** dictionary must have at least two entries, named **nodes** and **edges**.
+It can also have additional entries (see below), some of which are generic (i.e., that can be used by any object
+in the BIDS-MDF format -- see ``Entries common to all objects`` below).  Each entry in the **node** and **edge**
+dictionaries must be another dictionary that contains object-specifific entries.  Thus, the overall scheme of a BIDS-MDF
+specification looks like this:
 
     {
         "graphs": [
             {
+                "name": {                                   # Optional
+                    "Example Model"
+                }
+                "nodes": {                                  # Required
+                    ... dictionaries for node objects
+                }
+                "edges": {                                  # Required
+                    ... dictionaries for edge objects
+                }
+             }
+            {
+                "name": {
+                    "Another Model"
+                }
                 "nodes": {
-                    ... node entries
+                    ... dictionaries for node objects
                 }
                 "edges": {
-                    ... edge entries
+                    ... dictionaries for edge objects
                 }
              }
          ]
      }
 
-
-
-Where a modeling environment requires specification of objects or other information
+A **node** can contain an entry for another graph, that can be used to describe hierarchically-structured
+models.  Where a modeling environment requires specification of objects or other information
 not (yet) supported by the standard, environment-specific entries can be included using a name for the environment as
 the entry's key.  In the examples below, PsyNeuLink (PNL) is used to demonstrate such environment-specific entries.
 
 Entries common to all objects
 -----------------------------
 
-Every entry can have the 
+The following entries can be used in any BIDS-MDF object (using the strings shown below as their keys):
 
 * ``name`` : a label for the object
 
-* ``parameters`` (non-**function**s) / ``args`` (**function**s) : a dictionary where each entry is either a
-  parameter name and value, or a subdictionary of modeling-environment specific parameter-value pairs.
+* ``type`` : a dictionary used to describe the type of object specified by the entry.  The ``generic`` entry
+  contains types supported by the standard (e.g., certain common types of functions;  see XXX);  in addition, the
+  type can include environment-specific entries.  For example, the following specifies a graph that has two **nodes**,
+  one of which is a nested **graph**, as specified by its ``type`` entry:
+
+      "graphs": [
+          {
+              "nodes": {
+                  "Processing Unit": {
+                      ... node specifications
+                  }
+                  "Nested Graph": {
+                      "type": {
+                          "generic": "graph"
+                          "PNL": "Composition"
+                      }
+                  }
+              }
+
+  Here, the ``generic`` entry of ``type`` is used to specify that it is a graph (recognized by the BIDS-MSF standard),
+  while the ``PNL`` entry is used to specify the PNL-specific designation of a graph ("Composition").
 
 
-    "args": {
-        "PNL": {
-            "execution_count": 0,
-            "has_initializers": false,
-            "variable": [
-                0.01
-            ]
-        },
-        "bounds": null,
-        "intercept": 0.0,
-        "slope": 1.0
+XXX ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD COMBINE THESE TO MAKE IT SIMPLER:
+* ``parameters`` (non-**function**s) / ``args`` (**function**s) : this allows the specification of variables associated
+  with an object being specified.  For all objects other than **functions**, these are called ``parameters``, and for
+  **functions** they are called ``args`` (see XXX for discussion of **functions**).  In either case, value of the entry
+  is a dictionary that contains name-value pairs.  For example, an entry for a node that implements a processing unit
+  could have a ``parameter`` entry that specifies it **input_format** and the value of its **initializer** parameter:
+
+      "nodes": {
+          "Processing Unit": {
+              "parameters": {
+                    "input_format": "SCALAR",
+                    "initializer": [[0]]
+               }
+          }
+       }
+
+  It could also have a ``function`` entry that specifies the function it uses to generate its output;  that ``function``
+  entry could include, in addition to the specification of its type, an ``args`` entry that specifies the arguments to
+  the function and their values:
+
+    "nodes": {
+        "Processing Unit": {
+          "function": {
+                "type": "Linear"
+                "args": {
+                    "bounds": null,
+                    "intercept": 0.0,
+                    "slope": 1.0
+                }
+            }
+        }
     }
 
-Note that the value of a parameter may be a long-form dictionary when it corresponds to a **port**.
-In this case, it will indicate the **port** in a `source` field:
+    The ``parameters`` entry of a node can also include a subdictionary of environment-specific parameter-value
+    pairs, such as the following:
 
+      "parameters": {
+            "input_format": "SCALAR",
+            "initializer": [[0]]
+            "PNL": {                        # This is a subdictionary of PNL-specific parameters and their values
+                "execution_count": 0,
+                "has_initializers": false,
+            }
+        }
 
-    "intercept": {
-        "source": "A.input_ports.intercept",
-        "type": "float",
-        "value": 2.0
-    }
-
-* ``type`` : a dictionary with entries based on modeling environment to describe the type of the object.
-  The `generic` entry is populated if the object has a universal name (such as a linear function).
-  Modeling-environment-specific entries are populated when relevant:
-
-
-    "type": {
-        "PNL": "Composition",
-        "generic": "graph"
-    }
-
+Object types and object-specific entries
+----------------------------------------
 
 **Nodes**, **edges**, and **ports** each have:
 
@@ -149,6 +198,20 @@ Non-**graph** **Nodes** have:
 to numpy ndarray shapes. (`numpy.zeros(<shape>)` would produce an \
 array with the correct shape)
 
+------------------
+XXXX MOVED FROM ABOVE:
+Note that the value of a parameter may be a long-form dictionary when it corresponds to a **port**.
+In this case, it will indicate the **port** in a `source` field:
+
+
+    "intercept": {
+        "source": "A.input_ports.intercept",
+        "type": "float",
+        "value": 2.0
+    }
+-----------------
+
+
 **Graphs** have:
 
 * ``nodes`` : a dictionary of Mechanisms or Compositions keyed on \
@@ -157,4 +220,6 @@ their names that are part of the Composition
 * ``edges`` : a dictionary of Projections keyed on their names that \
 connect nodes of the Composition
 
+0XXX ??IS THIS GENERAL, OR SPECIFIC TO PNL:
 * ``controller`` : the name of the **node** in the **graph**'s node list that serves as the graph's controller, if it exists
+
