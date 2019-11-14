@@ -333,6 +333,11 @@ class TestProcessingMechanismStandardOutputPorts:
         assert np.allclose(PM1.output_ports[0].value,[0,0,1])
 
     def test_prob(self):
+        np.random.seed(0)
         PM1 = ProcessingMechanism(default_variable=[0,0,0], output_ports=[PROB])
         PM1.execute([1,2,4])
         assert np.allclose(PM1.output_ports[0].value,[0,0,4])
+        # np.random.seed()
+        # PM1 = ProcessingMechanism(default_variable=[0,0,0], output_ports=[PROB])
+        # PM1.execute([1,2,4])
+        # assert np.allclose(PM1.output_ports[0].value,[0,2,0])
