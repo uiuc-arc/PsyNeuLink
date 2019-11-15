@@ -1,59 +1,59 @@
 --------
-BIDS Model Description Format (BIDS-MDF) 
+BIDS Model Description Format (BIDS-MDF)
 ========================================
 
-Overivew
+Overview
 --------
 
-The purpose of the BIDS-MSF is to provide a standard, JSON-based format for describing computatonal models of
+The purpose of the BIDS-MSF is to provide a standard, JSON-based format for describing computational models of
 brain and/or mental function.  The goal is to provide a common exchange format that allows models created in one
 environment that supports the standard to be expressed in a form -- and in sufficient detail -- that it can be
 imported into another modeling environment that supports the standard, and then executed in that environment with
-identical results,  and/or integrated with other models in that environment. 
-    
+identical results,  and/or integrated with other models in that environment.
+
 The format assumes that models can be expressed as graphs, in which each node is a computational component, and edges
 specify connections between them that (at least partially) determine the flow of computation.  In this respect,
 they are similar to more generic forms of computational graphs.  However the standard supports the expression of
 more specific elements within nodes and edges that are central to models of brain function (e.g., the inclusion of
-"ports" in nodes that are dedicdated to processing the input and/or output of a node; and the "weight" and/or "function" 
+"ports" in nodes that are dedicated to processing the input and/or output of a node; and the "weight" and/or "function"
 of an edge that allows it to do more than simply relay information unmodified from one node to another.  Finally, the
 standard allows elements that are specific to a particular modeling environment to be expressed in a circumscribed
 form, so that the format can be used to "serialize" models from that environment, and makes them accessible to other
 environments that specifically support those constructs from the origin environment.  This latter capability provides
-a way not only for extending the standard to accomodate the specific needs of individual environments, but also as a
+a way not only for extending the standard to accommodate the specific needs of individual environments, but also as a
 path toward extending the standard:  recurring extensions that serve similar purposes help identify targets for the
-definition of new components of the core standard itself. 
-            
+definition of new components of the core standard itself.
+
 Basic Constructs
 ----------------
 
 The BIDS-MDF format assumes that a model can be expressed as a graph made up of the following four basic types of
-objects:  
+objects:
 
 * **nodes** - the basic computational elements of a model;
 
 * **edges** - directed connections between **nodes** that help determine the flow of computations;
 
-* **ports** - components that belong to a **node** and mediate its **function** and its incoming and outgoing 
+* **ports** - components that belong to a **node** and mediate its **function** and its incoming and outgoing
               **edge(s)**;
 
 * **functions** - can belong to any of the other components, and specify the particular computation(s) carried
-                  out by that component. 
-  
+                  out by that component.
+
 In addition, the standard allows the specification of **parameters** for **nodes**, **edges** and **ports**,
-and **arguments** for **functions**.  The format for specifying these components is described below. 
+and **arguments** for **functions**.  The format for specifying these components is described below.
 
 Overall structure
 -----------------
 
-The BIDS-MDF is a hierarchically orgainzed format using JSON-compliant syntax, that can be used to describe one or 
-more models in a single text file.  The outermost level of the specificaton is a dictionary with a single entry named
+The BIDS-MDF is a hierarchically organized format using JSON-compliant syntax, that can be used to describe one or
+more models in a single text file.  The outermost level of the specification is a dictionary with a single entry named
 ``graphs``, the value of which is a list of  **graph** objects.  Each **graph** object is a dictionary that
 defines a single model.  Each **graph** dictionary must have at least two entries, named ``nodes`` and ``edges``,
 each of which is a dictionary with entries describing the **nodes** and **edges** of the graph, respectively.
-Each entry in the **node** and **edge** dictionaries must be another dictionary that contains object-specifific
-entries.   The ``nodes`` dictionary, in addition to entries describing nodes, ca also contain entries that are 
-themselves graphs, which can be used to described hierarchically-structured models.  In addition to the ``nodes`` 
+Each entry in the **node** and **edge** dictionaries must be another dictionary that contains object-specific
+entries.   The ``nodes`` dictionary, in addition to entries describing nodes, ca also contain entries that are
+themselves graphs, which can be used to described hierarchically-structured models.  In addition to the ``nodes``
 and ``edges`` entries, a ``graph`` object can have additional generic entries, some of which are generic (see
 ``Entries common to all objects`` below).  The following provides an example of the overall scheme of a BIDS-MDF
 specification:
@@ -89,7 +89,7 @@ In addition to these standard entries, a modeling environment that requires obje
 specified that is not (yet) supported by the standard, can include entries for such information using a name of the
 environment as the key.  In the examples below, PsyNeuLink (PNL) is used to demonstrate such environment-specific
 entries.
-  
+
 Entries common to all objects
 -----------------------------
 
@@ -123,10 +123,10 @@ The following entries can be used in any BIDS-MDF object (using the strings show
 ###### ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD COMBINE THESE TO MAKE IT SIMPLER:
 * ``parameters`` (for non-**function** entries) or ``args`` (for **functions** entries) : this allows the specification
   of variable attributes of the object being specified.  For all objects other than **functions**, these are called
-  ``parameters``, and for **functions** they are called ``args``.  For example, the following contains an entry for a 
+  ``parameters``, and for **functions** they are called ``args``.  For example, the following contains an entry for a
   **node** ("Processing Unit"), that has specifications for two of its **parameters** ("input_format" and
    "initializer"), as well as a **functions** entry that specifies a function and its **type** as well as its **args**:
- 
+
         "nodes": {
             "Processing Unit": {
                 "functions": [
@@ -142,8 +142,8 @@ The following entries can be used in any BIDS-MDF object (using the strings show
             }
         }
 
-    The ``parameters`` entry of a **node** (or ``args`` entry of a *function**) can also include a subdictionary of
-    environment-specific parameter-value (or arg-value) pairs, as in the following example:
+The ``parameters`` entry of a **node** (or ``args`` entry of a *function**) can also include a subdictionary of
+environment-specific parameter-value (or arg-value) pairs, as in the following example:
 
       "parameters": {
             "input_format": "SCALAR",
@@ -159,12 +159,12 @@ Object-specific entries
 
 #### *Nodes, edges, and ports*
 
-These objects can all include a ``functions`` entry, that specifies noe or more **functions** that belong to the object:
+These objects can all include a ``functions`` entry, that specifies one or more **functions** that belong to the object:
 
 * ``functions`` : a list of **function** objects. As noted above, each of these can have an ``args`` entry that,
   in turn, can contain entries that are either simple parameter-value pairs (as in the example above), or a dictionary
   that provides more detailed information about an argument, including its **type** and **value** as in the example
-  below: 
+  below:
 
         "functions": [
             {
@@ -187,7 +187,7 @@ These objects can all include a ``functions`` entry, that specifies noe or more 
             }
         ]
 
-    Note that the ``source`` entry can reference a ``port`` used to determine the value of the argument when the 
+    Note that the ``source`` entry can reference a ``port`` used to determine the value of the argument when the
     model is executed (see [ports](#ports)] below);  the reference must use dot-delimited notation, beginning with the
     name of the **node** to which the **port** belongs (``A`` in the example above), followed by ``input_ports
     `` entry, and then name of the input_port from which the argument should receive its value.
@@ -196,9 +196,9 @@ These objects can all include a ``functions`` entry, that specifies noe or more 
 
 #### Non-**graph** **nodes**
 
-These can have one or both of the following entries that specify the **node**'s **ports**  
+These can have one or both of the following entries that specify the **node**'s **ports**
 
-* ``input_ports`` : a list of **port** objects that can be referenced by the ``source`` entry of an ``args`` dictionary 
+* ``input_ports`` : a list of **port** objects that can be referenced by the ``source`` entry of an ``args`` dictionary
   (see [parameters and args](#paramters-or-args) above), or the ``sender_port`` entry of an ``edges`` dictionary (see
    [edges](#edges) below).
 
@@ -208,21 +208,21 @@ These can have one or both of the following entries that specify the **node**'s 
 #### **Ports**
 
 These are used to specify entries in the ``input_ports`` and/or ``output_ports`` entry of a **node**, and can
-be referenced, respectively, by the ``sender_port`` and ``receiver_port`` entries of an **edge**, and by ``source`` 
-in the ``args`` entry of a **function**.    
+be referenced, respectively, by the ``sender_port`` and ``receiver_port`` entries of an **edge**, and by ``source``
+in the ``args`` entry of a **function**.
 
-* ``dtype`` : the type of the input received by a **port** listed in the ``input_ports`` entry of a **node**, 
-  or of the output sent by a **port** listed in the ``output_ports`` entry of a **node**;  this uses the same 
+* ``dtype`` : the type of the input received by a **port** listed in the ``input_ports`` entry of a **node**,
+  or of the output sent by a **port** listed in the ``output_ports`` entry of a **node**;  this uses the same
   syntax as [numpy.dtype](https://docs.scipy.org/doc/numpy/reference/generated/numpy.dtype.html).
 
-* ``shape`` : the shape of the input or output of a **port**. This uses the same syntax as numpy ndarray shapes 
+* ``shape`` : the shape of the input or output of a **port**. This uses the same syntax as numpy ndarray shapes
   (e.g., `numpy.zeros(<shape>)` would produce an array with the correct shape).
 
 #### **Edges**
 
-These must contain the following entries that specifiy edge's sender and receiver. This can include the **port** to
+These must contain the following entries that specify edge's sender and receiver. This can include the **port** to
 which the edge connects on a **node**; if either of the **port** specifications is omitted for an **edge**, then
-the envirnoment must not use ports, or it must be able to assign a suitable default for the referenced ``sender``
+the environment must not use ports, or it must be able to assign a suitable default for the referenced ``sender``
 or ``receiver`` **node**.
 
 * ``sender`` : the name of its source **node**.
