@@ -58,6 +58,8 @@ and ``edges`` entries, a ``graph`` object can have additional generic entries, s
 ``Entries common to all objects`` below).  The following provides an example of the overall scheme of a BIDS-MDF
 specification:
 
+[KDM: we need parameters entries in graphs to store schedulers (and controllers, see below) unless we don't need these to be replicable]::
+
     {
         "graphs": [
             {
@@ -70,6 +72,9 @@ specification:
                 "edges": {                                  # Required
                     ... dictionaries for edge objects
                 }
+                "parameters": {                             # Optional
+                    ... dictionaries for parameters
+                }
              }
             {
                 "name": {
@@ -80,6 +85,9 @@ specification:
                 }
                 "edges": {
                     ... dictionaries for edge objects
+                }
+                "parameters": {
+                    ... dictionaries for parameters
                 }
              }
          ]
@@ -121,9 +129,16 @@ The following entries can be used in any BIDS-MDF object (using the strings show
 
 
 ###### ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD COMBINE THESE TO MAKE IT SIMPLER:
+
+[KDM: No, there's no reason on my part, that was just how the original spec listed it, so I implemented it that way. I think it would be better to choose one name]::
+
 * ``parameters`` (for non-**function** entries) or ``args`` (for **functions** entries) : this allows the specification
   of variable attributes of the object being specified.  For all objects other than **functions**, these are called
   ``parameters``, and for **functions** they are called ``args``.  For example, the following contains an entry for a
+
+    [KDM: include parameters for the node or remove this sentence?]::
+    [KDM: singular function or list of functions?]::
+
   **node** ("Processing Unit"), that has specifications for two of its **parameters** ("input_format" and
    "initializer"), as well as a **functions** entry that specifies a function and its **type** as well as its **args**:
 
@@ -141,6 +156,9 @@ The following entries can be used in any BIDS-MDF object (using the strings show
                 ]
             }
         }
+
+[KDM: the input_format is already specified in input_ports objects in dtype and shape, maybe reference that or choose another parameter?]::
+[KDM: could, or must include function and args for the function? functions I think must have args because we probably can't assume that default values both exist and are the same across modeling envs]::
 
 The ``parameters`` entry of a **node** (or ``args`` entry of a *function**) can also include a subdictionary of
 environment-specific parameter-value (or arg-value) pairs, as in the following example:
@@ -194,6 +212,8 @@ These objects can all include a ``functions`` entry, that specifies one or more 
     ###### ??PNL ALLOWS THE NAME OF THE NODE (MECHANISM) TO BE USED IN PLACE OF THE INPUTPORT.  THIS IS SEEMS TO BE
     ######  SUPPORTED FOR EDGES (SEE BELOW).  SHOULD WE DO THE SAME FOR SOURCE SPECIFICATIONS?
 
+    [KDM: maybe, but I'd wait and see what they say. Suppose they might have a use for a "combined" input port with a name that isn't the same as the arg name]::
+
 #### Non-**graph** **nodes**
 
 These can have one or both of the following entries that specify the **node**'s **ports**
@@ -235,5 +255,8 @@ or ``receiver`` **node**.
 
 
 ###### ??IS THIS GENERAL, OR SPECIFIC TO PNL:
+
+[KDM: it can be moved to a PNL model-specific parameters dict if it's not general]::
+
 * ``controller`` : the name of the **node** in the **graph**'s node list that serves as the graph's controller, if it exists
 
