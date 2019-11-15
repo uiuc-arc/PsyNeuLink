@@ -120,7 +120,7 @@ The following entries can be used in any BIDS-MDF object (using the strings show
   while the ``PNL`` entry is used to specify the PNL-specific designation of a graph ("Composition").
 
 
-# ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD COMBINE THESE TO MAKE IT SIMPLER:
+###### ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD COMBINE THESE TO MAKE IT SIMPLER:
 * ``parameters`` (for non-**function** entries) or ``args`` (for **functions** entries) : this allows the specification
   of variable attributes of the object being specified.  For all objects other than **functions**, these are called
   ``parameters``, and for **functions** they are called ``args``.  For example, the following contains an entry for a 
@@ -157,7 +157,7 @@ The following entries can be used in any BIDS-MDF object (using the strings show
 Object-specific entries
 -----------------------
 
-*Nodes, edges, and ports*
+#### *Nodes, edges, and ports*
 
 These objects can all include a ``functions`` entry, that specifies noe or more **functions** that belong to the object:
 
@@ -191,10 +191,10 @@ These objects can all include a ``functions`` entry, that specifies noe or more 
     model is executed (see [ports](#ports)] below);  the reference must use dot-delimited notation, beginning with the
     name of the **node** to which the **port** belongs (``A`` in the example above), followed by ``input_ports
     `` entry, and then name of the input_port from which the argument should receive its value.
-    # PNL ALLOWS THE NAME OF THE NODE (MECHANISM) TO BE USED IN PLACE OF THE INPUTPORT.  THIS IS SEEMS TO BE 
-    #  SUPPORTED FOR EDGES (SEE BELOW).  SHOULD WE DO THE SAME FOR SOURCE SPECIFICATIONS? 
+    ###### ??PNL ALLOWS THE NAME OF THE NODE (MECHANISM) TO BE USED IN PLACE OF THE INPUTPORT.  THIS IS SEEMS TO BE
+    ######  SUPPORTED FOR EDGES (SEE BELOW).  SHOULD WE DO THE SAME FOR SOURCE SPECIFICATIONS?
 
-Non-**graph** **nodes**
+#### Non-**graph** **nodes**
 
 These can have one or both of the following entries that specify the **node**'s **ports**  
 
@@ -205,7 +205,7 @@ These can have one or both of the following entries that specify the **node**'s 
 * ``output_ports`` : a list of **port** objects that can be referenced by the ``receiver_port`` entry of an ``edges
 `` dictionary (see [edges](#edges) below).
 
-**Ports**
+#### **Ports**
 
 These are used to specify entries in the ``input_ports`` and/or ``output_ports`` entry of a **node**, and can
 be referenced, respectively, by the ``sender_port`` and ``receiver_port`` entries of an **edge**, and by ``source`` 
@@ -218,7 +218,7 @@ in the ``args`` entry of a **function**.
 * ``shape`` : the shape of the input or output of a **port**. This uses the same syntax as numpy ndarray shapes 
   (e.g., `numpy.zeros(<shape>)` would produce an array with the correct shape).
 
-**Edges**
+#### **Edges**
 
 These must contain the following entries that specifiy edge's sender and receiver. This can include the **port** to
 which the edge connects on a **node**; if either of the **port** specifications is omitted for an **edge**, then
@@ -234,6 +234,6 @@ or ``receiver`` **node**.
 * ``receiver_port`` : the name of the **port** on the ``receiver`` **node** to which it connects.
 
 
-# ??IS THIS GENERAL, OR SPECIFIC TO PNL:
+###### ??IS THIS GENERAL, OR SPECIFIC TO PNL:
 * ``controller`` : the name of the **node** in the **graph**'s node list that serves as the graph's controller, if it exists
 
