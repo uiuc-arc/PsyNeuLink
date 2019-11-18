@@ -118,7 +118,7 @@ The following entries can be used in any BIDS-MDF object (using the strings show
                   "Processing Unit": {
                       ... node specifications
                   }
-                  "Nested Graph": {
+                  "A Nested Graph": {
                       "type": {
                           "generic": "graph"
                           "PNL": "Composition"
@@ -130,17 +130,17 @@ The following entries can be used in any BIDS-MDF object (using the strings show
   while the ``PNL`` entry is used to specify the PNL-specific designation of a graph ("Composition").
 
 
-[JDC: ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD THESE BE COMBINEd TO MAKE IT SIMPLER]::
+[JDC: ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD THESE BE COMBINED TO MAKE IT SIMPLER]::
 [KDM: No, there's no reason on my part, that was just how the original spec listed it, so I implemented it that way. I think it would be better to choose one name]::
 
-* ``parameters`` (for non-**function** entries) or ``args`` (for **functions** entries) : this allows the specification
-  of variable attributes of the object being specified.  For all objects other than **functions**, these are called
+* ``parameters`` (for non-**function** entries) or ``args`` (for **functions** entries) : this is used to specificy
+  attributes of the object.  For all objects other than **functions**, these are called
   ``parameters``, and for **functions** they are called ``args``.  For example, the following contains an entry for a
 
     [KDM: include parameters for the node or remove this sentence?]::
     [JDC: added them, but are they PNL-specific?  If so, then need to use standard ones...which are??]::
     [KDM: singular function or list of functions?]::
-    [JDC: I though ``functions`` was BIDS-MDF defined the name of the entry]
+    [JDC: I thought ``functions`` was BIDS-MDF defined the name of the entry, even if the object has only one]::
 
   **node** ("Processing Unit"), that has specifications for two of its **parameters** ("input_format" and
    "initializer"), as well as a **functions** entry that specifies a function and its **type** as well as its **args**:
@@ -169,7 +169,7 @@ The following entries can be used in any BIDS-MDF object (using the strings show
 [JDC: Not sure I follow... should discuss]::
 The ``parameters`` entry of a **node** (or ``args`` entry of a *function**) can also include a subdictionary of
 environment-specific parameter-value (or arg-value) pairs.  For example, the ``parameters`` entry below adds entries 
-that for two parameters -- ``execution_count`` and ``has_initializers`` -- tha are specific to the PsyNeuLink (PNL) 
+for two parameters -- ``execution_count`` and ``has_initializers`` -- that are specific to the PsyNeuLink (PNL) 
 environment: 
 
       "parameters": {
