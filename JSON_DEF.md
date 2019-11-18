@@ -59,8 +59,9 @@ entry in the exaple below;  see ``Entries common to all objects`` for a full lis
 ``parameters`` entry, that contains specfications required by specific environments.  The following provides an
 example of the overall scheme of a BIDS-MDF specification:
 
-[KDM: we need parameters entries in graphs to store schedulers (and controllers, see below) unless we don't need these to be replicable]::
-[JDC: Are the additions above and in the example below now correct?]::
+[Should we add schedulers as a standard/generic parameter type to deal with aspects of computational flow
+that are not determined by the structure of the garph itself??;  controller is another example of this (that we have
+ added below to show how it would be done... but should probably be discussed further]::
 
     {
         "graphs": [
@@ -74,8 +75,9 @@ example of the overall scheme of a BIDS-MDF specification:
                 "edges": {                                  # Required
                     ... dictionaries for edge objects
                 }
-                "parameters": {                             # Optional (for envirnoment-specific specifications)
-                    ... dictionaries for environment-specific parameters
+                "parameters": {                             # Optional (for parameters of the graph)
+                    ... dictionaries for graph parameters
+                    
                 }
              }
             {
@@ -89,7 +91,7 @@ example of the overall scheme of a BIDS-MDF specification:
                     ... dictionaries for edge objects
                 }
                 "parameters": {
-                    ... dictionaries for environment-specific parameters
+                    ... dictionaries for graph parameters
                 }
              }
          ]
@@ -131,25 +133,26 @@ The following entries can be used in any BIDS-MDF object (using the strings show
 
 
 [JDC: ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD THESE BE COMBINED TO MAKE IT SIMPLER]::
-[KDM: No, there's no reason on my part, that was just how the original spec listed it, so I implemented it that way. I think it would be better to choose one name]::
+[KDM: No, there's no reason on my part, that was just how the original spec listed it, so I implemented it that way. 
+I think it would be better to choose one name]::
 
 * ``parameters`` (for non-**function** entries) or ``args`` (for **functions** entries) : this is used to specificy
-  attributes of the object.  For all objects other than **functions**, these are called
-  ``parameters``, and for **functions** they are called ``args``.  For example, the following contains an entry for a
+  attributes of the object.  For all objects other than **functions**, these are called ``parameters``, and for
+  **functions** they are called ``args``.  For example, the following contains an entry for a **node** ("Processing
+  Unit"), that has specifications for one of its standard **parameters** (``initializer``), as well as a ``functions`` 
+  entry that specifies the list of functions for the node well as the **type** and **args** for each function.  For
+  example, the node for **Processing Unit** in the example below has a single parameter specified, and a single
+  function that is specified as follows:
 
-    [KDM: include parameters for the node or remove this sentence?]::
-    [JDC: added them, but are they PNL-specific?  If so, then need to use standard ones...which are??]::
-    [KDM: singular function or list of functions?]::
-    [JDC: I thought ``functions`` was BIDS-MDF defined the name of the entry, even if the object has only one
-    as per description under "Nodes, edges, and ports" below]::
-
-  **node** ("Processing Unit"), that has specifications for two of its **parameters** (``input_format`` and
-  ``initializer``), as well as a ``functions`` entry that specifies a function and its **type** as well as its **args**:
+    [JDC: Are there any standard-defined parameters for graphs, nodes?  Here, we assume that ``initializer`` is such
+    parameter and included it in the example as such.  However, I'm not sure we ever discussed or agreed to any such
+    standard node parameters.  If so, we should list them somehwher.  If are not any, then ``parameters`` should be
+    removed from this example, and ``initializer`` (if retained) should be moved to the ``PNL`` entry in the next 
+    example)]::
 
         "nodes": {
             "Processing Unit": {
                 "parameters": {
-                    "input_format": "SCALAR",
                     "initializer": [[0]]
                 }
                 "functions": [
@@ -165,16 +168,42 @@ The following entries can be used in any BIDS-MDF object (using the strings show
             }
         }
 
-[KDM: the input_format is already specified in input_ports objects in dtype and shape, maybe reference that or choose another parameter?]::
-[KDM: could, or must include function and args for the function? functions I think must have args because we probably can't assume that default values both exist and are the same across modeling envs]::
-[JDC: Not sure I follow... should discuss]::
+    [JDC: Are there any standard-defined parameters for graphs, nodes?  Here, we assume that ``initializer`` is such
+    parameter and included it in the example as such.  However, I'm not sure we ever discussed or agreed to any such
+    standard node parameters.  If so, we should list them somehwher.  If are not any, then ``parameters`` should be
+    removed from this example, and ``initializer`` (if retained) should be moved to the ``PNL`` entry in the next 
+    example)]::
+
+    [JDC: The example below is predicated on the assumption that ``controller`` should be a standard parameter for a
+    graph;  if not, can delete the following text and example, but might want to include another one that shows how
+    a node can be referenced by another entry]::
+
+    The following example specifies a standard **parameter** for a graph -- ``controller`` -- by referencing the
+    **node** that serves as the controller for the model:
+    
+       "graphs": [{
+            {
+                "parameters": {
+                    "controller":"My controller"
+                }
+                nodes:{
+                    "My Contoller": {
+                        ... node ``functions`` and ``parameters`` entries here
+                    }
+                }
+            }]
+        }
+     
+      
+
+
+
 The ``parameters`` entry of a **node** (or ``args`` entry of a *function**) can also include a subdictionary of
 environment-specific parameter-value (or arg-value) pairs.  For example, the ``parameters`` entry below adds entries 
 for two parameters -- ``execution_count`` and ``has_initializers`` -- that are specific to the PsyNeuLink (PNL) 
 environment: 
 
       "parameters": {
-            "input_format": "SCALAR",
             "initializer": [[0]]
             "PNL": {                      # This is a subdictionary of PNL-specific parameters and their values
                 "execution_count": 0,
@@ -264,11 +293,3 @@ or ``receiver`` **node**.
 * ``receiver`` : the name of its destination **node**.
 
 * ``receiver_port`` : the name of the **port** on the ``receiver`` **node** to which it connects.
-
-
-[??IS THIS GENERAL, OR SPECIFIC TO PNL]::
-[KDM: it can be moved to a PNL model-specific parameters dict if it's not general]::
-[JDC: I think it should be;  would it be at the highest level (i.e., graphs entry?)]::
-
-* ``controller`` : the name of the **node** in the **graph**'s node list that serves as the graph's controller, if it exists
-
