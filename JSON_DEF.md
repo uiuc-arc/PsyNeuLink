@@ -52,18 +52,20 @@ more models in a single text file.  The outermost level of the specification is 
 defines a single model.  Each **graph** dictionary must have at least two entries, named ``nodes`` and ``edges``,
 each of which is a dictionary with entries describing the **nodes** and **edges** of the graph, respectively.
 Each entry in the **node** and **edge** dictionaries must be another dictionary that contains object-specific
-entries.   The ``nodes`` dictionary, in addition to entries describing nodes, ca also contain entries that are
-themselves graphs, which can be used to described hierarchically-structured models.  In addition to the ``nodes``
-and ``edges`` entries, a ``graph`` object can have additional generic entries, some of which are generic (see
-``Entries common to all objects`` below).  The following provides an example of the overall scheme of a BIDS-MDF
-specification:
+entries.   The ``nodes`` dictionary, in addition to entries describing nodes, can also contain entries that are
+themselves graphs, which can be used to describe hierarchically-structured models.  In addition to the ``nodes``
+and ``edges`` entries, a ``graph`` object can have additional entries, some of which are generic (such as the ``names`` 
+entry in the exaple below;  see ``Entries common to all objects`` for a full listing);  it can also include a
+``parameters`` entry, that contains specfications required by specific environments.  The following provides an
+example of the overall scheme of a BIDS-MDF specification:
 
 [KDM: we need parameters entries in graphs to store schedulers (and controllers, see below) unless we don't need these to be replicable]::
+[JDC: Are the additions above and in the example below now correct?]::
 
     {
         "graphs": [
             {
-                "name": {                                   # Optional
+                "name": {                                   # Optional generic entry
                     "Example Model"
                 }
                 "nodes": {                                  # Required
@@ -72,8 +74,8 @@ specification:
                 "edges": {                                  # Required
                     ... dictionaries for edge objects
                 }
-                "parameters": {                             # Optional
-                    ... dictionaries for parameters
+                "parameters": {                             # Optional (for envirnoment-specific specifications)
+                    ... dictionaries for environment-specific parameters
                 }
              }
             {
@@ -87,7 +89,7 @@ specification:
                     ... dictionaries for edge objects
                 }
                 "parameters": {
-                    ... dictionaries for parameters
+                    ... dictionaries for environment-specific parameters
                 }
              }
          ]
@@ -128,8 +130,7 @@ The following entries can be used in any BIDS-MDF object (using the strings show
   while the ``PNL`` entry is used to specify the PNL-specific designation of a graph ("Composition").
 
 
-###### ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD COMBINE THESE TO MAKE IT SIMPLER:
-
+[JDC: ??IS THERE ANY REASON TO DISTINGUISH THESE, OR SHOULD THESE BE COMBINEd TO MAKE IT SIMPLER]::
 [KDM: No, there's no reason on my part, that was just how the original spec listed it, so I implemented it that way. I think it would be better to choose one name]::
 
 * ``parameters`` (for non-**function** entries) or ``args`` (for **functions** entries) : this allows the specification
@@ -137,13 +138,19 @@ The following entries can be used in any BIDS-MDF object (using the strings show
   ``parameters``, and for **functions** they are called ``args``.  For example, the following contains an entry for a
 
     [KDM: include parameters for the node or remove this sentence?]::
+    [JDC: added them, but are they PNL-specific?  If so, then need to use standard ones...which are??]::
     [KDM: singular function or list of functions?]::
+    [JDC: I though ``functions`` was BIDS-MDF defined the name of the entry]
 
   **node** ("Processing Unit"), that has specifications for two of its **parameters** ("input_format" and
    "initializer"), as well as a **functions** entry that specifies a function and its **type** as well as its **args**:
 
         "nodes": {
             "Processing Unit": {
+                "parameters": {
+                    "input_format": "SCALAR",
+                    "initializer": [[0]]
+                }
                 "functions": [
                     {
                         "type": "Linear"
@@ -159,9 +166,11 @@ The following entries can be used in any BIDS-MDF object (using the strings show
 
 [KDM: the input_format is already specified in input_ports objects in dtype and shape, maybe reference that or choose another parameter?]::
 [KDM: could, or must include function and args for the function? functions I think must have args because we probably can't assume that default values both exist and are the same across modeling envs]::
-
+[JDC: Not sure I follow... should discuss]::
 The ``parameters`` entry of a **node** (or ``args`` entry of a *function**) can also include a subdictionary of
-environment-specific parameter-value (or arg-value) pairs, as in the following example:
+environment-specific parameter-value (or arg-value) pairs.  For example, the ``parameters`` entry below adds entries 
+that for two parameters -- ``execution_count`` and ``has_initializers`` -- tha are specific to the PsyNeuLink (PNL) 
+environment: 
 
       "parameters": {
             "input_format": "SCALAR",
@@ -209,10 +218,12 @@ These objects can all include a ``functions`` entry, that specifies one or more 
     model is executed (see [ports](#ports)] below);  the reference must use dot-delimited notation, beginning with the
     name of the **node** to which the **port** belongs (``A`` in the example above), followed by ``input_ports
     `` entry, and then name of the input_port from which the argument should receive its value.
-    ###### ??PNL ALLOWS THE NAME OF THE NODE (MECHANISM) TO BE USED IN PLACE OF THE INPUTPORT.  THIS IS SEEMS TO BE
-    ######  SUPPORTED FOR EDGES (SEE BELOW).  SHOULD WE DO THE SAME FOR SOURCE SPECIFICATIONS?
-
-    [KDM: maybe, but I'd wait and see what they say. Suppose they might have a use for a "combined" input port with a name that isn't the same as the arg name]::
+    
+    [??PNL ALLOWS THE NAME OF THE NODE (MECHANISM) TO BE USED IN PLACE OF THE INPUTPORT.  THIS IS SEEMS TO BE
+    SUPPORTED FOR EDGES (SEE BELOW).  SHOULD WE DO THE SAME FOR SOURCE SPECIFICATIONS?]::
+    [KDM: maybe, but I'd wait and see what others say. Suppose there might be a use for a "combined" input port with a
+     name that isn't the same as the arg name]::
+     [JDC: NOT SURE I FOLLOW]::
 
 #### Non-**graph** **nodes**
 
@@ -254,9 +265,9 @@ or ``receiver`` **node**.
 * ``receiver_port`` : the name of the **port** on the ``receiver`` **node** to which it connects.
 
 
-###### ??IS THIS GENERAL, OR SPECIFIC TO PNL:
-
+[??IS THIS GENERAL, OR SPECIFIC TO PNL]::
 [KDM: it can be moved to a PNL model-specific parameters dict if it's not general]::
+[JDC: I think it should be;  would it be at the highest level (i.e., graphs entry?)]::
 
 * ``controller`` : the name of the **node** in the **graph**'s node list that serves as the graph's controller, if it exists
 
