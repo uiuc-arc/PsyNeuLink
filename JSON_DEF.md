@@ -140,10 +140,11 @@ The following entries can be used in any BIDS-MDF object (using the strings show
     [KDM: include parameters for the node or remove this sentence?]::
     [JDC: added them, but are they PNL-specific?  If so, then need to use standard ones...which are??]::
     [KDM: singular function or list of functions?]::
-    [JDC: I thought ``functions`` was BIDS-MDF defined the name of the entry, even if the object has only one]::
+    [JDC: I thought ``functions`` was BIDS-MDF defined the name of the entry, even if the object has only one
+    as per description under "Nodes, edges, and ports" below]::
 
-  **node** ("Processing Unit"), that has specifications for two of its **parameters** ("input_format" and
-   "initializer"), as well as a **functions** entry that specifies a function and its **type** as well as its **args**:
+  **node** ("Processing Unit"), that has specifications for two of its **parameters** (``input_format`` and
+  ``initializer``), as well as a ``functions`` entry that specifies a function and its **type** as well as its **args**:
 
         "nodes": {
             "Processing Unit": {
@@ -223,7 +224,7 @@ These objects can all include a ``functions`` entry, that specifies one or more 
     SUPPORTED FOR EDGES (SEE BELOW).  SHOULD WE DO THE SAME FOR SOURCE SPECIFICATIONS?]::
     [KDM: maybe, but I'd wait and see what others say. Suppose there might be a use for a "combined" input port with a
      name that isn't the same as the arg name]::
-     [JDC: NOT SURE I FOLLOW]::
+     [JDC: Not sure I follow;  should discuss]::
 
 #### Non-**graph** **nodes**
 
