@@ -1,23 +1,24 @@
 #import cupy
 #rtdist = cupy.RawModule(path='D:/Dropbox/princeton/PsyNeuLink_Stuff/RTDist_1.0.0-rc2/src/CUDA/RTDist.ptx')
 
+#%%
 import numpy as np
 import numpy.matlib
 import matlab.engine
 import time
 
 eng = matlab.engine.start_matlab()
-eng.addpath('D:\\Dropbox\\princeton\\PsyNeuLink_Stuff\\RTDist_1.0.0-rc2\\MATLAB')
+eng.addpath('/tigress/dmturner/psyneulink/RTDist/MATLAB')
 
 #%%
 settings = {
     'nGPUS': 1,
-    'nWalkers': 5000,
+    'nWalkers': 2000,
 }
 
 nDim = 4
-lcaV = np.array([[0,   0.1, 0.2, 0.3]])
-lcaV = numpy.matlib.repmat(lcaV, 500, 1)
+#lcaV = np.array([[0,   0.1, 0.2, 0.3]])
+#lcaV = numpy.matlib.repmat(lcaV, 500, 1)
 nStimuli = lcaV.shape[0]
 threshold = np.full((nDim,1), 0.08)
 leak = 0.2
@@ -36,9 +37,9 @@ LCAPars = {
 
 t0 = time.time()
 D,ok = eng.LCADist(LCAPars,settings,1, nargout=2)
-D = np.asarray(D)
 t1 = time.time()
 print(f'LCA Execution Time: {t1-t0}')
+D = np.asarray(D)
 
 #%%
 import matplotlib.pyplot as plt

@@ -243,6 +243,8 @@ def _exec_count(i, c):
 results = ([r[0], [_exec_count(i, r[1])], list(r[2]).index(1.0)] for i, r in enumerate(stabilityFlexibility.results))
 
 print(stabilityFlexibility.results)
+lcaV = np.array([x[0] for x in stabilityFlexibility.results])
+
 
 # for trial in results:
 #     print(trial)
