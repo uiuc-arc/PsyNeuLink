@@ -6,13 +6,13 @@ import time
 
 # Load Bryant's data
 import pandas as pd
-data = pd.read_csv('../../../stability_flexibility/DataTaskSwitchingRecoded.csv')
+data = pd.read_csv('rtdist/example/DataTaskSwitchingRecoded.csv')
 data = data[data.subjectID == 1]
 
 # BEGIN: Composition Construction
 
 # Parameters to be optimized
-GAIN = 1.5          # Gain parameter of the task (activation) mechanism
+GAIN = 1.0          # Gain parameter of the task (activation) mechanism
 THRESHOLD = 1.0     # Threshold parameter of the LCA (decisionMaker) mechanism
 
 # Parameters that are fixed (for now)
@@ -242,9 +242,13 @@ def _exec_count(i, c):
     return c[0] - stabilityFlexibility.results[i-1][1][0]
 results = ([r[0], [_exec_count(i, r[1])], list(r[2]).index(1.0)] for i, r in enumerate(stabilityFlexibility.results))
 
-print(stabilityFlexibility.results)
-lcaV = np.array([x[0] for x in stabilityFlexibility.results])
+lcaV = np.transpose(np.array([x[0] for x in stabilityFlexibility.results[0:len(taskTrain)]]))
+np.save('Scripts/Debug/lcaV.npy', lcaV)
+print(f"lcaV: mean={np.mean(lcaV)}, std={np.std(lcaV)} min={np.min(lcaV)}, max={np.max(lcaV)}")
 
+# f, axs = plt.subplots(4,1, sharey=True)
+# for i in range(4):
+#     axs[i].hist(lcaV[i, lcaV[i, :] != 0.0], bins=50, range=(np.min(lcaV), np.max(lcaV)))
 
 # for trial in results:
 #     print(trial)
