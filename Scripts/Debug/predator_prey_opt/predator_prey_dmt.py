@@ -9,10 +9,10 @@ from double_dqn import DoubleDQNAgent
 
 from gym_forager.envs.forager_env import ForagerEnv
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--seed", type=int,
-        default=int.from_bytes(os.urandom(4), byteorder="big"),
-        help='Random seed, seed from os.urandom if unspecified.')
+#parser = argparse.ArgumentParser()
+#parser.add_argument("--seed", type=int,
+#        default=int.from_bytes(os.urandom(4), byteorder="big"),
+#        help='Random seed, seed from os.urandom if unspecified.')
 #args = parser.parse_args()
 
 SEED = int.from_bytes(os.urandom(4), byteorder="big")
@@ -26,7 +26,7 @@ np.random.seed(SEED+1)
 # *********************************************************************************************************************
 
 # Runtime switches:
-MPI_IMPLEMENTATION = True
+DO_PARAM_SEARCH = False
 RENDER = False
 PNL_COMPILE = False
 RUN = True
@@ -409,28 +409,44 @@ class PredatorPreySimulator:
         return loss
 
 def run_games(cost_rate):
-    return PredatorPreySimulator().run_games(cost_rate)
+    return (cost_rate, PredatorPreySimulator().run_games(cost_rate))
 
 def run_search():
 
-    from dask.distributed import Client, LocalCluster
-    import joblib
-    import hypertunity as ht
 
-    client = Client(scheduler_file='scheduler.json')
-    #client = Client() # Setup local cluster
-    print(client)
+    if DO_PARAM_SEARCH:
+        from dask_mpi import initialize
+        initialize(nanny=False, nthreads=1, local_directory='./dask-local-dir')
 
-    domain = ht.Domain({
-                    "cost_rate": set([-.8])
-    })
+        from dask.distributed import Client, LocalCluster
+        import joblib
+        import hypertunity as ht
 
-    with joblib.parallel_backend('dask'):
-        with joblib.Parallel() as parallel:
-            print("Doing the work ... ")
-            results = parallel(joblib.delayed(run_games)(*domain.sample().as_namedtuple()) for s in range(1))
+        #client = Client(scheduler_file='scheduler.json')
+        #client = Client(LocalCluster(n_workers=int(sys.argv[1]), threads_per_worker=1))
+        client = Client()
+        print(client)
 
-    print(results)
+        domain = ht.Domain({
+            "cost_rate": [-.9, -.1]
+            })
+
+        NUM_SAMPLES = 1000
+
+        with joblib.parallel_backend('dask'):
+            with joblib.Parallel() as parallel:
+                print("Doing the work ... ")
+                results = parallel(joblib.delayed(run_games)(*domain.sample().as_namedtuple()) for s in range(NUM_SAMPLES))
+        #results = [run_games(*domain.sample().as_namedtuple()) for s in range(NUM_SAMPLES)]
+
+        print(results)
+
+        import pickle
+        with open('results.pkl', 'wb') as f:
+            pickle.dump(results, f)
+    else:
+        run_games(COST_RATE)
+
 
 if __name__ == "__main__":
     run_search()
