@@ -406,7 +406,7 @@ class MappingProjection(PathwayProjection_Base):
             ----------
 
                 function
-                    see `function <Projection_Base.function>`
+                    see `function <MappingProjection.function>`
 
                     :default value: `LinearMatrix`
                     :type: `Function`
@@ -415,8 +415,7 @@ class MappingProjection(PathwayProjection_Base):
                     see `matrix <MappingProjection.matrix>`
 
                     :default value: `AUTO_ASSIGN_MATRIX`
-                    :type: str
-
+                    :type: ``str``
         """
         function = Parameter(LinearMatrix, stateful=False, loggable=False)
         matrix = Parameter(DEFAULT_MATRIX, modulable=True, function_parameter=True, getter=_mapping_projection_matrix_getter, setter=_mapping_projection_matrix_setter)
@@ -543,7 +542,7 @@ class MappingProjection(PathwayProjection_Base):
 
         matrix_spec = self.defaults.matrix
 
-        if matrix_spec is AUTO_ASSIGN_MATRIX:
+        if matrix_spec == AUTO_ASSIGN_MATRIX:
             if mapping_input_len == receiver_len:
                 matrix_spec = IDENTITY_MATRIX
             else:

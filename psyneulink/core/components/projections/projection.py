@@ -393,6 +393,7 @@ import warnings
 import numpy as np
 import typecheck as tc
 
+from psyneulink.core import llvm as pnlvm
 from psyneulink.core.components.component import Component
 from psyneulink.core.components.functions.transferfunctions import LinearMatrix, get_matrix
 from psyneulink.core.components.shellclasses import Mechanism, Process_Base, Projection, Port
@@ -592,7 +593,6 @@ class Projection_Base(Projection):
 
                     :default value: None
                     :type:
-
         """
         weight = Parameter(None, modulable=True)
         exponent = Parameter(None, modulable=True)
@@ -981,8 +981,8 @@ class Projection_Base(Projection):
 
     # Provide invocation wrapper
     def _gen_llvm_function_body(self, ctx, builder, params, state, arg_in, arg_out, *, tags:frozenset):
-        mf_state = ctx.get_state_ptr(self, builder, state, self.parameters.function.name)
-        mf_params = ctx.get_param_ptr(self, builder, params, self.parameters.function.name)
+        mf_state = pnlvm.helpers.get_state_ptr(builder, self, state, self.parameters.function.name)
+        mf_params = pnlvm.helpers.get_param_ptr(builder, self, params, self.parameters.function.name)
         main_function = ctx.import_llvm_function(self.function)
         builder.call(main_function, [mf_params, mf_state, arg_in, arg_out])
 
@@ -2001,7 +2001,7 @@ def _add_projection_to(receiver, port, projection_spec, context=None):
         return port._instantiate_projections_to_port(projections=projection_spec, context=context)
 
     # Generic INPUT_PORT is specified, so use (primary) InputPort
-    elif port is INPUT_PORT:
+    elif port == INPUT_PORT:
         return receiver.input_port._instantiate_projections_to_port(projections=projection_spec, context=context)
 
     # input_port is index into input_ports OrderedDict, so get corresponding key and assign to input_port
@@ -2029,7 +2029,7 @@ def _add_projection_to(receiver, port, projection_spec, context=None):
             # return
 
     # input_port is either the name for a new InputPort or ADD_INPUT_PORT
-    if not port is ADD_INPUT_PORT:
+    if not port == ADD_INPUT_PORT:
         if receiver.prefs.verbosePref:
             reassign = input("\nAdd new InputPort named {0} to {1} (as receiver for {2})? (y/n):".
                              format(input_port, receiver.name, projection_spec.name))
@@ -2111,7 +2111,7 @@ def _add_projection_from(sender, port, projection_spec, receiver, context=None):
         return
 
     # Generic OUTPUT_PORT is specified, so use (primary) OutputPort
-    elif port is OUTPUT_PORT:
+    elif port == OUTPUT_PORT:
         sender.output_port._instantiate_projections_to_port(projections=projection_spec, context=context)
         return
 
@@ -2140,7 +2140,7 @@ def _add_projection_from(sender, port, projection_spec, receiver, context=None):
             # return
 
     # output_port is either the name for a new OutputPort or ADD_OUTPUT_PORT
-    if not port is ADD_OUTPUT_PORT:
+    if not port == ADD_OUTPUT_PORT:
         if sender.prefs.verbosePref:
             reassign = input("\nAdd new OutputPort named {0} to {1} (as sender for {2})? (y/n):".
                              format(output_port, sender.name, projection_spec.name))

@@ -564,13 +564,13 @@ def sinusoid(x, amplitude=1, frequency=1, phase=0):
     return amplitude * np.sin(2 * np.pi * frequency * x + phase)
 
 def scalar_distance(measure, value, scale=1, offset=0):
-    if measure is GAUSSIAN:
+    if measure == GAUSSIAN:
         return normpdf(value, offset, scale)
-    if measure is LINEAR:
+    if measure == LINEAR:
         return scale * value + offset
-    if measure is EXPONENTIAL:
+    if measure == EXPONENTIAL:
         return np.exp(scale * value + offset)
-    if measure is SINUSOID:
+    if measure == SINUSOID:
         return sinusoid(value, frequency=scale, phase=offset)
 
 from itertools import chain, combinations
@@ -1711,9 +1711,6 @@ class NodeRole(Enum):
     LEARNING
         A Node that is only executed when learning is enabled.
 
-    AUTOASSOCIATIVE_LEARNING
-        A Node that implements an AutoassociativeLearningMechanism
-
     TARGET
         A Node that receives the target for a learning sequence
     """
@@ -1727,8 +1724,7 @@ class NodeRole(Enum):
     FEEDBACK_RECEIVER = 7
     CYCLE = 8
     LEARNING = 9
-    AUTOASSOCIATIVE_LEARNING = 10
-    TARGET = 11
+    TARGET = 10
 
 def unproxy_weakproxy(proxy):
     """

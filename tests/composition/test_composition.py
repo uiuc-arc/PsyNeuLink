@@ -10,7 +10,7 @@ from itertools import product
 
 import psyneulink.core.llvm as pnlvm
 import psyneulink as pnl
-from psyneulink.core.components.functions.statefulfunctions.integratorfunctions import AdaptiveIntegrator, SimpleIntegrator
+from psyneulink.core.components.functions.statefulfunctions.integratorfunctions import AdaptiveIntegrator, DriftDiffusionIntegrator, IntegratorFunction, SimpleIntegrator
 from psyneulink.core.components.functions.transferfunctions import Linear, Logistic
 from psyneulink.core.components.functions.combinationfunctions import LinearCombination
 from psyneulink.core.components.functions.userdefinedfunction import UserDefinedFunction
@@ -26,7 +26,7 @@ from psyneulink.core.compositions.systemcomposition import SystemComposition
 from psyneulink.core.globals.keywords import \
     ADDITIVE, ALLOCATION_SAMPLES, DISABLE, INPUT_PORT, NAME, PROJECTIONS, RESULT, OVERRIDE, TARGET_MECHANISM, VARIANCE
 from psyneulink.core.globals.utilities import NodeRole
-from psyneulink.core.scheduling.condition import AfterNCalls
+from psyneulink.core.scheduling.condition import AfterNCalls, AtTimeStep, AtTrial, Never
 from psyneulink.core.scheduling.condition import EveryNCalls
 from psyneulink.core.scheduling.scheduler import Scheduler
 from psyneulink.core.scheduling.time import TimeScale
@@ -331,12 +331,12 @@ class TestAddProjection:
         B = TransferMechanism(name='composition-pytests-B')
         C = TransferMechanism(name='composition-pytests-C')
         comp.add_linear_processing_pathway([
-            (A,pnl.NodeRole.AUTOASSOCIATIVE_LEARNING),
-            (B,pnl.NodeRole.AUTOASSOCIATIVE_LEARNING),
+            (A,pnl.NodeRole.LEARNING),
+            (B,pnl.NodeRole.LEARNING),
             C
         ])
         comp._analyze_graph()
-        autoassociative_learning_nodes = comp.get_nodes_by_role(pnl.NodeRole.AUTOASSOCIATIVE_LEARNING)
+        autoassociative_learning_nodes = comp.get_nodes_by_role(pnl.NodeRole.LEARNING)
         assert A in autoassociative_learning_nodes
         assert B in autoassociative_learning_nodes
 
@@ -3540,6 +3540,33 @@ class TestNestedCompositions:
         sched = Scheduler(composition=outer_comp)
         ret = outer_comp.run(inputs={inner_comp1: [[1.0]], inner_comp2: [[1.0]]}, bin_execute=mode)
         assert np.allclose(ret, [[[0.52497918747894]],[[0.52497918747894]]])
+    
+    @pytest.mark.nested
+    @pytest.mark.composition
+    @pytest.mark.parametrize("mode", ['Python',
+                             pytest.param('LLVM', marks=pytest.mark.llvm),
+                             pytest.param('LLVMExec', marks=pytest.mark.llvm),
+                             pytest.param('LLVMRun', marks=pytest.mark.llvm),
+                             pytest.param('PTXExec', marks=[pytest.mark.llvm, pytest.mark.cuda]),
+                             pytest.param('PTXRun', marks=[pytest.mark.llvm, pytest.mark.cuda])
+                             ])
+    def test_nested_run_differing_num_trials(self, mode):
+        # Test for case where nested composition is ran with inputs of differing but valid sizes
+        outer = pnl.Composition(name="outer")
+
+        inner = pnl.Composition(name="inner")
+        inner_mech_A = pnl.TransferMechanism(name="inner_mech_A", default_variable=[[0,0]])
+        inner_mech_B = pnl.TransferMechanism(name="inner_mech_B", default_variable=[[0,0]])
+        inner.add_nodes([inner_mech_A, inner_mech_B])
+        outer.add_node(inner)
+        input = {
+            inner : {
+                inner_mech_A : [[[0,0]]],
+                inner_mech_B : [[[0,0]],[[0,0]]],
+            }
+        }
+        
+        outer.run(inputs=input, bin_execute=mode)
 
     def test_invalid_projection_deletion_when_nesting_comps(self):
         oa = pnl.TransferMechanism(name='oa')
@@ -4676,7 +4703,26 @@ class TestInputSpecifications:
         assert np.allclose(C.get_output_values(comp), [[0.]])
         assert np.allclose(D.get_output_values(comp), [[4.]])
 
-    def test_generator_as_inputs(self):
+    def test_function_as_input(self):
+        c = pnl.Composition()
+
+        m1 = pnl.TransferMechanism()
+        m2 = pnl.TransferMechanism()
+
+        c.add_linear_processing_pathway([m1, m2])
+
+        def test_function(trial_num):
+            stimuli = list(range(10))
+            return {
+                m1: stimuli[trial_num]
+            }
+
+        c.run(inputs=test_function,
+              num_trials=10)
+        assert c.parameters.results.get(c) == [[np.array([0.])], [np.array([1.])], [np.array([2.])], [np.array([3.])],
+                                               [np.array([4.])], [np.array([5.])], [np.array([6.])], [np.array([7.])],
+                                               [np.array([8.])], [np.array([9.])]]
+    def test_generator_as_input(self):
         c = pnl.Composition()
 
         m1 = pnl.TransferMechanism()
@@ -4697,7 +4743,7 @@ class TestInputSpecifications:
                                                [np.array([4.])], [np.array([5.])], [np.array([6.])], [np.array([7.])],
                                                [np.array([8.])], [np.array([9.])]]
 
-    def test_generator_as_inputs_with_num_trials(self):
+    def test_generator_as_input_with_num_trials(self):
         c = pnl.Composition()
 
         m1 = pnl.TransferMechanism()
@@ -4716,6 +4762,26 @@ class TestInputSpecifications:
         c.run(inputs=t_g,
               num_trials=1)
         assert c.parameters.results.get(c) == [[np.array([0.])]]
+
+    def test_error_on_malformed_generator(self):
+        c = pnl.Composition()
+
+        m1 = pnl.TransferMechanism()
+        m2 = pnl.TransferMechanism()
+
+        c.add_linear_processing_pathway([m1, m2])
+
+        def test_generator():
+            yield {
+                m1: [[1],[2]]
+            }
+
+        t_g = test_generator()
+
+        try:
+            c.run(inputs=t_g)
+        except Exception as e:
+            assert isinstance(e, pnl.CompositionError)
 
     @pytest.mark.parametrize(
             "with_outer_controller,with_inner_controller",
@@ -5074,6 +5140,142 @@ class TestShadowInputs:
         assert obj.value == [[25.0]]
 
 
+class TestReinitializeValues:
+
+    def test_reinitialize_one_mechanism_through_run(self):
+        A = TransferMechanism(name='A')
+        B = TransferMechanism(
+            name='B',
+            integrator_mode=True,
+            integration_rate=0.5
+        )
+        C = TransferMechanism(name='C')
+
+        comp = Composition()
+        comp.add_linear_processing_pathway([A, B, C])
+
+        C.log.set_log_conditions('value')
+
+        comp.run(
+            inputs={A: [1.0]},
+            num_trials=5,
+            reinitialize_nodes_when=AtTimeStep(0)
+        )
+
+        # Trial 0: 0.5, Trial 1: 0.75, Trial 2: 0.5, Trial 3: 0.75. Trial 4: 0.875
+        assert np.allclose(
+            C.log.nparray_dictionary('value')[comp.default_execution_id]['value'],
+            [
+                [np.array([0.5])],
+                [np.array([0.5])],
+                [np.array([0.5])],
+                [np.array([0.5])],
+                [np.array([0.5])]
+            ]
+        )
+
+    def test_reinitialize_one_mechanism_at_trial_2_condition(self):
+        A = TransferMechanism(name='A')
+        B = TransferMechanism(
+            name='B',
+            integrator_mode=True,
+            integration_rate=0.5
+        )
+        C = TransferMechanism(name='C')
+
+        comp = Composition()
+        comp.add_linear_processing_pathway([A, B, C])
+
+        # Set reinitialization condition
+        B.reinitialize_when = AtTrial(2)
+
+        C.log.set_log_conditions('value')
+
+        comp.run(
+            inputs={A: [1.0]},
+            reinitialize_values={B: [0.]},
+            num_trials=5
+        )
+
+        # Trial 0: 0.5, Trial 1: 0.75, Trial 2: 0.5, Trial 3: 0.75. Trial 4: 0.875
+        assert np.allclose(
+            C.log.nparray_dictionary('value')[comp.default_execution_id]['value'],
+            [
+                [np.array([0.5])],
+                [np.array([0.75])],
+                [np.array([0.5])],
+                [np.array([0.75])],
+                [np.array([0.875])]
+            ]
+        )
+
+    def test_save_state_before_simulations(self):
+
+        A = TransferMechanism(
+            name='A',
+            integrator_mode=True,
+            integration_rate=0.2
+        )
+
+        B = IntegratorMechanism(name='B', function=DriftDiffusionIntegrator(rate=0.1))
+        C = TransferMechanism(name='C')
+
+        comp = Composition()
+        comp.add_linear_processing_pathway([A, B, C])
+
+        comp.run(inputs={A: [[1.0], [1.0]]})
+
+        run_1_values = [
+            A.parameters.value.get(comp),
+            B.parameters.value.get(comp)[0],
+            C.parameters.value.get(comp)
+        ]
+
+        # "Save state" code from EVCaux
+
+        # Get any values that need to be reinitialized for each run
+        reinitialization_values = {}
+        for mechanism in comp.stateful_nodes:
+            # "save" the current state of each stateful mechanism by storing the values of each of its stateful
+            # attributes in the reinitialization_values dictionary; this gets passed into run and used to call
+            # the reinitialize method on each stateful mechanism.
+            reinitialization_value = []
+
+            if isinstance(mechanism.function, IntegratorFunction):
+                for attr in mechanism.function.stateful_attributes:
+                    reinitialization_value.append(getattr(mechanism.function.parameters, attr).get(comp))
+            elif hasattr(mechanism, "integrator_function"):
+                if isinstance(mechanism.integrator_function, IntegratorFunction):
+                    for attr in mechanism.integrator_function.stateful_attributes:
+                        reinitialization_value.append(getattr(mechanism.integrator_function.parameters, attr).get(comp))
+
+            reinitialization_values[mechanism] = reinitialization_value
+
+        # Allow values to continue accumulating so that we can set them back to the saved state
+        comp.run(inputs={A: [[1.0], [1.0]]})
+
+        run_2_values = [A.parameters.value.get(comp),
+                        B.parameters.value.get(comp)[0],
+                        C.parameters.value.get(comp)]
+
+        comp.run(
+            inputs={A: [[1.0], [1.0]]},
+            reinitialize_values=reinitialization_values
+        )
+
+        run_3_values = [A.parameters.value.get(comp),
+                        B.parameters.value.get(comp)[0],
+                        C.parameters.value.get(comp)]
+
+        assert np.allclose(np.asfarray(run_2_values),
+                           np.asfarray(run_3_values))
+        assert np.allclose(np.asfarray(run_1_values),
+                           [np.array([[0.36]]), np.array([[0.056]]), np.array([[0.056]])])
+        assert np.allclose(np.asfarray(run_2_values),
+                           [np.array([[0.5904]]), np.array([[0.16384]]), np.array([[0.16384]])])
+
+
+
 class TestNodeRoles:
 
     def test_internal(self):
@@ -5128,3 +5330,293 @@ class TestMisc:
         comp.run(inputs={A: [2]})
 
         assert len(A.parameters.value.history[comp.default_execution_id]) == 0
+
+    def test_danglingControlledMech(self):
+        #
+        #   first section is from Stroop Demo
+        #
+        Color_Input = TransferMechanism(
+            name='Color Input',
+            function=Linear(slope=0.2995)
+        )
+        Word_Input = TransferMechanism(
+            name='Word Input',
+            function=Linear(slope=0.2995)
+        )
+
+        # Processing Mechanisms (Control)
+        Color_Hidden = TransferMechanism(
+            name='Colors Hidden',
+            function=Logistic(gain=(1.0, pnl.ControlProjection)),
+        )
+        Word_Hidden = TransferMechanism(
+            name='Words Hidden',
+            function=Logistic(gain=(1.0, pnl.ControlProjection)),
+        )
+        Output = TransferMechanism(
+            name='Output',
+            function=Logistic(gain=(1.0, pnl.ControlProjection)),
+        )
+
+        # Decision Mechanisms
+        Decision = pnl.DDM(
+            function=pnl.DriftDiffusionAnalytical(
+                drift_rate=(1.0),
+                threshold=(0.1654),
+                noise=(0.5),
+                starting_point=(0),
+                t0=0.25,
+            ),
+            name='Decision',
+        )
+        # Outcome Mechanisms:
+        Reward = TransferMechanism(name='Reward')
+
+        # add another DDM but do not add to system
+        second_DDM = pnl.DDM(
+            function=pnl.DriftDiffusionAnalytical(
+                drift_rate=(
+                    1.0,
+                    pnl.ControlProjection(
+                        function=Linear,
+                        control_signal_params={
+                            ALLOCATION_SAMPLES: np.arange(0.1, 1.01, 0.3)
+                        },
+                    ),
+                ),
+                threshold=(
+                    1.0,
+                    pnl.ControlProjection(
+                        function=Linear,
+                        control_signal_params={
+                            ALLOCATION_SAMPLES: np.arange(0.1, 1.01, 0.3)
+                        },
+                    ),
+                ),
+                noise=(0.5),
+                starting_point=(0),
+                t0=0.45
+            ),
+            name='second_DDM',
+        )
+
+        comp = Composition(enable_controller=True)
+        comp.add_linear_processing_pathway([
+            Color_Input,
+            Color_Hidden,
+            Output,
+            Decision
+        ])
+        comp.add_linear_processing_pathway([
+            Word_Input,
+            Word_Hidden,
+            Output,
+            Decision
+        ])
+        comp.add_node(Reward)
+        # no assert, should only complete without error
+
+
+class TestInputSpecsDocumentationExamples:
+
+    @pytest.mark.parametrize(
+        "variable_a, num_trials, inputs, expected_inputs", [
+            # "If num_trials is in use, run will iterate over the inputs
+            # until num_trials is reached. For example, if five inputs
+            # are provided for each ORIGIN mechanism, and
+            # num_trials = 7, the system will execute seven times. The
+            # first two items in the list of inputs will be used on the
+            # 6th and 7th trials, respectively."
+            pytest.param(
+                None,
+                7,
+                [[[1.0]], [[2.0]], [[3.0]], [[4.0]], [[5.0]]],
+                [[[1.0]], [[2.0]], [[3.0]], [[4.0]], [[5.0]], [[1.0]], [[2.0]]],
+                id='example_2'
+            ),
+            # Origin mechanism has only one InputPort
+            # COMPLETE specification
+            pytest.param(
+                None,
+                None,
+                [[[1.0]], [[2.0]], [[3.0]], [[4.0]], [[5.1]]],
+                [[[1.0]], [[2.0]], [[3.0]], [[4.0]], [[5.1]]],
+                id='example_3'
+            ),
+            # Origin mechanism has only one InputPort
+            # SHORTCUT: drop the outer list on each input because 'a'
+            # only has one InputPort
+            pytest.param(
+                None,
+                None,
+                [[1.0], [2.0], [3.0], [4.0], [5.2]],
+                [[[1.0]], [[2.0]], [[3.0]], [[4.0]], [[5.2]]],
+                id='example_4'
+            ),
+            # Origin mechanism has only one InputPort
+            # SHORTCUT: drop the remaining list on each input because
+            # 'a' only has one element
+            pytest.param(
+                None,
+                None,
+                [1.0, 2.0, 3.0, 4.0, 5.3],
+                [[[1.0]], [[2.0]], [[3.0]], [[4.0]], [[5.3]]],
+                id='example_5'
+            ),
+            # Only one input is provided for the mechanism
+            # [single trial]
+            # COMPLETE input specification
+            pytest.param(
+                [[0.0], [0.0]],
+                None,
+                [[[1.0], [2.0]]],
+                [[[1.0], [2.0]]],
+                id='example_6'
+            ),
+            # Only one input is provided for the mechanism
+            # [single trial]
+            # SHORTCUT: Remove outer list because we only have one trial
+            pytest.param(
+                [[0.0], [0.0]],
+                None,
+                [[1.0], [2.0]],
+                [[[1.0], [2.0]]],
+                id='example_7'
+            ),
+            # Only one input is provided for the mechanism [repeat]
+            # COMPLETE SPECIFICATION
+            pytest.param(
+                [[0.0], [0.0]],
+                None,
+                [
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]]
+                ],
+                [
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]]
+                ],
+                id='example_8'
+            ),
+            # Only one input is provided for the mechanism [REPEAT]
+            # SHORTCUT: Remove outer list because we want to use the
+            # same input on every trial
+            pytest.param(
+                [[0.0], [0.0]],
+                5,
+                [[1.0], [2.0]],
+                [
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]],
+                    [[1.0], [2.0]]
+                ],
+                id='example_9'
+            ),
+            # There is only one origin mechanism in the system
+            # COMPLETE SPECIFICATION
+            pytest.param(
+                [[1.0, 2.0, 3.0]],
+                None,
+                [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]],
+                [[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]],
+                id='example_10',
+                marks=pytest.mark.xfail(
+                    reason='System version used np.allclose for inputs'
+                    + ' comparison, resulting in hiding the failure of this'
+                    + ' test. (resulting inputs are only 2d, instead of 3d)'
+                )
+            )
+        ]
+    )
+    def test_documentation_example_two_mechs(
+        self,
+        variable_a,
+        num_trials,
+        inputs,
+        expected_inputs
+    ):
+        a = pnl.TransferMechanism(name='a', default_variable=variable_a)
+        b = pnl.TransferMechanism(name='b')
+
+        comp = pnl.Composition()
+        comp.add_linear_processing_pathway([a, b])
+
+        check_inputs = []
+
+        def store_inputs():
+            check_inputs.append(a.get_input_values(comp))
+
+        comp.run(
+            inputs={a: inputs},
+            num_trials=num_trials,
+            call_after_trial=store_inputs
+        )
+
+        assert check_inputs == expected_inputs
+
+    def test_example_1(self):
+        # "If num_trials is not in use, the number of inputs provided
+        # determines the number of trials in the run. For example, if
+        # five inputs are provided for each origin mechanism, and
+        # num_trials is not specified, the system will execute five
+        # times."
+
+        import psyneulink as pnl
+
+        a = pnl.TransferMechanism(name="a", default_variable=[[0.0, 0.0]])
+        b = pnl.TransferMechanism(name="b", default_variable=[[0.0], [0.0]])
+        c = pnl.TransferMechanism(name="c")
+
+        comp = pnl.Composition()
+        comp.add_linear_processing_pathway([a, c])
+        comp.add_linear_processing_pathway([b, c])
+
+        input_dictionary = {
+            a: [[[1.0, 1.0]], [[1.0, 1.0]]],
+            b: [[[2.0], [3.0]], [[2.0], [3.0]]],
+        }
+
+        check_inputs_dictionary = {a: [], b: []}
+
+        def store_inputs():
+            check_inputs_dictionary[a].append(a.get_input_values(comp))
+            check_inputs_dictionary[b].append(b.get_input_values(comp))
+
+        comp.run(inputs=input_dictionary, call_after_trial=store_inputs)
+
+        for mech in input_dictionary:
+            assert np.allclose(
+                check_inputs_dictionary[mech], input_dictionary[mech]
+            )
+
+    def test_example_11(self):
+        # There is only one origin mechanism in the system
+        # SHORT CUT - specify inputs as a list instead of a dictionary
+
+        a = pnl.TransferMechanism(name='a', default_variable=[[1.0, 2.0, 3.0]])
+        b = pnl.TransferMechanism(name='b')
+
+        comp = pnl.Composition()
+        comp.add_linear_processing_pathway([a, b])
+
+        check_inputs = []
+
+        def store_inputs():
+            check_inputs.append(a.get_input_values(comp))
+
+        input_list = [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]
+
+        comp.run(
+            inputs=input_list,
+            call_after_trial=store_inputs
+        )
+
+        assert np.allclose(check_inputs, [[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]])

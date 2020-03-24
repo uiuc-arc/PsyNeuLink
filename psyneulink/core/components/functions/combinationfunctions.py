@@ -72,12 +72,30 @@ class CombinationFunction(Function_Base):
                     see `variable <CombinationFunction.variable>`
 
                     :default value: numpy.array([0])
-                    :type: numpy.ndarray
+                    :type: ``numpy.ndarray``
                     :read only: True
-
         """
         # variable = np.array([0, 0])
         variable = Parameter(np.array([0]), read_only=True, pnl_internal=True, constructor_argument='default_variable')
+
+    def _gen_llvm_load_param(self, ctx, builder, params, param_name, index, default):
+        param_ptr = pnlvm.helpers.get_param_ptr(builder, self, params, param_name)
+        param_type = param_ptr.type.pointee
+        if isinstance(param_type, pnlvm.ir.LiteralStructType):
+            assert len(param_type) == 0
+            return ctx.float_ty(default)
+        elif isinstance(param_type, pnlvm.ir.ArrayType):
+            index = ctx.int32_ty(0) if len(param_type) == 1 else index
+            param_ptr = builder.gep(param_ptr, [ctx.int32_ty(0), index])
+        return builder.load(param_ptr)
+
+    def _gen_llvm_function_body(self, ctx, builder, params, _, arg_in, arg_out, *, tags:frozenset):
+        # Sometimes we arg_out to 2d array
+        arg_out = pnlvm.helpers.unwrap_2d_array(builder, arg_out)
+
+        with pnlvm.helpers.array_ptr_loop(builder, arg_out, "linear") as args:
+            self._gen_llvm_combine(ctx=ctx, vi=arg_in, vo=arg_out, params=params, *args)
+        return builder
 
 
 class Concatenate(CombinationFunction):  # ------------------------------------------------------------------------
@@ -165,14 +183,13 @@ class Concatenate(CombinationFunction):  # -------------------------------------
                     see `offset <Concatenate.offset>`
 
                     :default value: 0.0
-                    :type: float
+                    :type: ``float``
 
                 scale
                     see `scale <Concatenate.scale>`
 
                     :default value: 1.0
-                    :type: float
-
+                    :type: ``float``
         """
         scale = Parameter(1.0, modulable=True, aliases=[MULTIPLICATIVE_PARAM])
         offset = Parameter(0.0, modulable=True, aliases=[ADDITIVE_PARAM])
@@ -254,8 +271,8 @@ class Concatenate(CombinationFunction):  # -------------------------------------
             in an array that is one dimension less than `variable <Concatenate.variable>`.
 
         """
-        scale = self.get_current_function_param(SCALE, context)
-        offset = self.get_current_function_param(OFFSET, context)
+        scale = self._get_current_function_param(SCALE, context)
+        offset = self._get_current_function_param(OFFSET, context)
 
         result = np.hstack(variable) * scale + offset
 
@@ -375,7 +392,7 @@ class Rearrange(CombinationFunction):  # ---------------------------------------
             ----------
 
                 arrangement
-                    see `arrangement <Rearrange.arrangement>`
+                    see `arrangement <Rearrange_Arrangement>`
 
                     :default value: None
                     :type:
@@ -384,14 +401,13 @@ class Rearrange(CombinationFunction):  # ---------------------------------------
                     see `offset <Rearrange.offset>`
 
                     :default value: 0.0
-                    :type: float
+                    :type: ``float``
 
                 scale
                     see `scale <Rearrange.scale>`
 
                     :default value: 1.0
-                    :type: float
-
+                    :type: ``float``
         """
         arrangement = Parameter(None, modulable=False)
         scale = Parameter(1.0, modulable=True, aliases=[MULTIPLICATIVE_PARAM])
@@ -521,8 +537,8 @@ class Rearrange(CombinationFunction):  # ---------------------------------------
         """
         variable = np.atleast_2d(variable)
 
-        scale = self.get_current_function_param(SCALE, context)
-        offset = self.get_current_function_param(OFFSET, context)
+        scale = self._get_current_function_param(SCALE, context)
+        offset = self._get_current_function_param(OFFSET, context)
         arrangement = self.parameters.arrangement.get(context)
 
         if arrangement is None:
@@ -667,26 +683,25 @@ class Reduce(CombinationFunction):  # ------------------------------------------
                     see `offset <Reduce.offset>`
 
                     :default value: 0.0
-                    :type: float
+                    :type: ``float``
 
                 operation
                     see `operation <Reduce.operation>`
 
                     :default value: `SUM`
-                    :type: str
+                    :type: ``str``
 
                 scale
                     see `scale <Reduce.scale>`
 
                     :default value: 1.0
-                    :type: float
+                    :type: ``float``
 
                 weights
                     see `weights <Reduce.weights>`
 
                     :default value: None
                     :type:
-
         """
         weights = None
         exponents = None
@@ -805,11 +820,11 @@ class Reduce(CombinationFunction):  # ------------------------------------------
 
 
         """
-        weights = self.get_current_function_param(WEIGHTS, context)
-        exponents = self.get_current_function_param(EXPONENTS, context)
-        operation = self.get_current_function_param(OPERATION, context)
-        scale = self.get_current_function_param(SCALE, context)
-        offset = self.get_current_function_param(OFFSET, context)
+        weights = self._get_current_function_param(WEIGHTS, context)
+        exponents = self._get_current_function_param(EXPONENTS, context)
+        operation = self._get_current_function_param(OPERATION, context)
+        scale = self._get_current_function_param(SCALE, context)
+        offset = self._get_current_function_param(OFFSET, context)
 
         # FIX FOR EFFICIENCY: CHANGE THIS AND WEIGHTS TO TRY/EXCEPT // OR IS IT EVEN NECESSARY, GIVEN VALIDATION ABOVE??
         # Apply exponents if they were specified
@@ -832,16 +847,76 @@ class Reduce(CombinationFunction):  # ------------------------------------------
             variable = variable * weights
 
         # Calculate using relevant aggregation operation and return
-        if operation is SUM:
+        if operation == SUM:
             # result = np.sum(np.atleast_2d(variable), axis=0) * scale + offset
             result = np.sum(np.atleast_2d(variable), axis=1) * scale + offset
-        elif operation is PRODUCT:
+        elif operation == PRODUCT:
             result = np.product(np.atleast_2d(variable), axis=1) * scale + offset
         else:
             raise FunctionError("Unrecognized operator ({0}) for Reduce function".
-                                format(self.get_current_function_param(OPERATION, context)))
+                                format(self._get_current_function_param(OPERATION, context)))
 
         return self.convert_output_type(result)
+
+    def _gen_llvm_combine(self, builder, index, ctx, vi, vo, params):
+        scale = self._gen_llvm_load_param(ctx, builder, params, SCALE, index, 1.0)
+        offset = self._gen_llvm_load_param(ctx, builder, params, OFFSET, index, -0.0)
+
+        # assume operation does not change dynamically
+        operation = self.parameters.operation.get()
+        if operation == SUM:
+            val = ctx.float_ty(-0.0)
+            comb_op = "fadd"
+        elif operation == PRODUCT:
+            val = ctx.float_ty(1.0)
+            comb_op = "fmul"
+        else:
+            assert False, "Unknown operation: {}".format(operation)
+
+        val_p = builder.alloca(val.type)
+        builder.store(val, val_p)
+
+        pow_f = ctx.get_builtin("pow", [ctx.float_ty])
+
+        vi = builder.gep(vi, [ctx.int32_ty(0), index])
+        with pnlvm.helpers.array_ptr_loop(builder, vi, "reduce") as (b, idx):
+            ptri = b.gep(vi, [ctx.int32_ty(0), idx])
+            in_val = b.load(ptri)
+
+            exponent = self._gen_llvm_load_param(ctx, b, params, EXPONENTS,
+                                                 index, 1.0)
+            # Vector of vectors (even 1-element vectors)
+            if isinstance(exponent.type, pnlvm.ir.ArrayType):
+                assert len(exponent.type) == 1 # FIXME: Add support for matrix weights
+                exponent = b.extract_value(exponent, [0])
+            # FIXME: Remove this micro-optimization,
+            #        it should be handled by the compiler
+            if not isinstance(exponent, pnlvm.ir.Constant) or exponent.constant != 1.0:
+                in_val = b.call(pow_f, [in_val, exponent])
+
+            # Try per element weights first
+            weight = self._gen_llvm_load_param(ctx, b, params, WEIGHTS,
+                                               idx, 1.0)
+
+            # Vector of vectors (even 1-element vectors)
+            if isinstance(weight.type, pnlvm.ir.ArrayType):
+                weight = self._gen_llvm_load_param(ctx, b, params, WEIGHTS,
+                                                   index, 1.0)
+                assert len(weight.type) == 1 # FIXME: Add support for matrix weights
+                weight = b.extract_value(weight, [0])
+
+            in_val = b.fmul(in_val, weight)
+
+            val = b.load(val_p)
+            val = getattr(b, comb_op)(val, in_val)
+            b.store(val, val_p)
+
+        val = b.load(val_p)
+        val = builder.fmul(val, scale)
+        val = builder.fadd(val, offset)
+
+        ptro = builder.gep(vo, [ctx.int32_ty(0), index])
+        builder.store(val, ptro)
 
 
 class LinearCombination(
@@ -1042,26 +1117,25 @@ class LinearCombination(
                     see `offset <LinearCombination.offset>`
 
                     :default value: 0.0
-                    :type: float
+                    :type: ``float``
 
                 operation
                     see `operation <LinearCombination.operation>`
 
                     :default value: `SUM`
-                    :type: str
+                    :type: ``str``
 
                 scale
                     see `scale <LinearCombination.scale>`
 
                     :default value: 1.0
-                    :type: float
+                    :type: ``float``
 
                 weights
                     see `weights <LinearCombination.weights>`
 
                     :default value: None
                     :type:
-
         """
         operation = SUM
 
@@ -1231,16 +1305,16 @@ class LinearCombination(
             the result of linearly combining the arrays in `variable <LinearCombination.variable>`.
 
         """
-        weights = self.get_current_function_param(WEIGHTS, context)
-        exponents = self.get_current_function_param(EXPONENTS, context)
+        weights = self._get_current_function_param(WEIGHTS, context)
+        exponents = self._get_current_function_param(EXPONENTS, context)
         # if self.initialization_status == ContextFlags.INITIALIZED:
         #     if weights is not None and weights.shape != variable.shape:
         #         weights = weights.reshape(variable.shape)
         #     if exponents is not None and exponents.shape != variable.shape:
         #         exponents = exponents.reshape(variable.shape)
-        operation = self.get_current_function_param(OPERATION, context)
-        scale = self.get_current_function_param(SCALE, context)
-        offset = self.get_current_function_param(OFFSET, context)
+        operation = self._get_current_function_param(OPERATION, context)
+        scale = self._get_current_function_param(SCALE, context)
+        offset = self._get_current_function_param(OFFSET, context)
 
         # QUESTION:  WHICH IS LESS EFFICIENT:
         #                A) UNECESSARY ARITHMETIC OPERATIONS IF SCALE AND/OR OFFSET ARE 1.0 AND 0, RESPECTIVELY?
@@ -1288,9 +1362,9 @@ class LinearCombination(
                 offset = offset[0]
 
         # CALCULATE RESULT USING RELEVANT COMBINATION OPERATION AND MODULATION
-        if operation is SUM:
+        if operation == SUM:
             combination = np.sum(variable, axis=0)
-        elif operation is PRODUCT:
+        elif operation == PRODUCT:
             combination = np.product(variable, axis=0)
         else:
             raise FunctionError("Unrecognized operator ({0}) for LinearCombination function".
@@ -1318,103 +1392,60 @@ class LinearCombination(
         default_var = np.atleast_2d(self.defaults.variable)
         return ctx.convert_python_struct_to_llvm_ir(default_var)
 
-    def __gen_llvm_combine(self, builder, index, ctx, vi, vo, params):
-        scale_ptr = ctx.get_param_ptr(self, builder, params, SCALE)
-        scale_type = scale_ptr.type.pointee
-        if isinstance(scale_type, pnlvm.ir.ArrayType):
-            if len(scale_type) == 1:
-                scale_ptr = builder.gep(scale_ptr, [ctx.int32_ty(0), ctx.int32_ty(0)])
-            else:
-                scale_ptr = builder.gep(scale_ptr, [ctx.int32_ty(0), index])
-
-        offset_ptr = ctx.get_param_ptr(self, builder, params, OFFSET)
-        offset_type = offset_ptr.type.pointee
-        if isinstance(offset_type, pnlvm.ir.ArrayType):
-            if len(offset_type) == 1:
-                offset_ptr = builder.gep(offset_ptr, [ctx.int32_ty(0), ctx.int32_ty(0)])
-            else:
-                offset_ptr = builder.gep(offset_ptr, [ctx.int32_ty(0), index])
-
-        exponent_param_ptr = ctx.get_param_ptr(self, builder, params, EXPONENTS)
-        exponent_type = exponent_param_ptr.type.pointee
-
-        weights_ptr = ctx.get_param_ptr(self, builder, params, WEIGHTS)
-        weights_type = weights_ptr.type.pointee
-
-        scale = ctx.float_ty(1.0) if isinstance(scale_type, pnlvm.ir.LiteralStructType) and len(scale_type.elements) == 0 else builder.load(scale_ptr)
-        offset = ctx.float_ty(-0.0) if isinstance(offset_type, pnlvm.ir.LiteralStructType) and len(offset_type.elements) == 0 else builder.load(offset_ptr)
+    def _gen_llvm_combine(self, builder, index, ctx, vi, vo, params):
+        scale = self._gen_llvm_load_param(ctx, builder, params, SCALE, index, 1.0)
+        offset = self._gen_llvm_load_param(ctx, builder, params, OFFSET, index, -0.0)
 
         # assume operation does not change dynamically
         operation = self.parameters.operation.get()
-        if operation is SUM:
+        if operation == SUM:
             val = ctx.float_ty(-0.0)
-        elif operation is PRODUCT:
+            comb_op = "fadd"
+        elif operation == PRODUCT:
             val = ctx.float_ty(1.0)
+            comb_op = "fmul"
         else:
             assert False, "Unknown operation: {}".format(operation)
 
+        val_p = builder.alloca(val.type)
+        builder.store(val, val_p)
+
         pow_f = ctx.get_builtin("pow", [ctx.float_ty])
 
-        for i in range(vi.type.pointee.count):
-            ptri = builder.gep(vi, [ctx.int32_ty(0), ctx.int32_ty(i), index])
-            in_val = builder.load(ptri)
+        with pnlvm.helpers.array_ptr_loop(builder, vi, "combine") as (b, idx):
+            ptri = b.gep(vi, [ctx.int32_ty(0), idx, index])
+            in_val = b.load(ptri)
 
-            # No exponent
-            if isinstance(exponent_type, pnlvm.ir.LiteralStructType):
-                pass
-            # Vector exponent
-            elif isinstance(exponent_type, pnlvm.ir.ArrayType):
-                assert len(exponent_type) > 1
-                assert exponent_type.pointee.count == vo.type.pointee.count * vi.type.pointee.count
-                exponent_index = ctx.int32_ty(vo.type.pointee.count * (i - 1))
-                exponent_index = builder.add(exponent_index, index)
-                exponent_ptr = builder.gep(exponent_param_ptr, [ctx.int32_ty(0), exponent_index])
-                exponent = builder.load(exponent_ptr)
-                in_val = builder.call(pow_f, [in_val, exponent])
-            # Scalar exponent
-            else:
-                exponent = builder.load(exponent_param_ptr)
-                in_val = builder.call(pow_f, [in_val, exponent])
+            exponent = self._gen_llvm_load_param(ctx, b, params, EXPONENTS,
+                                                 idx, 1.0)
+            # Vector of vectors (even 1-element vectors)
+            if isinstance(exponent.type, pnlvm.ir.ArrayType):
+                assert len(exponent.type) == 1 # FIXME: Add support for matrix weights
+                exponent = b.extract_value(exponent, [0])
+            # FIXME: Remove this micro-optimization,
+            #        it should be handled by the compiler
+            if not isinstance(exponent, pnlvm.ir.Constant) or exponent.constant != 1.0:
+                in_val = b.call(pow_f, [in_val, exponent])
 
-            # No weights
-            if isinstance(weights_type, pnlvm.ir.LiteralStructType):
-                weight = ctx.float_ty(1.0)
-            # Vector weights
-            elif isinstance(weights_type, pnlvm.ir.ArrayType):
-                assert len(weights_type) == vi.type.pointee.count
-                weight_ptr = builder.gep(weights_ptr, [ctx.int32_ty(0), ctx.int32_ty(i)])
-                # Vector of vectors (even 1-element vectors)
-                if isinstance(weights_type.element, pnlvm.ir.ArrayType):
-                    idx = index if len(weights_type.element) > 1 else ctx.int32_ty(0)
-                    weight_ptr = builder.gep(weight_ptr, [ctx.int32_ty(0), idx])
+            weight = self._gen_llvm_load_param(ctx, b, params, WEIGHTS,
+                                               idx, 1.0)
+            # Vector of vectors (even 1-element vectors)
+            if isinstance(weight.type, pnlvm.ir.ArrayType):
+                assert len(weight.type) == 1 # FIXME: Add support for matrix weights
+                weight = b.extract_value(weight, [0])
 
-                weight = builder.load(weight_ptr)
-            # Scalar weights
-            else:
-                weight = builder.load(weights_ptr)
+            in_val = b.fmul(in_val, weight)
 
-            in_val = builder.fmul(in_val, weight)
+            val = b.load(val_p)
+            val = getattr(b, comb_op)(val, in_val)
+            b.store(val, val_p)
 
-            if operation is SUM:
-                val = builder.fadd(val, in_val)
-            elif operation is PRODUCT:
-                val = builder.fmul(val, in_val)
-            else:
-                assert False, "Unknown operation: " + operation
-
+        val = builder.load(val_p)
         val = builder.fmul(val, scale)
         val = builder.fadd(val, offset)
 
         ptro = builder.gep(vo, [ctx.int32_ty(0), index])
         builder.store(val, ptro)
-
-    def _gen_llvm_function_body(self, ctx, builder, params, _, arg_in, arg_out, *, tags:frozenset):
-        # Sometimes we arg_out to 2d array
-        arg_out = ctx.unwrap_2d_array(builder, arg_out)
-
-        with pnlvm.helpers.array_ptr_loop(builder, arg_out, "linear") as args:
-            self.__gen_llvm_combine(ctx=ctx, vi=arg_in, vo=arg_out, params=params, *args)
-        return builder
 
 
 class CombineMeans(CombinationFunction):  # ------------------------------------------------------------------------
@@ -1611,26 +1642,25 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
                     see `offset <CombineMeans.offset>`
 
                     :default value: 0.0
-                    :type: float
+                    :type: ``float``
 
                 operation
                     see `operation <CombineMeans.operation>`
 
                     :default value: `SUM`
-                    :type: str
+                    :type: ``str``
 
                 scale
                     see `scale <CombineMeans.scale>`
 
                     :default value: 1.0
-                    :type: float
+                    :type: ``float``
 
                 weights
                     see `weights <CombineMeans.weights>`
 
                     :default value: None
                     :type:
-
         """
         weights = None
         exponents = None
@@ -1778,11 +1808,11 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
             the result of taking the means of each array in `variable <CombineMeans.variable>` and combining them.
 
         """
-        exponents = self.get_current_function_param(EXPONENTS, context)
-        weights = self.get_current_function_param(WEIGHTS, context)
-        operation = self.get_current_function_param(OPERATION, context)
-        offset = self.get_current_function_param(OFFSET, context)
-        scale = self.get_current_function_param(SCALE, context)
+        exponents = self._get_current_function_param(EXPONENTS, context)
+        weights = self._get_current_function_param(WEIGHTS, context)
+        operation = self._get_current_function_param(OPERATION, context)
+        offset = self._get_current_function_param(OFFSET, context)
+        scale = self._get_current_function_param(SCALE, context)
 
         # QUESTION:  WHICH IS LESS EFFICIENT:
         #                A) UNECESSARY ARITHMETIC OPERATIONS IF SCALE AND/OR OFFSET ARE 1.0 AND 0, RESPECTIVELY?
@@ -1821,15 +1851,15 @@ class CombineMeans(CombinationFunction):  # ------------------------------------
 
         # CALCULATE RESULT USING RELEVANT COMBINATION OPERATION AND MODULATION
 
-        if operation is SUM:
+        if operation == SUM:
             result = np.sum(means, axis=0) * scale + offset
 
-        elif operation is PRODUCT:
+        elif operation == PRODUCT:
             result = np.product(means, axis=0) * scale + offset
 
         else:
             raise FunctionError("Unrecognized operator ({0}) for CombineMeans function".
-                                format(self.get_current_function_param(OPERATION, context)))
+                                format(self._get_current_function_param(OPERATION, context)))
 
         return self.convert_output_type(result)
 
@@ -1886,14 +1916,13 @@ class PredictionErrorDeltaFunction(CombinationFunction):
                     see `variable <PredictionErrorDeltaFunction.variable>`
 
                     :default value: numpy.array([[1], [1]])
-                    :type: numpy.ndarray
+                    :type: ``numpy.ndarray``
 
                 gamma
                     see `gamma <PredictionErrorDeltaFunction.gamma>`
 
                     :default value: 1.0
-                    :type: float
-
+                    :type: ``float``
         """
         variable = Parameter(np.array([[1], [1]]), pnl_internal=True, constructor_argument='default_variable')
         gamma = Parameter(1.0, modulable=True)
@@ -2016,7 +2045,7 @@ class PredictionErrorDeltaFunction(CombinationFunction):
         delta values : 1d np.array
 
         """
-        gamma = self.get_current_function_param(GAMMA, context)
+        gamma = self._get_current_function_param(GAMMA, context)
         sample = variable[0]
         reward = variable[1]
         delta = np.zeros(sample.shape)

@@ -383,7 +383,7 @@ class LearningProjection(ModulatoryProjection_Base):
                     see `value <LearningProjection.value>`
 
                     :default value: numpy.array([0])
-                    :type: numpy.ndarray
+                    :type: ``numpy.ndarray``
                     :read only: True
 
                 error_function
@@ -422,7 +422,6 @@ class LearningProjection(ModulatoryProjection_Base):
                     :default value: None
                     :type:
                     :read only: True
-
         """
         value = Parameter(np.array([0]), read_only=True, aliases=['weight_change_matrix'], pnl_internal=True)
         function = Parameter(Linear, stateful=False, loggable=False)
@@ -618,7 +617,7 @@ class LearningProjection(ModulatoryProjection_Base):
         # KAM Commented out next 8 lines on 6/24/19 to get past bug in multilayer backprop on Composition
         try:
             candidate_objective_mech = learning_mechanism.input_ports[ERROR_SIGNAL].path_afferents[0].sender.owner
-            if isinstance(candidate_objective_mech, ObjectiveMechanism) and candidate_objective_mech._role is LEARNING:
+            if isinstance(candidate_objective_mech, ObjectiveMechanism) and candidate_objective_mech._role == LEARNING:
                 learned_projection.objective_mechanism = candidate_objective_mech
         except TypeError:
             # learning_mechanism does not receive from an ObjectiveMechanism

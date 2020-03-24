@@ -1,7 +1,7 @@
 .. image:: https://badge.fury.io/py/psyneulink.svg
     :target: https://badge.fury.io/py/psyneulink
-.. image:: https://travis-ci.org/PrincetonUniversity/PsyNeuLink.svg?branch=master
-    :target: https://travis-ci.org/PrincetonUniversity/PsyNeuLink
+.. image:: https://github.com/PrincetonUniversity/PsyNeuLink/workflows/PsyNeuLink%20CI/badge.svg?branch=master
+    :target: https://github.com/PrincetonUniversity/PsyNeuLink/actions
 .. image:: https://mybinder.org/badge.svg
     :target: https://mybinder.org/v2/gh/PrincetonUniversity/PsyNeuLink/master
 
@@ -104,7 +104,7 @@ Environment Overview
 --------------------
 
 PsyNeuLink is written in Python, and conforms to the syntax, coding standards and modular organization shared by
-most Python packages.  BasicsAndSampler provides an orientation to PsyNeuLinks Components, some examples of what
+most Python packages.  BasicsAndPrimer provides an orientation to PsyNeuLinks Components, some examples of what
 PsyNeuLink models look like, and some of its capabilities. QuickReference provides an overview of how PsyNeuLink is
 organized and some of its basic principles of operation.  The Tutorial provides an interactive guide to the
 construction of models using PsyNeuLink. Core contains the fundamental objects used to build PsyNeuLink models, and

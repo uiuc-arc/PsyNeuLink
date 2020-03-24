@@ -990,12 +990,18 @@ class Port_Base(Port):
                     :default value: `Linear`
                     :type: `Function`
 
+                projections
+                    see `projections <Port_Base.projections>`
+
+                    :default value: None
+                    :type:
+
                 require_projection_in_composition
                     specifies whether the InputPort requires a projection when instantiated in a Composition;
                     if so, but none exists, a warning is issued.
 
                     :default value: True
-                    :type:
+                    :type: ``bool``
                     :read only: True
         """
         function = Parameter(Linear, stateful=False, loggable=False)
@@ -1006,7 +1012,6 @@ class Port_Base(Port):
             loggable=False
         )
         require_projection_in_composition = Parameter(True, stateful=False, loggable=False, read_only=True, pnl_internal=True)
-        projections = None
 
     portAttributes = {FUNCTION, FUNCTION_PARAMS, PROJECTIONS}
 
@@ -1975,9 +1980,9 @@ class Port_Base(Port):
                 #    and get the function parameter to be modulated to type_match the projection value below
                 mod_spec, mod_param_name, mod_param_value = self._get_modulated_param(projection, context=context)
                 # If meta_param is DISABLE, ignore the ModulatoryProjection
-                if mod_spec is DISABLE:
+                if mod_spec == DISABLE:
                     continue
-                if mod_spec is OVERRIDE:
+                if mod_spec == OVERRIDE:
                     # If paramValidationPref is set, allow all projections to be processed
                     #    to be sure there are no other conflicting OVERRIDES assigned
                     if self.owner.paramValidationPref:
@@ -1991,7 +1996,15 @@ class Port_Base(Port):
                         self.parameters.value._set(type_match(projection_value, type(self.defaults.value)), context)
                         return
                 else:
-                    mod_value = type_match(projection_value, type(mod_param_value))
+                    try:
+                        mod_value = type_match(projection_value, type(mod_param_value))
+                    except TypeError:
+                        # if type_match fails, assume that the computation is
+                        # valid further down the line. This was implicitly true
+                        # before adding this catch block by manually setting the
+                        # modulated param value from None to a default
+                        mod_value = projection_value
+
                     if mod_param_name not in mod_proj_values.keys():
                         mod_proj_values[mod_param_name]=[mod_value]
                     else:
@@ -2069,7 +2082,6 @@ class Port_Base(Port):
             variable,
             context=context,
             runtime_params=runtime_params,
-
         )
 
     def _get_modulated_param(self, mod_proj, receiver=None, context=None):
@@ -2220,7 +2232,7 @@ class Port_Base(Port):
         state_f = ctx.import_llvm_function(self.function)
 
         # Create a local copy of the function parameters
-        base_params = ctx.get_param_ptr(self, builder, params, self.parameters.function.name)
+        base_params = pnlvm.helpers.get_param_ptr(builder, self, params, self.parameters.function.name)
         f_params = builder.alloca(state_f.args[0].type.pointee)
         builder.store(builder.load(base_params), f_params)
 
@@ -2237,13 +2249,13 @@ class Port_Base(Port):
                                              ctx.int32_ty(idx + 1)])
 
             # Get name of the modulated parameter
-            if afferent.sender.modulation is MULTIPLICATIVE:
+            if afferent.sender.modulation == MULTIPLICATIVE:
                 name = self.function.parameters.multiplicative_param.source.name
-            elif afferent.sender.modulation is ADDITIVE:
+            elif afferent.sender.modulation == ADDITIVE:
                 name = self.function.parameters.additive_param.source.name
-            elif afferent.sender.modulation is DISABLE:
+            elif afferent.sender.modulation == DISABLE:
                 name = None
-            elif afferent.sender.modulation is OVERRIDE:
+            elif afferent.sender.modulation == OVERRIDE:
                 # Directly store the value in the output array
                 builder.store(builder.load(f_mod_ptr), arg_out)
                 return builder
@@ -2252,8 +2264,9 @@ class Port_Base(Port):
 
             # Replace base param with the modulation value
             if name is not None:
-                f_mod_param_ptr = ctx.get_param_ptr(self.function,
-                                                    builder, f_params, name)
+                f_mod_param_ptr = pnlvm.helpers.get_param_ptr(builder,
+                                                              self.function,
+                                                              f_params, name)
                 if f_mod_param_ptr.type != f_mod_ptr.type:
                     warnings.warn("Shape mismatch between modulation and modulated parameter: {} vs. {}".format(
                                   afferent.defaults.value,
@@ -2269,7 +2282,7 @@ class Port_Base(Port):
             arg_out = builder.gep(arg_out, [ctx.int32_ty(0), ctx.int32_ty(0)])
         # Extract the data part of input
         f_input = builder.gep(arg_in, [ctx.int32_ty(0), ctx.int32_ty(0)])
-        f_state = ctx.get_state_ptr(self, builder, state, self.parameters.function.name)
+        f_state = pnlvm.helpers.get_state_ptr(builder, self, state, self.parameters.function.name)
         builder.call(state_f, [f_params, f_state, f_input, arg_out])
         return builder
 

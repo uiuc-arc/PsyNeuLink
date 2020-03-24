@@ -358,6 +358,16 @@ class UserDefinedFunction(Function_Base):
     componentType = USER_DEFINED_FUNCTION_TYPE
 
     class Parameters(Function_Base.Parameters):
+        """
+            Attributes
+            ----------
+
+                custom_function
+                    see `custom_function <UserDefinedFunction.custom_function>`
+
+                    :default value: None
+                    :type:
+        """
         custom_function = Parameter(
             None,
             stateful=False,
@@ -393,9 +403,9 @@ class UserDefinedFunction(Function_Base):
                 # Custom function specified owner as arg
                 if arg_name in {SELF, OWNER, CONTEXT}:
                     # Flag for inclusion in call to function
-                    if arg_name is SELF:
+                    if arg_name == SELF:
                         self.self_arg = True
-                    elif arg_name is OWNER:
+                    elif arg_name == OWNER:
                         self.owner_arg = True
                     else:
                         self.context_arg = True
@@ -506,7 +516,7 @@ class UserDefinedFunction(Function_Base):
                 self.cust_fct_params[param] = kwargs[PARAMS][param]
             else:
                 # Otherwise, get current value from ParameterPort (in case it is being modulated by ControlSignal(s)
-                self.cust_fct_params[param] = self.get_current_function_param(param, context)
+                self.cust_fct_params[param] = self._get_current_function_param(param, context)
 
         call_params = self.cust_fct_params.copy()
 

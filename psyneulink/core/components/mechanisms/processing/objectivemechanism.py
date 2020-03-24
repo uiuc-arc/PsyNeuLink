@@ -515,11 +515,24 @@ class ObjectiveMechanism(ProcessingMechanism_Base):
             ----------
 
                 function
-                    see `function <ObjectiveMechanism.function>`
+                    see `function <ObjectiveMechanism_Function>`
 
                     :default value: `LinearCombination`
                     :type: `Function`
 
+                input_ports
+                    see `input_ports <ObjectiveMechanism.input_ports>`
+
+                    :default value: None
+                    :type:
+                    :read only: True
+
+                output_ports
+                    see `output_ports <ObjectiveMechanism.output_ports>`
+
+                    :default value: [`OUTCOME`]
+                    :type: ``list``
+                    :read only: True
         """
         function = Parameter(LinearCombination, stateful=False, loggable=False)
 
@@ -572,7 +585,7 @@ class ObjectiveMechanism(ProcessingMechanism_Base):
             monitor = kwargs.pop(MONITORED_OUTPUT_PORTS)
         monitor = monitor or None # deal with possibility of empty list
         input_ports = monitor
-        if output_ports is None or output_ports is OUTCOME:
+        if output_ports is None or output_ports == OUTCOME:
             output_ports = [OUTCOME]
 
         self._learning_role = None

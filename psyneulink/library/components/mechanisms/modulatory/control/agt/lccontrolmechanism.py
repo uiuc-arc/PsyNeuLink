@@ -632,20 +632,25 @@ class LCControlMechanism(ControlMechanism):
                     see `base_level_gain <LCControlMechanism.base_level_gain>`
 
                     :default value: 0.5
-                    :type: float
+                    :type: ``float``
 
                 function
-                    see `function <LCControlMechanism.function>`
+                    see `function <LCControlMechanism_Function>`
 
                     :default value: `FitzHughNagumoIntegrator`
                     :type: `Function`
+
+                modulated_mechanisms
+                    see `modulated_mechanisms <LCControlMechanism_Modulated_Mechanisms>`
+
+                    :default value: None
+                    :type:
 
                 scaling_factor_gain
                     see `scaling_factor_gain <LCControlMechanism.scaling_factor_gain>`
 
                     :default value: 3.0
-                    :type: float
-
+                    :type: ``float``
         """
         function = Parameter(FitzHughNagumoIntegrator, stateful=False, loggable=False)
 
@@ -772,14 +777,14 @@ class LCControlMechanism(ControlMechanism):
         # *ALL* is specified for modulated_mechanisms:
         # assign all Processing Mechanisms in LCControlMechanism's Composition(s) to its modulated_mechanisms attribute
         # FIX: IMPLEMENT FOR COMPOSITION
-        if isinstance(self.modulated_mechanisms, str) and self.modulated_mechanisms is ALL:
+        if isinstance(self.modulated_mechanisms, str) and self.modulated_mechanisms == ALL:
             if self.systems:
                 for system in self.systems:
                     self.modulated_mechanisms = []
                     for mech in system.mechanisms:
                         if (mech not in self.modulated_mechanisms and
                                 isinstance(mech, ProcessingMechanism_Base) and
-                                not (isinstance(mech, ObjectiveMechanism) and mech._role is CONTROL) and
+                                not (isinstance(mech, ObjectiveMechanism) and mech._role == CONTROL) and
                                 hasattr(mech.function, MULTIPLICATIVE_PARAM)):
                             self.modulated_mechanisms.append(mech)
             else:
@@ -832,7 +837,10 @@ class LCControlMechanism(ControlMechanism):
 
         return gain_t, output_values[0], output_values[1], output_values[2]
 
-    def _gen_llvm_function_postprocess(self, builder, ctx, mf_out):
+    def _gen_llvm_invoke_function(self, ctx, builder, function, params, state, variable):
+        assert function is self.function
+        mf_out, builder = super()._gen_llvm_invoke_function(ctx, builder, function, params, state, variable)
+
         # prepend gain type (matches output[1] type)
         gain_ty = mf_out.type.pointee.elements[1]
         elements = gain_ty, *mf_out.type.pointee.elements
@@ -842,12 +850,11 @@ class LCControlMechanism(ControlMechanism):
         new_out = builder.alloca(elements_ty)
 
         # Load mechanism parameters
-        params, _, _, _ = builder.function.args
-        mech_params = builder.gep(params, [ctx.int32_ty(0), ctx.int32_ty(2)])
-        scaling_factor_ptr = ctx.get_param_ptr(self, builder, mech_params,
-                                               "scaling_factor_gain")
-        base_factor_ptr = ctx.get_param_ptr(self, builder, mech_params,
-                                           "base_level_gain")
+        params = builder.function.args[0]
+        scaling_factor_ptr = pnlvm.helpers.get_param_ptr(builder, self, params,
+                                                         "scaling_factor_gain")
+        base_factor_ptr = pnlvm.helpers.get_param_ptr(builder, self, params,
+                                                      "base_level_gain")
         scaling_factor = builder.load(scaling_factor_ptr)
         base_factor = builder.load(base_factor_ptr)
 
@@ -876,7 +883,7 @@ class LCControlMechanism(ControlMechanism):
     @tc.typecheck
     def _add_system(self, system, role:str):
         super()._add_system(system, role)
-        if isinstance(self.modulated_mechanisms, str) and self.modulated_mechanisms is ALL:
+        if isinstance(self.modulated_mechanisms, str) and self.modulated_mechanisms == ALL:
             # Call with ContextFlags.COMPONENT so that OutputPorts are replaced rather than added
             self._instantiate_output_ports(context=Context(source=ContextFlags.COMPONENT))
 

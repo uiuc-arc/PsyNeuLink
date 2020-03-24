@@ -764,7 +764,7 @@ def run(obj,
     """
     from psyneulink.core.globals.context import ContextFlags
 
-    if inputs == None:
+    if inputs is None:
         inputs = {}
 
     # small version of 'sequence' format in the once case where it was still working (single origin mechanism)
@@ -898,7 +898,7 @@ def run(obj,
                             execution_targets[mech] = targets[mech]
                         else:
                             execution_targets[mech] = targets[mech][input_num]
-                    if object_type is SYSTEM:
+                    if object_type == SYSTEM:
                         obj.target = execution_targets
                         obj.current_targets = execution_targets
 

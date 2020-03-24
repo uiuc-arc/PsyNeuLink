@@ -2,17 +2,21 @@ import numpy as np
 import pytest
 import typecheck
 
+import psyneulink as pnl
 import psyneulink.core.llvm as pnlvm
 
 from psyneulink.core.components.component import ComponentError
 from psyneulink.core.components.functions.distributionfunctions import DriftDiffusionAnalytical, NormalDist
 from psyneulink.core.components.functions.function import FunctionError
 from psyneulink.core.components.functions.statefulfunctions.integratorfunctions import DriftDiffusionIntegrator
+from psyneulink.core.components.mechanisms.processing.processingmechanism import ProcessingMechanism
 from psyneulink.core.components.process import Process
 from psyneulink.core.components.system import System
+from psyneulink.core.compositions.composition import Composition
 from psyneulink.core.scheduling.condition import Never, WhenFinished
 from psyneulink.core.scheduling.time import TimeScale
-from psyneulink.library.components.mechanisms.processing.integrator.ddm import ARRAY, DDM, DDMError, SELECTED_INPUT_ARRAY
+from psyneulink.library.components.mechanisms.processing.integrator.ddm import \
+    ARRAY, DDM, DDMError, SELECTED_INPUT_ARRAY, DECISION_VARIABLE_ARRAY
 
 class TestReinitialize:
 
@@ -183,6 +187,45 @@ class TestThreshold:
     #
     #     sched = Scheduler(system=S)
 
+class TestInputPorts:
+
+    def test_regular_input_mode(self):
+        input_mech = ProcessingMechanism(size=2)
+        ddm = DDM(
+            function=DriftDiffusionAnalytical(),
+            output_ports=[SELECTED_INPUT_ARRAY, DECISION_VARIABLE_ARRAY],
+            name='DDM'
+        )
+        comp = Composition()
+        comp.add_linear_processing_pathway(pathway=[input_mech, [[1],[-1]], ddm])
+        result = comp.run(inputs={input_mech:[1,0]})
+        assert np.allclose(ddm.output_ports[0].value, [1])
+        assert np.allclose(ddm.output_ports[1].value, [1])
+        assert np.allclose(ddm.value,
+                           [[1.00000000e+00], [1.19932930e+00], [9.99664650e-01], [3.35350130e-04],
+                            [1.19932930e+00], [2.48491374e-01], [1.48291009e+00], [1.19932930e+00],
+                            [2.48491374e-01], [1.48291009e+00]])
+        assert np.allclose(result, [[1.]])
+
+    def test_array_mode(self):
+        input_mech = ProcessingMechanism(size=2)
+        ddm = DDM(
+            input_format=ARRAY,
+            function=DriftDiffusionAnalytical(),
+            output_ports=[SELECTED_INPUT_ARRAY, DECISION_VARIABLE_ARRAY],
+            name='DDM'
+        )
+        comp = Composition()
+        comp.add_linear_processing_pathway(pathway=[input_mech, ddm])
+        result = comp.run(inputs={input_mech:[1,0]})
+        assert np.allclose(ddm.output_ports[0].value, [1,0])
+        assert np.allclose(ddm.output_ports[1].value, [1,0])
+        assert np.allclose(ddm.value,
+                           [[1.00000000e+00], [1.19932930e+00], [9.99664650e-01], [3.35350130e-04],
+                            [1.19932930e+00], [2.48491374e-01], [1.48291009e+00], [1.19932930e+00],
+                            [2.48491374e-01], [1.48291009e+00]])
+        assert np.allclose(result, [[1., 0.]])
+
 class TestOutputPorts:
 
     def test_selected_input_array(self):
@@ -254,7 +297,7 @@ def test_DDM_Integrator_Bogacz(benchmark, mode):
 @pytest.mark.parametrize("noise, expected", [
     (0., 10),
     (0.5, 8.194383551861414),
-    (2, 6.388767103722829),
+    (2., 6.388767103722829),
     ], ids=["0", "0.5", "2.0"])
 @pytest.mark.parametrize("mode", [
     "Python",
@@ -265,7 +308,7 @@ def test_DDM_noise(mode, benchmark, noise, expected):
     T = DDM(
         name='DDM',
         function=DriftDiffusionIntegrator(
-            noise=0.5,
+            noise=noise,
             rate=1.0,
             time_step_size=1.0
         )
@@ -278,7 +321,7 @@ def test_DDM_noise(mode, benchmark, noise, expected):
         ex = pnlvm.execution.MechExecution(T).cuda_execute
 
     val = ex([10])
-    assert np.allclose(val[0][0][0], 8.194383551861414)
+    assert np.allclose(val[0][0][0], expected)
     benchmark(ex, [10])
 
 # ------------------------------------------------------------------------------------------------
@@ -598,3 +641,75 @@ def test_WhenFinished_DDM_Analytical():
     D = DDM(function=DriftDiffusionAnalytical)
     c = WhenFinished(D)
     c.is_satisfied()
+
+
+@pytest.mark.ddm_mechanism
+@pytest.mark.mechanism
+@pytest.mark.benchmark(group="DDM-comp")
+@pytest.mark.parametrize("mode", [
+    "Python",
+    pytest.param("LLVM", marks=pytest.mark.llvm),
+    pytest.param("LLVMExec", marks=pytest.mark.llvm),
+    pytest.param("LLVMRun", marks=pytest.mark.llvm),
+    pytest.param("PTXExec", marks=[pytest.mark.llvm, pytest.mark.cuda]),
+    pytest.param("PTXRun", marks=[pytest.mark.llvm, pytest.mark.cuda]),
+])
+def test_DDM_in_composition(benchmark, mode):
+    M = pnl.DDM(
+        name='DDM',
+        function=pnl.DriftDiffusionIntegrator(
+            rate=1,
+            noise=0.0,
+            offset=0.0,
+            starting_point=0.0,
+            time_step_size=0.1,
+        ),
+    )
+    C = pnl.Composition()
+    C.add_linear_processing_pathway([M])
+    inputs = {M: [10]}
+    val = C.run(inputs, num_trials=2, bin_execute=mode)
+    # FIXME: Python version returns dtype=object
+    val = np.asfarray(val)
+    assert np.allclose(val[0], [2.0])
+    assert np.allclose(val[1], [0.2])
+    benchmark(C.run, inputs, num_trials=2, bin_execute=mode)
+
+
+@pytest.mark.ddm_mechanism
+@pytest.mark.mechanism
+@pytest.mark.parametrize("mode", [
+    "Python",
+    pytest.param("LLVM", marks=pytest.mark.llvm),
+    pytest.param("LLVMExec", marks=pytest.mark.llvm),
+    pytest.param("LLVMRun", marks=pytest.mark.llvm),
+    pytest.param("PTXExec", marks=[pytest.mark.llvm, pytest.mark.cuda]),
+    pytest.param("PTXRun", marks=[pytest.mark.llvm, pytest.mark.cuda]),
+])
+def test_DDM_threshold_modulation(mode):
+    M = pnl.DDM(
+        name='DDM',
+        function=pnl.DriftDiffusionAnalytical(
+            threshold=20.0,
+        ),
+    )
+    monitor = pnl.TransferMechanism(default_variable=[[0.0]],
+                                    size=1,
+                                    function=pnl.Linear(slope=1, intercept=0),
+                                    output_ports=[pnl.RESULT],
+                                    name='monitor')
+
+    control = pnl.ControlMechanism(
+            monitor_for_control=monitor,
+            control_signals=[(pnl.THRESHOLD, M)])
+
+    C = pnl.Composition()
+    C.add_node(M, required_roles=[pnl.NodeRole.ORIGIN, pnl.NodeRole.TERMINAL])
+    C.add_node(monitor)
+    C.add_node(control)
+    inputs = {M:[1], monitor:[3]}
+    val = C.run(inputs, num_trials=1, bin_execute=mode)
+    # FIXME: Python version returns dtype=object
+    val = np.asfarray(val)
+    assert np.allclose(val[0], [60.0])
+    assert np.allclose(val[1], [60.2])
