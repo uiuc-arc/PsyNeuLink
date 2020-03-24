@@ -5,9 +5,9 @@ import pytest
 import time
 
 # Load Bryant's data
-import pandas as pd
-data = pd.read_csv('rtdist/example/DataTaskSwitchingRecoded.csv')
-data = data[data.subjectID == 1]
+#import pandas as pd
+#data = pd.read_csv('rtdist/example/DataTaskSwitchingRecoded.csv')
+#data = data[data.subjectID == 1]
 
 # BEGIN: Composition Construction
 
@@ -176,17 +176,17 @@ stabilityFlexibility.add_projection(sender=nonAutomaticComponent, receiver=lcaCo
 def task_onehot(task):
     return {'color': [1, 0],
             'shape': [0, 1]}[task]
-taskTrain = [task_onehot(x) for x in data.task_cued.values]
+#taskTrain = [task_onehot(x) for x in data.task_cued.values]
 
 # Origin Node Inputs
-# taskTrain = [[1, 0],    # Color trial
-#              [1, 0],    # Color trial, repetition
-#              [0, 1],    # Shape trial, switch
-#              [0, 1],    # Shape trial, repetition
-#              [1, 0],    # Color trial, switch
-#              [1, 0],    # Color trial, repetition
-#              [0, 1],    # Shape trial, switch
-#              [0, 1]]    # Shape trial, repetition
+taskTrain = [[1, 0],    # Color trial
+             [1, 0],    # Color trial, repetition
+             [0, 1],    # Shape trial, switch
+             [0, 1],    # Shape trial, repetition
+             [1, 0],    # Color trial, switch
+             [1, 0],    # Color trial, repetition
+             [0, 1],    # Shape trial, switch
+             [0, 1]]    # Shape trial, repetition
 
 def stim_encode(stim):
     return {'blue_heart':    [1, 0, 1, 0],
@@ -194,16 +194,16 @@ def stim_encode(stim):
             'green_heart':   [0, 1, 1, 0],
             'blue_diamond':  [1, 0, 0, 1]
             }[stim]
-stimulusTrain = [stim_encode(x) for x in data.stimulus_identity.values]
+#stimulusTrain = [stim_encode(x) for x in data.stimulus_identity.values]
 
-# stimulusTrain = [[1, 0, 1, 0],  # Blue heart
-#                  [0, 1, 0, 1],  # Green diamond
-#                  [0, 1, 1, 0],  # Green heart
-#                  [1, 0, 0, 1],  # Blue diamond
-#                  [1, 0, 1, 0],  # Blue heart
-#                  [0, 1, 0, 1],  # Green diamond
-#                  [0, 1, 1, 0],  # Green heart
-#                  [1, 0, 0, 1]]  # Blue diamond
+stimulusTrain = [[1, 0, 1, 0],  # Blue heart
+                 [0, 1, 0, 1],  # Green diamond
+                 [0, 1, 1, 0],  # Green heart
+                 [1, 0, 0, 1],  # Blue diamond
+                 [1, 0, 1, 0],  # Blue heart
+                 [0, 1, 0, 1],  # Green diamond
+                 [0, 1, 1, 0],  # Green heart
+                 [1, 0, 0, 1]]  # Blue diamond
 
 inputs = {taskLayer: taskTrain, stimulusInfo: stimulusTrain}
 
