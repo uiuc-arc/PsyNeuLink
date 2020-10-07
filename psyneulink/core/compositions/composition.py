@@ -3240,6 +3240,7 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
             controller:ControlMechanism=None,
             enable_controller=None,
             controller_mode:tc.enum(BEFORE,AFTER)=AFTER,
+            controller_time_scale=TimeScale.TRIAL,
             controller_condition:Condition=Always(),
             retain_old_simulation_data=None,
             show_graph_attributes=None,
@@ -3330,6 +3331,7 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
         else:
             self.enable_controller = enable_controller
         self.controller_mode = controller_mode
+        self.controller_time_scale = controller_time_scale
         self.controller_condition = controller_condition
         self.controller_condition.owner = self.controller
 
@@ -8440,6 +8442,19 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
             if call_after_trial:
                 call_with_pruned_args(call_after_trial, context=context)
 
+        # IMPLEMENTATION NOTE:
+        # The AFTER Run controller execution takes place here, because there's no way to tell from within the execute
+        # method whether or not we are at the last trial of the run.
+        # The BEFORE Run controller execution takes place in the execute method,, because we can't execute the controller until after
+        # setup has occurred for the Input CIM.
+        if (self.controller_mode == AFTER and
+            self.controller_time_scale == TimeScale.RUN):
+            self._execute_controller(
+                bin_execute=bin_execute,
+                _comp_ex=_comp_ex,
+                context=context
+            )
+
         # Reset input spec for next trial
         self.parameters.input_specification._set(None, context)
 
@@ -8602,6 +8617,36 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
 
         context.remove_flag(ContextFlags.LEARNING_MODE)
         return learning_results
+
+    def _execute_controller(self, relative_order=AFTER, bin_execute=False, _comp_ex=False, context=None):
+        execution_scheduler = context.composition.scheduler
+        if (self.enable_controller and
+            self.controller_mode == relative_order and
+            self.controller_condition.is_satisfied(scheduler=execution_scheduler,
+                                                   context=context)):
+
+            # control phase
+            # FIX: SHOULD SET CONTEXT AS CONTROL HERE AND RESET AT END (AS DONE FOR animation BELOW)
+            if (
+                    self.initialization_status != ContextFlags.INITIALIZING
+                    and ContextFlags.SIMULATION_MODE not in context.runmode
+            ):
+                if self.controller and not bin_execute:
+                    # FIX: REMOVE ONCE context IS SET TO CONTROL ABOVE
+                    # FIX: END REMOVE
+                    context.execution_phase = ContextFlags.PROCESSING
+                    self.controller.execute(context=context)
+
+                if bin_execute:
+                    _comp_ex.execute_node(self.controller)
+
+                context.remove_flag(ContextFlags.PROCESSING)
+
+                # Animate controller (before execution)
+                context.execution_phase = ContextFlags.CONTROL
+                if self._animate != False and SHOW_CONTROLLER in self._animate and self._animate[SHOW_CONTROLLER]:
+                    self._animate_execution(self.controller, context)
+                context.remove_flag(ContextFlags.CONTROL)
 
     @handle_external_context(execution_phase=ContextFlags.PROCESSING)
     def execute(
@@ -8904,33 +8949,30 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
 
         # Execute controller --------------------------------------------------------
 
-        if (self.enable_controller and
-            self.controller_mode == BEFORE and
-            self.controller_condition.is_satisfied(scheduler=execution_scheduler,
-                                                   context=context)):
-
-            # control phase
-            # FIX: SHOULD SET CONTEXT AS CONTROL HERE AND RESET AT END (AS DONE FOR animation BELOW)
-            if (
-                    self.initialization_status != ContextFlags.INITIALIZING
-                    and ContextFlags.SIMULATION_MODE not in context.runmode
-            ):
-                if self.controller and not bin_execute:
-                    # FIX: REMOVE ONCE context IS SET TO CONTROL ABOVE
-                    # FIX: END REMOVE
-                    context.execution_phase = ContextFlags.PROCESSING
-                    self.controller.execute(context=context)
-
-                if bin_execute:
-                    _comp_ex.execute_node(self.controller)
-
-                context.remove_flag(ContextFlags.PROCESSING)
-
-                # Animate controller (before execution)
-                context.execution_phase = ContextFlags.CONTROL
-                if self._animate != False and SHOW_CONTROLLER in self._animate and self._animate[SHOW_CONTROLLER]:
-                    self._animate_execution(self.controller, context)
-                context.remove_flag(ContextFlags.CONTROL)
+        try:
+            _comp_ex
+        except NameError:
+            _comp_ex = None
+        # IMPLEMENTATION NOTE:
+        # The BEFORE Run controller execution takes place here, because we can't execute the controller until after
+        # setup has occurred for the Input CIM, whereas the AFTER Run controller execution takes place in the run
+        # method, because there's no way to tell from within the execute method whether or not we are at the last trial
+        # of the run.
+        if (self.controller_time_scale == TimeScale.RUN and
+            scheduler.clock.time.trial == 0):
+                self._execute_controller(
+                    relative_order=BEFORE,
+                    bin_execute=bin_execute,
+                    _comp_ex=_comp_ex,
+                    context=context
+                )
+        elif self.controller_time_scale == TimeScale.TRIAL:
+            self._execute_controller(
+                relative_order=BEFORE,
+                bin_execute=bin_execute,
+                _comp_ex=_comp_ex,
+                context=context
+            )
 
         # EXECUTE EACH EXECUTION SET *********************************************************************************
 
@@ -8938,15 +8980,33 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
 
         context.execution_phase = ContextFlags.PROCESSING
 
+        try:
+            _comp_ex
+        except NameError:
+            _comp_ex = None
+
         if call_before_pass:
             call_with_pruned_args(call_before_pass, context=context)
 
+        if self.controller_time_scale == TimeScale.PASS:
+            self._execute_controller(
+                relative_order=BEFORE,
+                bin_execute=bin_execute,
+                _comp_ex=_comp_ex,
+                context=context
+            )
+
         # GET execution_set -------------------------------------------------------------------------
         # run scheduler to receive sets of nodes that may be executed at this time step in any order
-        for next_execution_set in execution_scheduler.run(termination_conds=termination_processing,
-                                                          context=context,
-                                                          skip_trial_time_increment=True,
-                                                          ):
+        execution_sets = execution_scheduler.run(termination_conds=termination_processing,
+                                                      context=context,
+                                                      skip_trial_time_increment=True,
+                                                      )
+        if context.runmode == ContextFlags.SIMULATION_MODE:
+            for i in range(scheduler.clock.time.time_step):
+                execution_sets.__next__()
+
+        for next_execution_set in execution_sets:
 
             # SETUP EXECUTION ----------------------------------------------------------------------------
 
@@ -8960,19 +9020,41 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
             if curr_pass != last_pass:
                 new_pass = True
                 last_pass = curr_pass
-            if call_after_pass:
-                if next_pass_after == curr_pass:
+            if next_pass_after == curr_pass:
+                if self.controller_time_scale == TimeScale.PASS:
+                    self._execute_controller(
+                        relative_order=AFTER,
+                        bin_execute=bin_execute,
+                        _comp_ex=_comp_ex,
+                        context=context
+                    )
+                if call_after_pass:
                     logger.debug(f'next_pass_after {next_pass_after}\tscheduler pass {curr_pass}')
                     call_with_pruned_args(call_after_pass, context=context)
                     next_pass_after += 1
-            if call_before_pass:
-                if next_pass_before == curr_pass:
+            if next_pass_before == curr_pass:
+                if self.controller_time_scale == TimeScale.PASS:
+                    self._execute_controller(
+                        relative_order=BEFORE,
+                        bin_execute=bin_execute,
+                        _comp_ex=_comp_ex,
+                        context=context
+                    )
+                if call_before_pass:
                     call_with_pruned_args(call_before_pass, context=context)
                     logger.debug(f'next_pass_before {next_pass_before}\tscheduler pass {curr_pass}')
                     next_pass_before += 1
 
             if call_before_time_step:
                 call_with_pruned_args(call_before_time_step, context=context)
+
+            if self.controller_time_scale == TimeScale.TIME_STEP:
+                self._execute_controller(
+                    relative_order=BEFORE,
+                    bin_execute=bin_execute,
+                    _comp_ex=_comp_ex,
+                    context=context
+                )
 
             # MANAGE EXECUTION OF FEEDBACK / CYCLIC GRAPHS ------------------------------------------------
             # Set up storage of all node values *before* the start of each timestep
@@ -8999,7 +9081,7 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
             # EXECUTE EACH NODE IN EXECUTION SET ----------------------------------------------------------------------
 
             # execute each node with EXECUTING in context
-            for node in next_execution_set:
+            for (node_idx, node) in enumerate(next_execution_set):
 
                 node.parameters.num_executions.get(context)._set_by_time_scale(TimeScale.TIME_STEP, 0)
                 if new_pass:
@@ -9160,6 +9242,14 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
                     node.output_ports[i].parameters.value._set(new_values[node][i], context,
                                                                skip_history=True, skip_log=True)
 
+            if self.controller_time_scale == TimeScale.TIME_STEP:
+                self._execute_controller(
+                    relative_order=AFTER,
+                    bin_execute=bin_execute,
+                    _comp_ex=_comp_ex,
+                    context=context
+                )
+
             if call_after_time_step:
                 call_with_pruned_args(call_after_time_step, context=context)
 
@@ -9176,6 +9266,14 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
                     matrix_parameter_port._update(context=context)
             context.remove_flag(ContextFlags.LEARNING)
 
+        if self.controller_time_scale == TimeScale.PASS:
+            self._execute_controller(
+                relative_order=AFTER,
+                bin_execute=bin_execute,
+                _comp_ex=_comp_ex,
+                context=context
+            )
+
         if call_after_pass:
             call_with_pruned_args(call_after_pass, context=context)
 
@@ -9188,31 +9286,13 @@ class Composition(Composition_Base, metaclass=ComponentsMeta):
         # FIX: END
 
         # EXECUTE CONTROLLER (if controller_mode == AFTER) ************************************************************
-
-        if (self.enable_controller and
-                self.controller_mode == AFTER and
-                self.controller_condition.is_satisfied(scheduler=execution_scheduler,
-                                                       context=context)):
-            # control phase
-            if (
-                    self.initialization_status != ContextFlags.INITIALIZING
-                    and ContextFlags.SIMULATION_MODE not in context.runmode
-            ):
-                context.execution_phase = ContextFlags.CONTROL
-                if self.controller and not bin_execute:
-                    self.controller.execute(context=context)
-
-                if bin_execute:
-                    _comp_ex.freeze_values()
-                    _comp_ex.execute_node(self.controller)
-
-
-
-                # Animate controller (after execution)
-                if self._animate is not False and SHOW_CONTROLLER in self._animate and self._animate[SHOW_CONTROLLER]:
-                    self._animate_execution(self.controller, context)
-
-                context.remove_flag(ContextFlags.CONTROL)
+        if self.controller_time_scale == TimeScale.TRIAL:
+            self._execute_controller(
+                relative_order=AFTER,
+                bin_execute=bin_execute,
+                _comp_ex=_comp_ex,
+                context=context
+            )
 
         execution_scheduler.get_clock(context)._increment_time(TimeScale.TRIAL)
 
